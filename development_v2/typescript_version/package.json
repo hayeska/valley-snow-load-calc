@@ -1,0 +1,44 @@
+{
+  "name": "valley-snow-load-calculator",
+  "version": "2.0.0",
+  "description": "ASCE 7-22 Valley Snow Load Calculator with resilient architecture",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:db": "jest --testPathPattern=database.test.ts",
+    "test:checkpoint": "jest --testPathPattern=checkpointSystem.test.ts",
+    "test:error": "jest --testPathPattern=errorHandlers.test.ts",
+    "test:calculator": "jest --testPathPattern=calculator.test.ts",
+    "test:integration": "jest --testPathPattern=integration.test.ts",
+    "test:summary": "node test-summary.js",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix"
+  },
+  "keywords": ["snow-load", "ASCE-7-22", "engineering", "resilient"],
+  "author": "Valley Snow Load Calculator Team",
+  "license": "MIT",
+  "dependencies": {
+    "sqlite3": "^5.1.6",
+    "winston": "^3.11.0",
+    "winston-daily-rotate-file": "^4.7.1",
+    "crypto": "^1.0.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/sqlite3": "^3.1.11",
+    "@types/uuid": "^9.0.7",
+    "typescript": "^5.3.0",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.8",
+    "ts-jest": "^29.1.1",
+    "eslint": "@8.55.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0"
+  }
+}
