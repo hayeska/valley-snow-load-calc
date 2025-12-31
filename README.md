@@ -15,6 +15,7 @@ This calculator implements the ASCE 7-22 Chapter 7 snow load provisions for vall
 
 - **V1 (Production Ready)**: Complete implementation with all ASCE 7-22 features, HTML reports, and material database
 - **V2 (Development)**: 70% complete with modern architecture, missing 5 critical engineering features
+- **Code Quality**: Python code cleaned - 48+ linting issues auto-resolved ✅ (32 remaining for manual fixes)
 
 ## Features
 
