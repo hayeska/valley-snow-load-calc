@@ -166,7 +166,7 @@ class TestResilienceFeatures(unittest.TestCase):
 
     def test_performance_logging(self):
         """Test performance logging functionality."""
-        start_time = time.time()
+        time.time()
 
         # Simulate operation with performance logging
         self.logger.log_performance(
@@ -185,7 +185,7 @@ class TestResilienceFeatures(unittest.TestCase):
         project2_data = {"project_name": "Test Project 2", "inputs": {}, "results": {}}
 
         id1 = self.project_mgr.save_project(project1_data)
-        id2 = self.project_mgr.save_project(project2_data)
+        self.project_mgr.save_project(project2_data)
 
         # List projects
         projects = self.project_mgr.list_projects()

@@ -47,7 +47,7 @@ def test_v1_basic():
         # Check file size as indicator of functionality
         v1_file = v1_path / "gui_interface.py"
         if v1_file.exists():
-            size_kb = v1_file.stat().st_size / 1024
+            v1_file.stat().st_size / 1024
             print(".1f")
 
         root.destroy()
@@ -176,8 +176,8 @@ def main():
     print("=" * 60)
 
     # Basic functionality tests
-    v1_basic = test_v1_basic()
-    v2_basic = test_v2_basic()
+    test_v1_basic()
+    test_v2_basic()
 
     # Functional comparison
     v2_functional_score = functional_comparison()

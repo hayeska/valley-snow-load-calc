@@ -85,7 +85,7 @@ class RoofGeometry:
                     # Position along the valley line
                     ratio = distance_from_low / valley_length
                     x_pos = ratio * valley_offset  # horizontal component
-                    y_pos = ratio * south_span  # vertical component
+                    ratio * south_span  # vertical component
 
                     positions.append((distance_from_low, x_pos))
                 else:

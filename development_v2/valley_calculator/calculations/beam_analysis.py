@@ -374,7 +374,7 @@ class BeamAnalyzer:
 
         # Convert deflection limits from inches to span ratios
         span_inches = span_length * 12.0
-        deflection_snow_ratio = deflection_snow_limit / span_inches
+        deflection_snow_limit / span_inches
         deflection_total_ratio = deflection_total_limit / span_inches
 
         # Create positions for loads (assume evenly spaced)

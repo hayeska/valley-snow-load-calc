@@ -453,7 +453,7 @@ class ValleyCalculator:
         pd_max_w = result_west.get("pd_max_psf", 0)
 
         # Valley angle in radians
-        theta_rad = math.radians(valley_angle)
+        math.radians(valley_angle)
 
         # Calculate governing valley drift parameters
         # Use maximum values from intersecting drifts
@@ -479,7 +479,7 @@ class ValleyCalculator:
         ridge_to_ridge = math.sqrt(north_span**2 + ew_half_width**2)
 
         # Valley angle in radians
-        theta_rad = math.radians(valley_angle)
+        math.radians(valley_angle)
 
         # Valley rafter length (distance from valley to eave)
         valley_rafter_length = math.sqrt(north_span**2 + valley_offset**2)
@@ -575,7 +575,7 @@ class ValleyCalculator:
         tributary_width = jack_spacing_ft
 
         # Calculate uniform loads
-        snow_uniform = ps_balanced * tributary_width  # lb/ft
+        ps_balanced * tributary_width  # lb/ft
         dead_uniform = dead_load_horizontal * tributary_width  # lb/ft
 
         # Calculate drift surcharge point loads

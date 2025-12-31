@@ -294,7 +294,7 @@ def compare_file_sizes():
 
     # V1 main file
     v1_gui = v1_path / "gui_interface.py"
-    v1_size = v1_gui.stat().st_size / 1024 if v1_gui.exists() else 0
+    v1_gui.stat().st_size / 1024 if v1_gui.exists() else 0
 
     # V2 files
     v2_files = [
@@ -383,8 +383,8 @@ def main():
     print("This analysis identifies exactly what V2 is missing compared to V1")
 
     # Structure analysis
-    v1_info = analyze_v1_structure()
-    v2_info = analyze_v2_structure()
+    analyze_v1_structure()
+    analyze_v2_structure()
 
     # Functionality comparison
     compare_functionality()

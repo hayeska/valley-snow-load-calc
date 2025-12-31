@@ -2502,7 +2502,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         lv = math.sqrt(south_span**2 + valley_offset**2)  # Horizontal valley length
 
         # Compute valley angle for display (optional)
-        valley_angle_computed = (
+        (
             math.degrees(math.atan(south_span / valley_offset))
             if valley_offset > 0
             else 90
@@ -2564,7 +2564,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         )
 
         # Max total load at valley corner
-        max_total_valley = ps + gov_drift["governing_pd_max_psf"]
+        ps + gov_drift["governing_pd_max_psf"]
 
         # Jack Rafter Point Loads - calculate first since beam design needs these
         jacks_data = calculate_jack_rafters(
@@ -3021,14 +3021,11 @@ Always verify member spanning conditions and consult licensed engineer"""
         )
         # Determine Figure 7.4-1 part and roof classification
         if ct == 1.1:
-            fig_part = "a"
-            roof_type = "warm"
+            pass
         elif 1.1 < ct < 1.2:
-            fig_part = "b"
-            roof_type = "intermediate"
+            pass
         else:  # ct >= 1.2
-            fig_part = "c"
-            roof_type = "cold"
+            pass
 
         surface_type = "slippery" if slippery else "non-slippery"
         self.output_text.insert(
@@ -3115,14 +3112,11 @@ Always verify member spanning conditions and consult licensed engineer"""
             )
         # Determine Figure 7.4-1 part and roof classification
         if ct == 1.1:
-            fig_part = "a"
-            roof_type = "warm"
+            pass
         elif 1.1 < ct < 1.2:
-            fig_part = "b"
-            roof_type = "intermediate"
+            pass
         else:  # ct >= 1.2
-            fig_part = "c"
-            roof_type = "cold"
+            pass
 
         surface_type = "slippery" if slippery else "non-slippery"
         surface_type = "Slippery" if slippery else "Non-slippery"
@@ -3371,12 +3365,12 @@ Always verify member spanning conditions and consult licensed engineer"""
             # Dead loads
             dl_n = roof_dead_load_psf * trib_area_n
             dl_w = roof_dead_load_psf * trib_area_w
-            dl_combined = dl_n + dl_w
+            dl_n + dl_w
 
             # Snow loads (already calculated)
             snow_n = j_n["total_snow_lb"]
             snow_w = j_w["total_snow_lb"]
-            snow_combined = snow_n + snow_w
+            snow_n + snow_w
 
             # Full loads and reactions
             full_load_n = dl_n + snow_n

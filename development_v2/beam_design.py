@@ -967,7 +967,7 @@ Consult licensed structural engineer for final design.
 
 def main():
     root = tk.Tk()
-    app = ValleySnowCalculator(root)
+    ValleySnowCalculator(root)
     root.mainloop()
 
 

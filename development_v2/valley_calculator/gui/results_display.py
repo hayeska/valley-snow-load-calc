@@ -294,9 +294,9 @@ class ResultsDisplay(ttk.Frame):
         try:
             # Extract parameters from results
             inputs = results.get("inputs", {})
-            geometry = results.get("geometry", {})
+            results.get("geometry", {})
             snow_loads = results.get("snow_loads", {})
-            slope_params = results.get("slope_parameters", {})
+            results.get("slope_parameters", {})
 
             # Basic parameters
             north_span = inputs.get("north_span", 16.0)
