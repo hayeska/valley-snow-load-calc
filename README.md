@@ -2,6 +2,11 @@
 
 A comprehensive engineering tool for calculating snow loads on valley structures according to ASCE 7-22 standards.
 
+## Repository
+
+**GitHub**: [https://github.com/YOUR_USERNAME/valley-snow-load-calc](https://github.com/YOUR_USERNAME/valley-snow-load-calc)  
+**Cloud Backup**: Active on GitHub ✅
+
 ## Overview
 
 This calculator implements the ASCE 7-22 Chapter 7 snow load provisions for valley and roof structures. It provides both a production-ready version (V1) and a modern, modular architecture version (V2) currently in development.
