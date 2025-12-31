@@ -16,6 +16,47 @@ export interface SnowLoadInputs {
   exposureFactor: number;
   thermalFactor: number;
   winterWindParameter: number;
+  isSlipperySurface: boolean; // slippery surface for Cs calculation
+}
+
+export interface BeamDesignInputs {
+  beamWidth: number; // inches
+  beamDepth: number; // inches
+  materialType:
+    | "Douglas Fir"
+    | "Southern Pine"
+    | "Spruce-Pine-Fir"
+    | "Hem-Fir"
+    | "Redwood"
+    | "Cedar";
+  allowableFb: number; // psi
+  allowableFv: number; // psi
+  modulusE: number; // psi
+  deflectionLimitSnow: number; // L/n
+  deflectionLimitTotal: number; // L/n
+  roofDeadLoad: number; // psf
+}
+
+export interface BeamDesignResults {
+  requiredSectionModulus: number;
+  requiredMomentCapacity: number;
+  actualMomentCapacity: number;
+  momentUtilization: number;
+  requiredShearCapacity: number;
+  actualShearCapacity: number;
+  shearUtilization: number;
+  deflectionSnow: number;
+  deflectionTotal: number;
+  deflectionUtilization: number;
+  beamWeight: number;
+  totalLoad: number;
+}
+
+export interface DiagramData {
+  roofProfile: Array<{ x: number; y: number }>;
+  snowLoads: Array<{ x: number; load: number }>;
+  shearForce: Array<{ x: number; force: number }>;
+  bendingMoment: Array<{ x: number; moment: number }>;
 }
 
 export interface CalculationResults {
@@ -35,6 +76,8 @@ export interface CalculationResults {
     horizontalLoad: number;
     verticalLoad: number;
   };
+  beamDesign?: BeamDesignResults;
+  diagrams?: DiagramData;
 }
 
 export interface ProjectData {
