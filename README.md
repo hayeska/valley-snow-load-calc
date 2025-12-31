@@ -115,6 +115,9 @@ This project uses a simplified Git branching model:
 
 2. **Development Workflow**
    ```bash
+   # Backup data before making changes (recommended)
+   .\backup_data.ps1
+
    # Make changes
    git add .
    git commit -m "feat: implement feature description"
@@ -152,18 +155,26 @@ The project includes automatic data backup protection:
   - Application data files
 
 ### Manual Backup
-```bash
-# Trigger backup manually
-python -c "
-import os
-import shutil
-from datetime import datetime
+Run the backup script before making significant changes:
 
-backup_dir = f'auto_backups/{datetime.now().strftime(\"%Y-%m-%d_%H-%M-%S\")}'
-os.makedirs(backup_dir, exist_ok=True)
-# Copy data files...
-"
+```powershell
+# Windows PowerShell
+.\backup_data.ps1
+
+# Or specify custom backup directory
+.\backup_data.ps1 -BackupDir "my_backups"
 ```
+
+The script will:
+- Create timestamped backup folders in `auto_backups/`
+- Backup `user_preferences.json` and database files
+- Clean up old backups (keeps last 10)
+- Show progress and backup locations
+
+### What Gets Backed Up
+- User preferences (`user_preferences.json`)
+- SQLite databases (`*.db`, `*.sqlite`, `*.sqlite3`)
+- TypeScript app database (`%APPDATA%\ValleySnowLoadCalc\valley_calc.db`)
 
 ## Testing
 
