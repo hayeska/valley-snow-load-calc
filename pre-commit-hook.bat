@@ -1,0 +1,6 @@
+@echo off
+echo Pre-commit hook is running...
+echo Creating backup directory...
+mkdir "auto_backups" 2>nul
+echo Backup test > "auto_backups\test_backup.txt"
+echo Pre-commit hook completed.
