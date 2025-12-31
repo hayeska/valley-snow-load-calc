@@ -4,7 +4,7 @@ A comprehensive engineering tool for calculating snow loads on valley structures
 
 ## Repository
 
-**GitHub**: [https://github.com/YOUR_USERNAME/valley-snow-load-calc](https://github.com/YOUR_USERNAME/valley-snow-load-calc)  
+**GitHub**: [https://github.com/hayeska/valley-snow-load-calc](https://github.com/hayeska/valley-snow-load-calc)  
 **Cloud Backup**: Active on GitHub ✅
 
 ## Overview
