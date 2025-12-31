@@ -22,7 +22,13 @@
     "precommit:run": "pre-commit run --all-files",
     "backup": "node backup-scheduler.js",
     "backup:test": "node backup-scheduler.js --test",
-    "backup:once": "node backup-scheduler.js --once"
+    "backup:once": "node backup-scheduler.js --once",
+    "precommit:install": "precommit install",
+    "precommit:run": "precommit run --all-files",
+    "commit": "git add . && git commit -m",
+    "status": "git status",
+    "pull": "git pull",
+    "push": "git push"
   },
   "keywords": [
     "snow-load",

@@ -169,6 +169,23 @@ pre-commit install
 pre-commit install --hook-type commit-msg
 ```
 
+#### Windows PATH Fix
+
+On Windows, if `pre-commit` command is not in your PATH, use the provided batch file:
+
+```bash
+# Use this instead of 'pre-commit'
+precommit install
+precommit run --all-files
+precommit run
+
+# Optional: Add project root to Windows PATH permanently
+# 1. Right-click "This PC" → Properties → Advanced system settings
+# 2. Environment Variables → System Variables → Path → Edit
+# 3. Add: C:\path\to\your\valley_snow_load_calc
+# 4. Restart command prompt/terminal
+```
+
 #### Available Scripts
 
 For the TypeScript version, you can also use npm scripts:
@@ -205,6 +222,68 @@ refactor: code restructuring
 test: add tests
 chore: maintenance tasks
 ```
+
+## Daily Workflow
+
+### Quick Start Commands
+
+Use these npm scripts from the TypeScript version directory (`cd development_v2/typescript_version`):
+
+```bash
+# Start your day
+npm run pull
+
+# Work and commit frequently (every 15-30 minutes)
+npm run commit "feat: implement new calculation module"
+
+# Check current status
+npm run status
+
+# Fix linting/formatting issues
+npm run precommit:run
+
+# End your day
+npm run push
+```
+
+### Step-by-Step Daily Routine
+
+1. **Morning Start**
+
+   ```bash
+   cd development_v2/typescript_version
+   npm run pull  # Get latest changes
+   npm run status  # See what's new
+   ```
+
+2. **Development Work**
+
+   ```bash
+   # Make your changes...
+   npm run commit "feat: add new feature"  # Commit every 15-30 mins
+   npm run commit "fix: resolve bug in calculations"
+   npm run commit "docs: update API documentation"
+   ```
+
+3. **Code Quality**
+
+   ```bash
+   # Before pushing, ensure code quality
+   npm run precommit:run  # Fix any lint/format issues
+   npm run test  # Run tests
+   ```
+
+4. **End of Day**
+   ```bash
+   npm run push  # Push your work
+   ```
+
+### Tips
+
+- **Commit Often**: Small, frequent commits make collaboration easier
+- **Clear Messages**: Use conventional commit format (feat:, fix:, docs:, etc.)
+- **Pre-commit First**: Run `npm run precommit:run` before pushing to catch issues early
+- **Test Before Push**: Always run tests before pushing changes
 
 ## Auto-Save Protocol
 
