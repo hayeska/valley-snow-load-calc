@@ -6,13 +6,13 @@
 GROUND_SNOW_SOURCE_URL = "https://asce7hazardtool.online/"
 
 # Physical and code limits
-MAX_UPWIND_FETCH = 500.0          # ft – Sec. 7.1.2 lu definition
-MAX_SNOW_DENSITY = 30.0           # pcf – Equation 7.7-1 cap
+MAX_UPWIND_FETCH = 500.0  # ft – Sec. 7.1.2 lu definition
+MAX_SNOW_DENSITY = 30.0  # pcf – Equation 7.7-1 cap
 MIN_GROUND_SNOW_FOR_CASE_STUDY = 140.0  # psf – gray areas on maps trigger geodatabase
 
 # Typical practical limits for valley geometry
-MIN_VALLEY_ANGLE_DEG = 60         # degrees – practical for intersecting ridges
-MAX_VALLEY_ANGLE_DEG = 120        # degrees
+MIN_VALLEY_ANGLE_DEG = 60  # degrees – practical for intersecting ridges
+MAX_VALLEY_ANGLE_DEG = 120  # degrees
 
 # Roof dead load assumption (adjustable per project)
 TYPICAL_ROOF_DEAD_LOAD_PSF = 15.0
@@ -22,7 +22,7 @@ RISK_CATEGORIES = {
     "I": "Low hazard to human life",
     "II": "Standard buildings (most common)",
     "III": "Substantial hazard (schools, large assembly)",
-    "IV": "Essential facilities (hospitals, emergency centers)"
+    "IV": "Essential facilities (hospitals, emergency centers)",
 }
 
 # Map contour ratio (from notes on Figures 7.2-1A to 7.2-1D)

@@ -5,6 +5,7 @@
 
 import math
 
+
 def calculate_cs(
     theta_deg: float,
     ct: float,
@@ -28,7 +29,7 @@ def calculate_cs(
         # Graphs a and b: warm roofs (unventilated, higher R-value)
         if slippery:
             # Graph b – slippery warm roof
-            if theta <= 3.58:   # approx 3/12 to flat transition
+            if theta <= 3.58:  # approx 3/12 to flat transition
                 return 1.0
             else:
                 return max(0.0, 1.0 - (theta - 3.58) / 66.42)
@@ -52,6 +53,7 @@ def calculate_cs(
                 return max(0.0, 1.0 - (theta - 37.76) / 32.24)
 
     return 1.0  # fallback
+
 
 def cs_from_pitch(
     pitch_numerator: float,

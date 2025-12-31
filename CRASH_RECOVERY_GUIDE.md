@@ -5,6 +5,7 @@ Complete guide for recovering from crashes, data loss, and system failures.
 ## 🚨 Quick Recovery Commands
 
 ### Immediate Recovery (Recommended)
+
 ```bash
 # Interactive recovery with guided options
 python crash_recovery.py
@@ -17,6 +18,7 @@ python crash_recovery.py --scan
 ```
 
 ### Data Merging
+
 ```bash
 # Merge state backup with auto-backup data
 python data_merge_utilities.py --merge state.backup.json auto_backups/2025-12-31_13-45-53/
@@ -26,6 +28,7 @@ python data_merge_utilities.py --analyze state.backup.json auto_backups/2025-12-
 ```
 
 ### Git Operations
+
 ```bash
 # Revert to safe commit (use hash from recovery scan)
 python crash_recovery.py --revert dc92ee8
@@ -38,6 +41,7 @@ git log --oneline -10
 ## 🔍 Recovery System Overview
 
 ### What Gets Monitored
+
 - **Crash Flags**: `.crash` file presence indicates unclean shutdown
 - **Auto-Save State**: `state.backup.json` contains complete application state
 - **Auto-Backups**: `auto_backups/` directory with timestamped partial data
@@ -45,6 +49,7 @@ git log --oneline -10
 - **File Modifications**: Uncommitted changes that may need preservation
 
 ### Recovery Priority Order
+
 1. **State Backup** (highest priority - complete application state)
 2. **Auto-Backup Merge** (combine multiple partial backups)
 3. **Git Revert** (rollback to last known good commit)
@@ -53,7 +58,9 @@ git log --oneline -10
 ## 📋 Recovery Scenarios
 
 ### Scenario 1: Clean Crash Recovery
+
 **Symptoms**: Application crashed, `.crash` file exists, backups available
+
 ```bash
 $ python crash_recovery.py
 🚨 Valley Snow Load Calculator - Crash Recovery System
@@ -67,13 +74,16 @@ Recommendations:
 ```
 
 **Recovery Steps:**
+
 1. Run `python crash_recovery.py`
 2. Choose option 1 (state backup) or 2 (auto-backup)
 3. System automatically restores data
 4. Remove crash flag and restart application
 
 ### Scenario 2: Data Loss Recovery
+
 **Symptoms**: Lost work, no crash flag, partial backups available
+
 ```bash
 $ python data_merge_utilities.py --analyze auto_backups/2025-12-31_13-45-53/ auto_backups/2025-12-31_14-15-30/
 Compatibility Score: 0.85
@@ -81,13 +91,16 @@ Recommended Strategy: primary_override
 ```
 
 **Recovery Steps:**
+
 1. Analyze backup compatibility
 2. Merge compatible backups
 3. Review merged data
 4. Restore to application
 
 ### Scenario 3: Git Repository Issues
+
 **Symptoms**: Repository corruption, merge conflicts, accidental commits
+
 ```bash
 $ python crash_recovery.py --scan
 Git Revert Options:
@@ -97,6 +110,7 @@ Git Revert Options:
 ```
 
 **Recovery Steps:**
+
 1. Identify safe revert point
 2. Create backup branch if needed
 3. Revert to safe commit
@@ -105,14 +119,17 @@ Git Revert Options:
 ## 🔧 Advanced Recovery Techniques
 
 ### Manual Data Reconstruction
+
 When automatic recovery isn't sufficient:
 
 1. **Identify Data Sources**
+
    ```bash
    find . -name "*.json" -o -name "*.backup" | head -20
    ```
 
 2. **Compare Backup Versions**
+
    ```bash
    python data_merge_utilities.py --analyze state.backup.json auto_backups/*/
    ```
@@ -124,6 +141,7 @@ When automatic recovery isn't sufficient:
    ```
 
 ### Git Recovery Options
+
 ```bash
 # Create recovery branch
 git checkout -b recovery_attempt_$(date +%Y%m%d_%H%M%S)
@@ -139,6 +157,7 @@ git cherry-pick abc123 def456
 ```
 
 ### Database Recovery (if applicable)
+
 ```bash
 # For SQLite databases in backups
 cp auto_backups/2025-12-31_13-45-53/valley_calc.db recovered.db
@@ -148,6 +167,7 @@ sqlite3 recovered.db ".schema"  # Verify integrity
 ## 🛡️ Prevention Strategies
 
 ### Regular Backup Verification
+
 ```bash
 # Test backup system weekly
 python test_backup.py
@@ -160,12 +180,14 @@ python test_recovery_system.py
 ```
 
 ### Safe Development Practices
+
 - **Commit Frequently**: Small, atomic commits
 - **Use Feature Branches**: Isolate risky changes
 - **Backup Before Major Changes**: Run manual backup
 - **Test Recovery**: Periodically test restore procedures
 
 ### Monitoring Setup
+
 ```bash
 # Setup automated health checks
 crontab -e
@@ -175,6 +197,7 @@ crontab -e
 ## 🔍 Diagnostic Tools
 
 ### System Health Check
+
 ```bash
 # Check all backup systems
 python crash_recovery.py --scan
@@ -188,6 +211,7 @@ git reflog --all
 ```
 
 ### Performance Analysis
+
 ```bash
 # Check backup sizes over time
 du -sh auto_backups/*/
@@ -197,6 +221,7 @@ time python crash_recovery.py --recover
 ```
 
 ### Log Analysis
+
 ```bash
 # Check recovery logs
 tail -f crash_recovery.log
@@ -211,6 +236,7 @@ grep "ERROR\|FAIL" *.log
 ## 🚨 Emergency Procedures
 
 ### Complete Data Loss
+
 1. **Don't Panic**: Data likely exists in backups
 2. **Stop All Changes**: Prevent further data loss
 3. **Run Full Scan**:
@@ -220,6 +246,7 @@ grep "ERROR\|FAIL" *.log
 4. **Contact Recovery Expert** if automated recovery fails
 
 ### Repository Corruption
+
 1. **Backup Current State**:
    ```bash
    cp -r .git .git.backup.$(date +%s)
@@ -231,6 +258,7 @@ grep "ERROR\|FAIL" *.log
    ```
 
 ### Multiple System Failures
+
 1. **Isolate Systems**: Work on one recovery at a time
 2. **Document Process**: Keep detailed recovery notes
 3. **Test Incrementally**: Verify each recovery step
@@ -239,12 +267,14 @@ grep "ERROR\|FAIL" *.log
 ## 📞 Getting Help
 
 ### Built-in Help
+
 ```bash
 python crash_recovery.py --help
 python data_merge_utilities.py --help
 ```
 
 ### Self-Diagnosis
+
 ```bash
 # Run comprehensive test
 python test_recovery_system.py
@@ -254,6 +284,7 @@ python -c "import sys; print(f'Python {sys.version}'); import json, os, pathlib;
 ```
 
 ### External Resources
+
 - **Git Recovery**: `git help reflog`, `git help reset`
 - **Data Recovery**: Professional data recovery services
 - **Backup Best Practices**: Review backup_scheduler.py documentation
@@ -261,16 +292,19 @@ python -c "import sys; print(f'Python {sys.version}'); import json, os, pathlib;
 ## 🎯 Success Metrics
 
 ### Recovery Completeness
+
 - **Full Recovery**: All data restored automatically
 - **Partial Recovery**: Some data restored, manual reconstruction needed
 - **Minimal Recovery**: Critical data preserved, major work lost
 
 ### Recovery Time Objectives (RTO)
+
 - **Immediate (< 5 min)**: State backup restoration
 - **Quick (15-30 min)**: Auto-backup merging
 - **Extended (1-4 hours)**: Complex data reconstruction
 
 ### Recovery Point Objectives (RPO)
+
 - **Minimal Loss**: Auto-save every 2 minutes
 - **Acceptable Loss**: Auto-backup every hour
 - **Maximum Loss**: Git commit frequency
@@ -278,6 +312,7 @@ python -c "import sys; print(f'Python {sys.version}'); import json, os, pathlib;
 ## 🔄 Continuous Improvement
 
 ### Monitoring Recovery Effectiveness
+
 ```bash
 # Track recovery success rates
 grep "Recovery completed" crash_recovery.log | wc -l
@@ -287,6 +322,7 @@ find auto_backups/ -type f -name "*.json" | wc -l
 ```
 
 ### Updating Recovery Procedures
+
 - Review recovery logs monthly
 - Test recovery procedures quarterly
 - Update documentation after incidents

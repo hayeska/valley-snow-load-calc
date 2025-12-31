@@ -4,11 +4,10 @@
 import logging
 import logging.handlers
 import json
-import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 import threading
 import traceback
 
@@ -26,7 +25,12 @@ class ResilienceLogger:
     - Log archiving and cleanup
     """
 
-    def __init__(self, log_dir: str = None, max_file_size: int = 10*1024*1024, backup_count: int = 5):
+    def __init__(
+        self,
+        log_dir: str = None,
+        max_file_size: int = 10 * 1024 * 1024,
+        backup_count: int = 5,
+    ):
         """
         Initialize the resilient logging system.
 
@@ -65,30 +69,22 @@ class ResilienceLogger:
         """Setup multiple loggers for different purposes."""
         # Main application logger
         self.main_logger = self._create_logger(
-            'valley_calc',
-            self.log_dir / 'valley_calculator.log',
-            logging.DEBUG
+            "valley_calc", self.log_dir / "valley_calculator.log", logging.DEBUG
         )
 
         # Error logger (for critical errors only)
         self.error_logger = self._create_logger(
-            'valley_error',
-            self.log_dir / 'errors.log',
-            logging.WARNING
+            "valley_error", self.log_dir / "errors.log", logging.WARNING
         )
 
         # Performance logger
         self.performance_logger = self._create_logger(
-            'valley_perf',
-            self.log_dir / 'performance.log',
-            logging.INFO
+            "valley_perf", self.log_dir / "performance.log", logging.INFO
         )
 
         # Recovery logger
         self.recovery_logger = self._create_logger(
-            'valley_recovery',
-            self.log_dir / 'recovery.log',
-            logging.INFO
+            "valley_recovery", self.log_dir / "recovery.log", logging.INFO
         )
 
     def _create_logger(self, name: str, log_file: Path, level: int) -> logging.Logger:
@@ -104,13 +100,13 @@ class ResilienceLogger:
             log_file,
             maxBytes=self.max_file_size,
             backupCount=self.backup_count,
-            encoding='utf-8'
+            encoding="utf-8",
         )
 
         # Create formatter
         formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
         handler.setFormatter(formatter)
 
@@ -119,16 +115,19 @@ class ResilienceLogger:
         # Also log to console for development
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(logging.INFO)
-        console_formatter = logging.Formatter(
-            '%(levelname)s: %(message)s'
-        )
+        console_formatter = logging.Formatter("%(levelname)s: %(message)s")
         console_handler.setFormatter(console_formatter)
         logger.addHandler(console_handler)
 
         return logger
 
-    def log_error(self, error: Exception, context: Dict[str, Any] = None,
-                  operation: str = None, recoverable: bool = True):
+    def log_error(
+        self,
+        error: Exception,
+        context: Dict[str, Any] = None,
+        operation: str = None,
+        recoverable: bool = True,
+    ):
         """
         Log an error with full context and stack trace.
 
@@ -139,14 +138,14 @@ class ResilienceLogger:
             recoverable: Whether this error is recoverable
         """
         error_info = {
-            'error_type': type(error).__name__,
-            'error_message': str(error),
-            'stack_trace': traceback.format_exc(),
-            'operation': operation,
-            'recoverable': recoverable,
-            'context': context or {},
-            'timestamp': datetime.now().isoformat(),
-            'thread_id': threading.get_ident()
+            "error_type": type(error).__name__,
+            "error_message": str(error),
+            "stack_trace": traceback.format_exc(),
+            "operation": operation,
+            "recoverable": recoverable,
+            "context": context or {},
+            "timestamp": datetime.now().isoformat(),
+            "thread_id": threading.get_ident(),
         }
 
         # Log to error logger
@@ -162,8 +161,13 @@ class ResilienceLogger:
         # Add to recovery log for crash analysis
         self._log_to_recovery(error_info)
 
-    def log_performance(self, operation: str, duration: float,
-                       success: bool = True, metadata: Dict[str, Any] = None):
+    def log_performance(
+        self,
+        operation: str,
+        duration: float,
+        success: bool = True,
+        metadata: Dict[str, Any] = None,
+    ):
         """
         Log performance metrics.
 
@@ -174,11 +178,11 @@ class ResilienceLogger:
             metadata: Additional performance metadata
         """
         perf_data = {
-            'operation': operation,
-            'duration': duration,
-            'success': success,
-            'timestamp': datetime.now().isoformat(),
-            'metadata': metadata or {}
+            "operation": operation,
+            "duration": duration,
+            "success": success,
+            "timestamp": datetime.now().isoformat(),
+            "metadata": metadata or {},
         }
 
         # Store in memory for analysis
@@ -189,16 +193,17 @@ class ResilienceLogger:
 
             # Keep only last 100 entries per operation
             if len(self.performance_data[operation]) > 100:
-                self.performance_data[operation] = self.performance_data[operation][-100:]
+                self.performance_data[operation] = self.performance_data[operation][
+                    -100:
+                ]
 
         # Log to performance logger
         status = "SUCCESS" if success else "FAILED"
-        self.performance_logger.info(
-            f"{operation}: {duration:.3f}s ({status})"
-        )
+        self.performance_logger.info(f"{operation}: {duration:.3f}s ({status})")
 
-    def log_recovery_action(self, action: str, success: bool,
-                           details: Dict[str, Any] = None):
+    def log_recovery_action(
+        self, action: str, success: bool, details: Dict[str, Any] = None
+    ):
         """
         Log recovery actions taken by the system.
 
@@ -208,10 +213,10 @@ class ResilienceLogger:
             details: Additional recovery details
         """
         recovery_info = {
-            'action': action,
-            'success': success,
-            'details': details or {},
-            'timestamp': datetime.now().isoformat()
+            "action": action,
+            "success": success,
+            "details": details or {},
+            "timestamp": datetime.now().isoformat(),
         }
 
         status = "SUCCESS" if success else "FAILED"
@@ -220,8 +225,7 @@ class ResilienceLogger:
         # Add to recovery log
         self._log_to_recovery(recovery_info)
 
-    def log_checkpoint(self, checkpoint_id: str, data_size: int,
-                      operation: str = None):
+    def log_checkpoint(self, checkpoint_id: str, data_size: int, operation: str = None):
         """
         Log data checkpoint creation.
 
@@ -231,10 +235,10 @@ class ResilienceLogger:
             operation: Operation that triggered the checkpoint
         """
         checkpoint_info = {
-            'checkpoint_id': checkpoint_id,
-            'data_size': data_size,
-            'operation': operation,
-            'timestamp': datetime.now().isoformat()
+            "checkpoint_id": checkpoint_id,
+            "data_size": data_size,
+            "operation": operation,
+            "timestamp": datetime.now().isoformat(),
         }
 
         self.main_logger.info(
@@ -247,16 +251,16 @@ class ResilienceLogger:
     def _initialize_recovery_log(self):
         """Initialize the recovery log file."""
         initial_data = {
-            'version': '2.0.0',
-            'created_at': datetime.now().isoformat(),
-            'last_crash': None,
-            'recovery_history': [],
-            'error_patterns': {},
-            'performance_stats': {}
+            "version": "2.0.0",
+            "created_at": datetime.now().isoformat(),
+            "last_crash": None,
+            "recovery_history": [],
+            "error_patterns": {},
+            "performance_stats": {},
         }
 
         with self._recovery_lock:
-            with open(self.recovery_log_file, 'w') as f:
+            with open(self.recovery_log_file, "w") as f:
                 json.dump(initial_data, f, indent=2)
 
     def _log_to_recovery(self, data: Dict[str, Any]):
@@ -264,24 +268,24 @@ class ResilienceLogger:
         try:
             with self._recovery_lock:
                 # Read existing recovery log
-                with open(self.recovery_log_file, 'r') as f:
+                with open(self.recovery_log_file, "r") as f:
                     recovery_data = json.load(f)
 
                 # Add new entry
-                if 'entries' not in recovery_data:
-                    recovery_data['entries'] = []
+                if "entries" not in recovery_data:
+                    recovery_data["entries"] = []
 
-                recovery_data['entries'].append(data)
+                recovery_data["entries"].append(data)
 
                 # Keep only last 1000 entries
-                if len(recovery_data['entries']) > 1000:
-                    recovery_data['entries'] = recovery_data['entries'][-1000:]
+                if len(recovery_data["entries"]) > 1000:
+                    recovery_data["entries"] = recovery_data["entries"][-1000:]
 
                 # Update last activity
-                recovery_data['last_activity'] = datetime.now().isoformat()
+                recovery_data["last_activity"] = datetime.now().isoformat()
 
                 # Write back
-                with open(self.recovery_log_file, 'w') as f:
+                with open(self.recovery_log_file, "w") as f:
                     json.dump(recovery_data, f, indent=2)
 
         except Exception as e:
@@ -303,14 +307,15 @@ class ResilienceLogger:
                 if operation in self.performance_data:
                     data = self.performance_data[operation]
                     if data:
-                        durations = [d['duration'] for d in data]
+                        durations = [d["duration"] for d in data]
                         return {
-                            'operation': operation,
-                            'count': len(data),
-                            'avg_duration': sum(durations) / len(durations),
-                            'min_duration': min(durations),
-                            'max_duration': max(durations),
-                            'success_rate': sum(1 for d in data if d['success']) / len(data)
+                            "operation": operation,
+                            "count": len(data),
+                            "avg_duration": sum(durations) / len(durations),
+                            "min_duration": min(durations),
+                            "max_duration": max(durations),
+                            "success_rate": sum(1 for d in data if d["success"])
+                            / len(data),
                         }
                 return {}
             else:
@@ -318,11 +323,12 @@ class ResilienceLogger:
                 stats = {}
                 for op, data in self.performance_data.items():
                     if data:
-                        durations = [d['duration'] for d in data]
+                        durations = [d["duration"] for d in data]
                         stats[op] = {
-                            'count': len(data),
-                            'avg_duration': sum(durations) / len(durations),
-                            'success_rate': sum(1 for d in data if d['success']) / len(data)
+                            "count": len(data),
+                            "avg_duration": sum(durations) / len(durations),
+                            "success_rate": sum(1 for d in data if d["success"])
+                            / len(data),
                         }
                 return stats
 
@@ -341,7 +347,9 @@ class ResilienceLogger:
                     log_file.unlink()
                     self.main_logger.info(f"Cleaned up old log file: {log_file}")
                 except Exception as e:
-                    self.error_logger.error(f"Failed to clean up log file {log_file}: {e}")
+                    self.error_logger.error(
+                        f"Failed to clean up log file {log_file}: {e}"
+                    )
 
     def get_error_summary(self) -> Dict[str, Any]:
         """
@@ -352,24 +360,26 @@ class ResilienceLogger:
         """
         try:
             with self._recovery_lock:
-                with open(self.recovery_log_file, 'r') as f:
+                with open(self.recovery_log_file, "r") as f:
                     recovery_data = json.load(f)
 
-            entries = recovery_data.get('entries', [])
-            recent_errors = [e for e in entries if e.get('error_type')]
+            entries = recovery_data.get("entries", [])
+            recent_errors = [e for e in entries if e.get("error_type")]
 
             error_counts = {}
             for error in recent_errors[-100:]:  # Last 100 errors
-                error_type = error.get('error_type', 'Unknown')
+                error_type = error.get("error_type", "Unknown")
                 if error_type not in error_counts:
                     error_counts[error_type] = 0
                 error_counts[error_type] += 1
 
             return {
-                'total_errors': len(recent_errors),
-                'error_types': error_counts,
-                'most_common_error': max(error_counts.items(), key=lambda x: x[1]) if error_counts else None,
-                'last_error': recent_errors[-1] if recent_errors else None
+                "total_errors": len(recent_errors),
+                "error_types": error_counts,
+                "most_common_error": max(error_counts.items(), key=lambda x: x[1])
+                if error_counts
+                else None,
+                "last_error": recent_errors[-1] if recent_errors else None,
             }
 
         except Exception as e:

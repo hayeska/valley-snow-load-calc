@@ -19,13 +19,15 @@ import logging
 from datetime import datetime
 from pathlib import Path
 import json
-import threading
 import sys
+
 
 class BackupScheduler:
     def __init__(self, project_dir=None, backup_dir=None, max_backups=24):
         self.project_dir = Path(project_dir or Path.cwd())
-        self.backup_dir = Path(backup_dir or Path.home() / "backups" / "valley_snow_calc")
+        self.backup_dir = Path(
+            backup_dir or Path.home() / "backups" / "valley_snow_calc"
+        )
         self.max_backups = max_backups
         self.backup_count = 0
 
@@ -38,7 +40,7 @@ class BackupScheduler:
         # Load configuration
         self.config = self.load_config()
 
-        self.logger.info(f"Backup scheduler initialized")
+        self.logger.info("Backup scheduler initialized")
         self.logger.info(f"Project directory: {self.project_dir}")
         self.logger.info(f"Backup directory: {self.backup_dir}")
 
@@ -48,11 +50,8 @@ class BackupScheduler:
 
         logging.basicConfig(
             level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler(log_file),
-                logging.StreamHandler(sys.stdout)
-            ]
+            format="%(asctime)s - %(levelname)s - %(message)s",
+            handlers=[logging.FileHandler(log_file), logging.StreamHandler(sys.stdout)],
         )
         self.logger = logging.getLogger(__name__)
 
@@ -69,17 +68,17 @@ class BackupScheduler:
                 "auto_backups",
                 "*.tmp",
                 ".DS_Store",
-                "Thumbs.db"
+                "Thumbs.db",
             ],
             "include_data_files": True,
             "cloud_upload": False,
             "cloud_provider": "google_drive",
-            "compression_level": 6
+            "compression_level": 6,
         }
 
         if config_file.exists():
             try:
-                with open(config_file, 'r') as f:
+                with open(config_file, "r") as f:
                     user_config = json.load(f)
                 default_config.update(user_config)
                 self.logger.info("Loaded backup configuration from file")
@@ -97,9 +96,12 @@ class BackupScheduler:
 
             self.logger.info(f"Creating backup: {zip_filename}")
 
-            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED,
-                               compresslevel=self.config['compression_level']) as zipf:
-
+            with zipfile.ZipFile(
+                zip_path,
+                "w",
+                zipfile.ZIP_DEFLATED,
+                compresslevel=self.config["compression_level"],
+            ) as zipf:
                 # Walk through project directory
                 for root, dirs, files in os.walk(self.project_dir):
                     # Skip excluded directories
@@ -126,7 +128,7 @@ class BackupScheduler:
             self.cleanup_old_backups()
 
             # Optional cloud upload
-            if self.config.get('cloud_upload'):
+            if self.config.get("cloud_upload"):
                 self.upload_to_cloud(zip_path)
 
             return zip_path
@@ -137,10 +139,10 @@ class BackupScheduler:
 
     def should_exclude(self, name):
         """Check if a file or directory should be excluded from backup"""
-        exclude_patterns = self.config['exclude_patterns']
+        exclude_patterns = self.config["exclude_patterns"]
 
         for pattern in exclude_patterns:
-            if pattern.startswith('*'):
+            if pattern.startswith("*"):
                 # Wildcard pattern
                 if name.endswith(pattern[1:]):
                     return True
@@ -156,7 +158,7 @@ class BackupScheduler:
             backup_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
 
             if len(backup_files) > self.max_backups:
-                files_to_delete = backup_files[self.max_backups:]
+                files_to_delete = backup_files[self.max_backups :]
                 for old_file in files_to_delete:
                     old_file.unlink()
                     self.logger.info(f"Cleaned up old backup: {old_file.name}")
@@ -167,10 +169,12 @@ class BackupScheduler:
     def upload_to_cloud(self, zip_path):
         """Upload backup to cloud storage"""
         try:
-            if self.config['cloud_provider'] == 'google_drive':
+            if self.config["cloud_provider"] == "google_drive":
                 self.upload_to_google_drive(zip_path)
             else:
-                self.logger.warning(f"Unsupported cloud provider: {self.config['cloud_provider']}")
+                self.logger.warning(
+                    f"Unsupported cloud provider: {self.config['cloud_provider']}"
+                )
 
         except Exception as e:
             self.logger.error(f"Failed to upload to cloud: {e}")
@@ -181,7 +185,9 @@ class BackupScheduler:
             # This would require google-api-python-client and oauth2client
             # For now, just log the intention
             self.logger.info(f"Would upload {zip_path.name} to Google Drive")
-            self.logger.warning("Google Drive upload not implemented yet - requires API setup")
+            self.logger.warning(
+                "Google Drive upload not implemented yet - requires API setup"
+            )
 
             # TODO: Implement actual Google Drive upload
             # 1. Install google-api-python-client, google-auth-httplib2, google-auth-oauthlib
@@ -222,13 +228,25 @@ class BackupScheduler:
         except Exception as e:
             self.logger.error(f"Backup scheduler error: {e}")
 
+
 def main():
-    parser = argparse.ArgumentParser(description='Valley Snow Load Calculator Backup Scheduler')
-    parser.add_argument('--project-dir', help='Project directory to backup (default: current directory)')
-    parser.add_argument('--backup-dir', help='Backup directory (default: ~/backups/valley_snow_calc)')
-    parser.add_argument('--once', action='store_true', help='Run once and exit')
-    parser.add_argument('--test', action='store_true', help='Test backup creation')
-    parser.add_argument('--max-backups', type=int, default=24, help='Maximum number of backups to keep (default: 24)')
+    parser = argparse.ArgumentParser(
+        description="Valley Snow Load Calculator Backup Scheduler"
+    )
+    parser.add_argument(
+        "--project-dir", help="Project directory to backup (default: current directory)"
+    )
+    parser.add_argument(
+        "--backup-dir", help="Backup directory (default: ~/backups/valley_snow_calc)"
+    )
+    parser.add_argument("--once", action="store_true", help="Run once and exit")
+    parser.add_argument("--test", action="store_true", help="Test backup creation")
+    parser.add_argument(
+        "--max-backups",
+        type=int,
+        default=24,
+        help="Maximum number of backups to keep (default: 24)",
+    )
 
     args = parser.parse_args()
 
@@ -236,7 +254,7 @@ def main():
     scheduler = BackupScheduler(
         project_dir=args.project_dir,
         backup_dir=args.backup_dir,
-        max_backups=args.max_backups
+        max_backups=args.max_backups,
     )
 
     if args.test:
@@ -257,6 +275,7 @@ def main():
     else:
         # Run continuously
         scheduler.run_scheduler()
+
 
 if __name__ == "__main__":
     main()

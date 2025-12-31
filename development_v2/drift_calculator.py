@@ -5,11 +5,12 @@
 
 import math
 from constants import MAX_SNOW_DENSITY
-from slope_factors import calculate_cs
+
 
 def snow_density(pg: float) -> float:
     """Equation 7.7-1 – γ = 0.13 pg + 14, capped at 30 pcf"""
     return min(0.13 * pg + 14, MAX_SNOW_DENSITY)
+
 
 def gable_roof_drift_height(
     pg: float,
@@ -26,6 +27,7 @@ def gable_roof_drift_height(
     exponent = pg**0.74 * lu**0.7 * W2**1.7 / gamma
     hd = 1.5 * math.sqrt(exponent)
     return round(hd, 2)
+
 
 def drift_surcharge_and_width(
     hd: float,
@@ -49,6 +51,7 @@ def drift_surcharge_and_width(
         "drift_width_ft": round(w, 1),
     }
 
+
 def single_gable_drift(
     pg: float,
     lu: float,
@@ -70,6 +73,7 @@ def single_gable_drift(
         "pd_max_psf": drift["pd_max_psf"],
         "drift_width_ft": drift["drift_width_ft"],
     }
+
 
 def valley_governing_drift(
     north_drift: dict,

@@ -8,8 +8,8 @@ import os
 import sys
 import json
 import tempfile
-import shutil
 from pathlib import Path
+
 
 def test_python_backup():
     """Test the Python backup scheduler"""
@@ -33,10 +33,9 @@ def test_python_backup():
 
             # Create test config
             test_config = test_project / "backup_config.json"
-            test_config.write_text(json.dumps({
-                "excludePatterns": ["*.log"],
-                "maxLocalBackups": 5
-            }))
+            test_config.write_text(
+                json.dumps({"excludePatterns": ["*.log"], "maxLocalBackups": 5})
+            )
 
             print(f"📁 Test project: {test_project}")
             print(f"💾 Test backup dir: {test_backup}")
@@ -45,7 +44,7 @@ def test_python_backup():
             scheduler = BackupScheduler(
                 project_dir=str(test_project),
                 backup_dir=str(test_backup),
-                max_backups=3
+                max_backups=3,
             )
 
             # Test backup creation
@@ -59,7 +58,8 @@ def test_python_backup():
 
                 # Verify backup contents
                 import zipfile
-                with zipfile.ZipFile(result, 'r') as zipf:
+
+                with zipfile.ZipFile(result, "r") as zipf:
                     files = zipf.namelist()
                     print(f"📁 Contains {len(files)} files:")
                     for file in files[:5]:  # Show first 5 files
@@ -80,6 +80,7 @@ def test_python_backup():
         print(f"❌ Test failed: {e}")
         return False
 
+
 def test_config_file():
     """Test backup configuration file"""
     print("\n🧪 Testing Backup Configuration")
@@ -88,7 +89,7 @@ def test_config_file():
     config_path = Path("backup_config.json")
     if config_path.exists():
         try:
-            with open(config_path, 'r') as f:
+            with open(config_path, "r") as f:
                 config = json.load(f)
 
             print("✅ Configuration file found and valid")
@@ -97,7 +98,7 @@ def test_config_file():
             print(f"🗜️  Compression level: {config.get('compressionLevel', 6)}")
 
             # Validate required fields
-            required_fields = ['excludePatterns', 'cloudUpload', 'compressionLevel']
+            required_fields = ["excludePatterns", "cloudUpload", "compressionLevel"]
             missing = [field for field in required_fields if field not in config]
             if missing:
                 print(f"⚠️  Missing config fields: {missing}")
@@ -114,18 +115,24 @@ def test_config_file():
 
         default_config = {
             "excludePatterns": [
-                "__pycache__", "*.pyc", ".git", "node_modules",
-                "*.log", "auto_backups", "*.tmp", ".DS_Store"
+                "__pycache__",
+                "*.pyc",
+                ".git",
+                "node_modules",
+                "*.log",
+                "auto_backups",
+                "*.tmp",
+                ".DS_Store",
             ],
             "includeDataFiles": True,
             "cloudUpload": False,
             "cloudProvider": "google_drive",
             "compressionLevel": 6,
-            "googleDriveFolder": "Valley Snow Load Backups"
+            "googleDriveFolder": "Valley Snow Load Backups",
         }
 
         try:
-            with open(config_path, 'w') as f:
+            with open(config_path, "w") as f:
                 json.dump(default_config, f, indent=2)
             print("✅ Default configuration created")
             return True
@@ -133,12 +140,13 @@ def test_config_file():
             print(f"❌ Failed to create config: {e}")
             return False
 
+
 def test_dependencies():
     """Test if required dependencies are available"""
     print("\n🧪 Testing Dependencies")
     print("=" * 40)
 
-    required_modules = ['zipfile', 'json', 'pathlib', 'os']
+    required_modules = ["zipfile", "json", "pathlib", "os"]
     missing = []
 
     for module in required_modules:
@@ -155,6 +163,7 @@ def test_dependencies():
     else:
         print("✅ All required modules available")
         return True
+
 
 def test_backup_location():
     """Test backup directory creation and permissions"""
@@ -183,6 +192,7 @@ def test_backup_location():
     except Exception as e:
         print(f"❌ Backup location test failed: {e}")
         return False
+
 
 def main():
     """Run all backup system tests"""
@@ -235,6 +245,7 @@ def main():
         print("   - Verify backup_config.json is valid JSON")
 
     return passed == total
+
 
 if __name__ == "__main__":
     success = main()

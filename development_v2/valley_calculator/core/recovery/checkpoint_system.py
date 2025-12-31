@@ -5,11 +5,9 @@ import time
 import threading
 import uuid
 from typing import Dict, Any, Optional, List, Callable
-from datetime import datetime, timedelta
 
 from ...utils.logging.logger import get_logger
 from ...data.persistence.database import get_database
-from .error_handlers import resilient_operation, auto_save
 
 
 class CheckpointManager:
@@ -51,9 +49,7 @@ class CheckpointManager:
     def _start_auto_save_daemon(self):
         """Start the background auto-save daemon."""
         self.auto_save_thread = threading.Thread(
-            target=self._auto_save_worker,
-            daemon=True,
-            name="CheckpointAutoSave"
+            target=self._auto_save_worker, daemon=True, name="CheckpointAutoSave"
         )
         self.auto_save_thread.start()
 
@@ -81,14 +77,22 @@ class CheckpointManager:
                                 project_id,
                                 project_data,
                                 f"auto_save_{int(current_time)}",
-                                "auto_save"
+                                "auto_save",
                             )
                     except Exception as e:
-                        self.logger.log_error(e, operation="auto_checkpoint",
-                                            context={"project_id": project_id})
+                        self.logger.log_error(
+                            e,
+                            operation="auto_checkpoint",
+                            context={"project_id": project_id},
+                        )
 
-    def create_checkpoint(self, project_id: str, data: Dict[str, Any],
-                         checkpoint_id: str = None, operation: str = None) -> bool:
+    def create_checkpoint(
+        self,
+        project_id: str,
+        data: Dict[str, Any],
+        checkpoint_id: str = None,
+        operation: str = None,
+    ) -> bool:
         """
         Create a checkpoint for the given data.
 
@@ -105,7 +109,9 @@ class CheckpointManager:
             checkpoint_id = f"checkpoint_{int(time.time())}_{uuid.uuid4().hex[:8]}"
 
         try:
-            success = self.db.create_checkpoint(project_id, checkpoint_id, data, operation)
+            success = self.db.create_checkpoint(
+                project_id, checkpoint_id, data, operation
+            )
 
             if success:
                 # Update last checkpoint time
@@ -121,14 +127,19 @@ class CheckpointManager:
             return success
 
         except Exception as e:
-            self.logger.log_error(e, operation="create_checkpoint",
-                                context={"project_id": project_id, "checkpoint_id": checkpoint_id})
+            self.logger.log_error(
+                e,
+                operation="create_checkpoint",
+                context={"project_id": project_id, "checkpoint_id": checkpoint_id},
+            )
             return False
 
     def _cleanup_old_checkpoints(self, project_id: str):
         """Clean up old checkpoints to prevent storage bloat."""
         try:
-            checkpoints = self.db.get_recent_checkpoints(project_id, self.max_checkpoints + 10)
+            checkpoints = self.db.get_recent_checkpoints(
+                project_id, self.max_checkpoints + 10
+            )
 
             if len(checkpoints) > self.max_checkpoints:
                 # This would need database schema changes to support deletion
@@ -136,12 +147,13 @@ class CheckpointManager:
                 excess_count = len(checkpoints) - self.max_checkpoints
                 self.logger.log_recovery_action(
                     f"Checkpoint cleanup needed: {excess_count} excess checkpoints for {project_id}",
-                    True
+                    True,
                 )
 
         except Exception as e:
-            self.logger.log_error(e, operation="cleanup_checkpoints",
-                                context={"project_id": project_id})
+            self.logger.log_error(
+                e, operation="cleanup_checkpoints", context={"project_id": project_id}
+            )
 
     def restore_from_checkpoint(self, checkpoint_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -158,20 +170,21 @@ class CheckpointManager:
 
             if data:
                 self.logger.log_recovery_action(
-                    f"Successfully restored from checkpoint {checkpoint_id}",
-                    True
+                    f"Successfully restored from checkpoint {checkpoint_id}", True
                 )
             else:
                 self.logger.log_recovery_action(
-                    f"Failed to restore from checkpoint {checkpoint_id}",
-                    False
+                    f"Failed to restore from checkpoint {checkpoint_id}", False
                 )
 
             return data
 
         except Exception as e:
-            self.logger.log_error(e, operation="restore_checkpoint",
-                                context={"checkpoint_id": checkpoint_id})
+            self.logger.log_error(
+                e,
+                operation="restore_checkpoint",
+                context={"checkpoint_id": checkpoint_id},
+            )
             return None
 
     def get_recovery_options(self, project_id: str) -> List[Dict[str, Any]]:
@@ -189,25 +202,30 @@ class CheckpointManager:
 
             recovery_options = []
             for checkpoint in checkpoints:
-                recovery_options.append({
-                    'type': 'checkpoint',
-                    'id': checkpoint['checkpoint_id'],
-                    'timestamp': checkpoint['created_at'],
-                    'operation': checkpoint['operation'],
-                    'data_size': checkpoint['data_size']
-                })
+                recovery_options.append(
+                    {
+                        "type": "checkpoint",
+                        "id": checkpoint["checkpoint_id"],
+                        "timestamp": checkpoint["created_at"],
+                        "operation": checkpoint["operation"],
+                        "data_size": checkpoint["data_size"],
+                    }
+                )
 
             # Add option to restore from last known good state
-            recovery_options.append({
-                'type': 'last_good_state',
-                'description': 'Restore from last successfully saved state'
-            })
+            recovery_options.append(
+                {
+                    "type": "last_good_state",
+                    "description": "Restore from last successfully saved state",
+                }
+            )
 
             return recovery_options
 
         except Exception as e:
-            self.logger.log_error(e, operation="get_recovery_options",
-                                context={"project_id": project_id})
+            self.logger.log_error(
+                e, operation="get_recovery_options", context={"project_id": project_id}
+            )
             return []
 
     def mark_project_active(self, project_id: str):
@@ -243,11 +261,12 @@ class CheckpointManager:
                         project_id,
                         project_data,
                         f"forced_{int(time.time())}",
-                        "forced_save"
+                        "forced_save",
                     )
             except Exception as e:
-                self.logger.log_error(e, operation="force_checkpoint",
-                                    context={"project_id": project_id})
+                self.logger.log_error(
+                    e, operation="force_checkpoint", context={"project_id": project_id}
+                )
 
     def _get_project_data(self, project_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -284,8 +303,9 @@ class DataChangeTracker:
     when significant changes occur.
     """
 
-    def __init__(self, checkpoint_manager: CheckpointManager,
-                 change_threshold: float = 0.1):
+    def __init__(
+        self, checkpoint_manager: CheckpointManager, change_threshold: float = 0.1
+    ):
         """
         Initialize the data change tracker.
 
@@ -298,8 +318,9 @@ class DataChangeTracker:
         self.last_data_hash = None
         self.change_lock = threading.Lock()
 
-    def track_change(self, project_id: str, new_data: Dict[str, Any],
-                    force_checkpoint: bool = False):
+    def track_change(
+        self, project_id: str, new_data: Dict[str, Any], force_checkpoint: bool = False
+    ):
         """
         Track a data change and potentially trigger a checkpoint.
 
@@ -313,9 +334,7 @@ class DataChangeTracker:
 
             if force_checkpoint or self._has_significant_change(current_hash):
                 self.checkpoint_manager.create_checkpoint(
-                    project_id,
-                    new_data,
-                    operation="data_change"
+                    project_id, new_data, operation="data_change"
                 )
                 self.last_data_hash = current_hash
 
@@ -346,6 +365,7 @@ def checkpoint_on_change(project_id_param: str = "project_id"):
     Args:
         project_id_param: Parameter name containing the project ID
     """
+
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
@@ -356,6 +376,7 @@ def checkpoint_on_change(project_id_param: str = "project_id"):
             else:
                 # Try to find it in positional args by inspecting function signature
                 import inspect
+
                 sig = inspect.signature(func)
                 param_names = list(sig.parameters.keys())
                 if project_id_param in param_names:
@@ -369,7 +390,7 @@ def checkpoint_on_change(project_id_param: str = "project_id"):
             if project_id and result is not None:
                 try:
                     checkpoint_mgr = get_checkpoint_manager()
-                    if hasattr(checkpoint_mgr, 'data_tracker'):
+                    if hasattr(checkpoint_mgr, "data_tracker"):
                         checkpoint_mgr.data_tracker.track_change(project_id, result)
                 except Exception as e:
                     logger.log_error(e, operation="checkpoint_on_change")
@@ -377,6 +398,7 @@ def checkpoint_on_change(project_id_param: str = "project_id"):
             return result
 
         return wrapper
+
     return decorator
 
 

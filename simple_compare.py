@@ -4,7 +4,6 @@ Simple V1 vs V2 Comparison (No Unicode)
 """
 
 import sys
-import os
 from pathlib import Path
 
 # Add paths
@@ -14,6 +13,7 @@ v2_path = Path(__file__).parent / "development_v2"
 sys.path.insert(0, str(v1_path))
 sys.path.insert(0, str(v2_path))
 
+
 def test_v1_basic():
     """Basic V1 functionality test."""
     print("TESTING V1 BASIC FUNCTIONALITY")
@@ -21,20 +21,22 @@ def test_v1_basic():
 
     try:
         import tkinter as tk
+
         root = tk.Tk()
         root.withdraw()
 
         import gui_interface
+
         v1_app = gui_interface.ValleySnowCalculator(root)
 
         # Check if key methods exist
         methods_exist = {
-            'calculate': hasattr(v1_app, 'calculate'),
-            'generate_report': hasattr(v1_app, 'generate_report'),
-            'save_project': hasattr(v1_app, 'save_project'),
-            'load_project': hasattr(v1_app, 'load_project'),
-            'generate_diagrams': hasattr(v1_app, 'generate_diagrams'),
-            'validate_all_inputs': hasattr(v1_app, 'validate_all_inputs')
+            "calculate": hasattr(v1_app, "calculate"),
+            "generate_report": hasattr(v1_app, "generate_report"),
+            "save_project": hasattr(v1_app, "save_project"),
+            "load_project": hasattr(v1_app, "load_project"),
+            "generate_diagrams": hasattr(v1_app, "generate_diagrams"),
+            "validate_all_inputs": hasattr(v1_app, "validate_all_inputs"),
         }
 
         print(f"V1 Methods found: {sum(methods_exist.values())}/{len(methods_exist)}")
@@ -55,6 +57,7 @@ def test_v1_basic():
         print(f"V1 test failed: {e}")
         return {}
 
+
 def test_v2_basic():
     """Basic V2 functionality test."""
     print("\nTESTING V2 BASIC FUNCTIONALITY")
@@ -62,7 +65,6 @@ def test_v2_basic():
 
     try:
         from valley_calculator import create_application
-        from valley_calculator.core.calculator import ValleyCalculator
         from valley_calculator.calculations import snow_loads, beam_analysis, geometry
 
         # Create app
@@ -70,32 +72,40 @@ def test_v2_basic():
 
         # Check calculator methods
         calc_methods = {
-            'perform_complete_analysis': hasattr(v2_app.calculator, 'perform_complete_analysis'),
-            'calculate_slope_parameters': hasattr(v2_app.calculator, 'calculate_slope_parameters'),
-            'validate_inputs': hasattr(v2_app.calculator, 'validate_inputs')
+            "perform_complete_analysis": hasattr(
+                v2_app.calculator, "perform_complete_analysis"
+            ),
+            "calculate_slope_parameters": hasattr(
+                v2_app.calculator, "calculate_slope_parameters"
+            ),
+            "validate_inputs": hasattr(v2_app.calculator, "validate_inputs"),
         }
 
         # Check calculation modules
         calc_modules = {
-            'snow_loads': hasattr(snow_loads, 'SnowLoadCalculator'),
-            'beam_analysis': hasattr(beam_analysis, 'BeamAnalyzer'),
-            'geometry': hasattr(geometry, 'RoofGeometry')
+            "snow_loads": hasattr(snow_loads, "SnowLoadCalculator"),
+            "beam_analysis": hasattr(beam_analysis, "BeamAnalyzer"),
+            "geometry": hasattr(geometry, "RoofGeometry"),
         }
 
         # Check UI components
         ui_components = {
-            'input_panel': hasattr(v2_app, 'input_panel'),
-            'results_display': hasattr(v2_app, 'results_display'),
-            'theme_manager': hasattr(v2_app, 'theme_manager'),
-            'tooltip_manager': hasattr(v2_app, 'tooltip_manager')
+            "input_panel": hasattr(v2_app, "input_panel"),
+            "results_display": hasattr(v2_app, "results_display"),
+            "theme_manager": hasattr(v2_app, "theme_manager"),
+            "tooltip_manager": hasattr(v2_app, "tooltip_manager"),
         }
 
-        print(f"V2 Calculator methods: {sum(calc_methods.values())}/{len(calc_methods)}")
+        print(
+            f"V2 Calculator methods: {sum(calc_methods.values())}/{len(calc_methods)}"
+        )
         for method, exists in calc_methods.items():
             status = "[YES]" if exists else "[NO]"
             print(f"  {status} {method}")
 
-        print(f"V2 Calculation modules: {sum(calc_modules.values())}/{len(calc_modules)}")
+        print(
+            f"V2 Calculation modules: {sum(calc_modules.values())}/{len(calc_modules)}"
+        )
         for module, exists in calc_modules.items():
             status = "[YES]" if exists else "[NO]"
             print(f"  {status} {module}")
@@ -111,6 +121,7 @@ def test_v2_basic():
         print(f"V2 test failed: {e}")
         return {}
 
+
 def functional_comparison():
     """Compare actual functionality."""
     print("\nFUNCTIONAL COMPARISON")
@@ -118,23 +129,28 @@ def functional_comparison():
 
     # Test with same inputs
     test_inputs = {
-        'pg': 25.0, 'north_span': 16.0, 'ew_half_width': 42.0,
-        'pitch_north': 8.0, 'beam_width': 3.5
+        "pg": 25.0,
+        "north_span": 16.0,
+        "ew_half_width": 42.0,
+        "pitch_north": 8.0,
+        "beam_width": 3.5,
     }
 
     # V2 test
     try:
         from valley_calculator import create_application
+
         v2_app = create_application()
         v2_results = v2_app.calculator.perform_complete_analysis(test_inputs)
 
         v2_functionality = {
-            'snow_load_calc': 'ps_balanced' in v2_results.get('snow_loads', {}),
-            'drift_calc': 'drift_loads' in v2_results.get('snow_loads', {}),
-            'beam_analysis': 'beam_analysis' in v2_results,
-            'stress_checks': 'stress_checks' in v2_results.get('beam_analysis', {}).get('beam_results', {}),
-            'geometry_calc': 'valley_geometry' in v2_results,
-            'diagrams_data': 'diagrams' in v2_results
+            "snow_load_calc": "ps_balanced" in v2_results.get("snow_loads", {}),
+            "drift_calc": "drift_loads" in v2_results.get("snow_loads", {}),
+            "beam_analysis": "beam_analysis" in v2_results,
+            "stress_checks": "stress_checks"
+            in v2_results.get("beam_analysis", {}).get("beam_results", {}),
+            "geometry_calc": "valley_geometry" in v2_results,
+            "diagrams_data": "diagrams" in v2_results,
         }
 
         print("V2 Functional Tests:")
@@ -153,6 +169,7 @@ def functional_comparison():
     print("  V1: Full functionality (complete engineering calculator)")
 
     return v2_score
+
 
 def main():
     print("VALLEY SNOW LOAD CALCULATOR - V1 vs V2 COMPARISON")
@@ -201,6 +218,7 @@ def main():
         print("V2 is MISSING CRITICAL ENGINEERING FUNCTIONALITY")
         print("Use V1 for complete, proven calculations")
         print("V2 needs more migration work")
+
 
 if __name__ == "__main__":
     main()

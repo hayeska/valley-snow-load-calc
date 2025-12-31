@@ -2,7 +2,7 @@
 
 import tkinter as tk
 from tkinter import ttk
-from typing import Dict, Any
+from typing import Dict
 
 
 class ThemeManager:
@@ -49,8 +49,8 @@ class ThemeManager:
                     "menu_bg": "#ffffff",
                     "menu_fg": "#212529",
                     "status_bg": "#e9ecef",
-                    "status_fg": "#495057"
-                }
+                    "status_fg": "#495057",
+                },
             },
             "dark": {
                 "name": "Dark",
@@ -77,8 +77,8 @@ class ThemeManager:
                     "menu_bg": "#2d2d2d",
                     "menu_fg": "#ffffff",
                     "status_bg": "#404040",
-                    "status_fg": "#cccccc"
-                }
+                    "status_fg": "#cccccc",
+                },
             },
             "high_contrast": {
                 "name": "High Contrast",
@@ -105,9 +105,9 @@ class ThemeManager:
                     "menu_bg": "#000000",
                     "menu_fg": "#ffffff",
                     "status_bg": "#333333",
-                    "status_fg": "#ffffff"
-                }
-            }
+                    "status_fg": "#ffffff",
+                },
+            },
         }
 
         # Initialize with light theme
@@ -149,112 +149,141 @@ class ThemeManager:
     def _configure_ttk_styles(self, colors: Dict[str, str]):
         """Configure ttk widget styles."""
         # Frame styles
-        self.style.configure("Card.TFrame",
-                           background=colors["bg_secondary"],
-                           borderwidth=1,
-                           relief="solid")
+        self.style.configure(
+            "Card.TFrame",
+            background=colors["bg_secondary"],
+            borderwidth=1,
+            relief="solid",
+        )
 
         # Label styles
-        self.style.configure("TLabel",
-                           background=colors["bg_primary"],
-                           foreground=colors["fg_primary"])
+        self.style.configure(
+            "TLabel", background=colors["bg_primary"], foreground=colors["fg_primary"]
+        )
 
-        self.style.configure("Header.TLabel",
-                           background=colors["bg_primary"],
-                           foreground=colors["fg_primary"],
-                           font=("Arial", 12, "bold"))
+        self.style.configure(
+            "Header.TLabel",
+            background=colors["bg_primary"],
+            foreground=colors["fg_primary"],
+            font=("Arial", 12, "bold"),
+        )
 
-        self.style.configure("Accent.TLabel",
-                           background=colors["bg_primary"],
-                           foreground=colors["accent_primary"],
-                           font=("Arial", 10, "bold"))
+        self.style.configure(
+            "Accent.TLabel",
+            background=colors["bg_primary"],
+            foreground=colors["accent_primary"],
+            font=("Arial", 10, "bold"),
+        )
 
         # Button styles
-        self.style.configure("TButton",
-                           background=colors["button_bg"],
-                           foreground=colors["button_fg"],
-                           borderwidth=1,
-                           relief="raised",
-                           font=("Arial", 10))
+        self.style.configure(
+            "TButton",
+            background=colors["button_bg"],
+            foreground=colors["button_fg"],
+            borderwidth=1,
+            relief="raised",
+            font=("Arial", 10),
+        )
 
-        self.style.map("TButton",
-                      background=[("active", colors["button_hover"])],
-                      foreground=[("active", colors["button_fg"])])
+        self.style.map(
+            "TButton",
+            background=[("active", colors["button_hover"])],
+            foreground=[("active", colors["button_fg"])],
+        )
 
         # Accent button (for calculate button)
-        self.style.configure("Accent.TButton",
-                           background=colors["accent_primary"],
-                           foreground=colors["button_fg"],
-                           borderwidth=2,
-                           relief="raised",
-                           font=("Arial", 12, "bold"))
+        self.style.configure(
+            "Accent.TButton",
+            background=colors["accent_primary"],
+            foreground=colors["button_fg"],
+            borderwidth=2,
+            relief="raised",
+            font=("Arial", 12, "bold"),
+        )
 
-        self.style.map("Accent.TButton",
-                      background=[("active", colors["accent_secondary"])],
-                      foreground=[("active", colors["button_fg"])])
+        self.style.map(
+            "Accent.TButton",
+            background=[("active", colors["accent_secondary"])],
+            foreground=[("active", colors["button_fg"])],
+        )
 
         # Entry styles
-        self.style.configure("TEntry",
-                           fieldbackground=colors["input_bg"],
-                           borderwidth=1,
-                           relief="solid")
+        self.style.configure(
+            "TEntry", fieldbackground=colors["input_bg"], borderwidth=1, relief="solid"
+        )
 
         # Combobox styles
-        self.style.configure("TCombobox",
-                           fieldbackground=colors["input_bg"],
-                           background=colors["button_bg"],
-                           foreground=colors["button_fg"])
+        self.style.configure(
+            "TCombobox",
+            fieldbackground=colors["input_bg"],
+            background=colors["button_bg"],
+            foreground=colors["button_fg"],
+        )
 
         # Notebook styles
-        self.style.configure("TNotebook",
-                           background=colors["bg_primary"],
-                           tabmargins=[2, 5, 2, 0])
+        self.style.configure(
+            "TNotebook", background=colors["bg_primary"], tabmargins=[2, 5, 2, 0]
+        )
 
-        self.style.configure("TNotebook.Tab",
-                           background=colors["bg_tertiary"],
-                           foreground=colors["fg_primary"],
-                           padding=[10, 5])
+        self.style.configure(
+            "TNotebook.Tab",
+            background=colors["bg_tertiary"],
+            foreground=colors["fg_primary"],
+            padding=[10, 5],
+        )
 
-        self.style.map("TNotebook.Tab",
-                      background=[("selected", colors["bg_secondary"])],
-                      foreground=[("selected", colors["fg_primary"])])
+        self.style.map(
+            "TNotebook.Tab",
+            background=[("selected", colors["bg_secondary"])],
+            foreground=[("selected", colors["fg_primary"])],
+        )
 
         # Progressbar styles
-        self.style.configure("TProgressbar",
-                           background=colors["accent_primary"],
-                           troughcolor=colors["bg_tertiary"],
-                           borderwidth=1,
-                           lightcolor=colors["accent_secondary"],
-                           darkcolor=colors["accent_primary"])
+        self.style.configure(
+            "TProgressbar",
+            background=colors["accent_primary"],
+            troughcolor=colors["bg_tertiary"],
+            borderwidth=1,
+            lightcolor=colors["accent_secondary"],
+            darkcolor=colors["accent_primary"],
+        )
 
     def _configure_custom_styles(self, colors: Dict[str, str]):
         """Configure custom widget styles."""
         # Status bar style
-        self.style.configure("Status.TLabel",
-                           background=colors["status_bg"],
-                           foreground=colors["status_fg"],
-                           font=("Arial", 9))
+        self.style.configure(
+            "Status.TLabel",
+            background=colors["status_bg"],
+            foreground=colors["status_fg"],
+            font=("Arial", 9),
+        )
 
         # Error/Success message styles
-        self.style.configure("Error.TLabel",
-                           background=colors["bg_primary"],
-                           foreground=colors["error"],
-                           font=("Arial", 9, "italic"))
+        self.style.configure(
+            "Error.TLabel",
+            background=colors["bg_primary"],
+            foreground=colors["error"],
+            font=("Arial", 9, "italic"),
+        )
 
-        self.style.configure("Success.TLabel",
-                           background=colors["bg_primary"],
-                           foreground=colors["success"],
-                           font=("Arial", 9, "italic"))
+        self.style.configure(
+            "Success.TLabel",
+            background=colors["bg_primary"],
+            foreground=colors["success"],
+            font=("Arial", 9, "italic"),
+        )
 
-        self.style.configure("Warning.TLabel",
-                           background=colors["bg_primary"],
-                           foreground=colors["warning"],
-                           font=("Arial", 9, "italic"))
+        self.style.configure(
+            "Warning.TLabel",
+            background=colors["bg_primary"],
+            foreground=colors["warning"],
+            font=("Arial", 9, "italic"),
+        )
 
     def _update_existing_widgets(self, colors: Dict[str, str]):
         """Update colors for existing custom widgets."""
         # Update the main window background
-        if hasattr(self, 'root') and self.root:
+        if hasattr(self, "root") and self.root:
             self.root.configure(bg=colors["bg_primary"])
 
         # Update V1 interface widgets (canvas, frames, etc.)
@@ -268,20 +297,22 @@ class ThemeManager:
                 if isinstance(child, tk.Canvas):
                     # Update canvas background
                     child.configure(bg=colors["bg_primary"])
-                elif hasattr(child, 'configure') and hasattr(child, 'winfo_class'):
+                elif hasattr(child, "configure") and hasattr(child, "winfo_class"):
                     widget_class = child.winfo_class()
-                    if widget_class in ['Frame', 'LabelFrame']:
+                    if widget_class in ["Frame", "LabelFrame"]:
                         # Update frame backgrounds
                         child.configure(bg=colors["bg_primary"])
-                    elif widget_class == 'Label':
+                    elif widget_class == "Label":
                         # Update label colors
-                        child.configure(bg=colors["bg_primary"], fg=colors["fg_primary"])
-                    elif widget_class == 'Button':
+                        child.configure(
+                            bg=colors["bg_primary"], fg=colors["fg_primary"]
+                        )
+                    elif widget_class == "Button":
                         # Update button colors
                         child.configure(bg=colors["button_bg"], fg=colors["button_fg"])
 
                 # Recursively update children
-                if hasattr(child, 'winfo_children'):
+                if hasattr(child, "winfo_children"):
                     self._update_widget_tree(child, colors)
         except Exception as e:
             print(f"Error updating V1 interface: {e}")
@@ -290,22 +321,27 @@ class ThemeManager:
         """Recursively update widget tree colors."""
         try:
             for child in widget.winfo_children():
-                if hasattr(child, 'configure') and hasattr(child, 'winfo_class'):
+                if hasattr(child, "configure") and hasattr(child, "winfo_class"):
                     widget_class = child.winfo_class()
-                    if widget_class in ['Frame', 'LabelFrame']:
+                    if widget_class in ["Frame", "LabelFrame"]:
                         child.configure(bg=colors["bg_primary"])
-                    elif widget_class == 'Label':
-                        child.configure(bg=colors["bg_primary"], fg=colors["fg_primary"])
-                    elif widget_class == 'Entry':
-                        child.configure(bg=colors["input_bg"], fg=colors["fg_primary"],
-                                      insertbackground=colors["fg_primary"])
-                    elif widget_class == 'Text':
+                    elif widget_class == "Label":
+                        child.configure(
+                            bg=colors["bg_primary"], fg=colors["fg_primary"]
+                        )
+                    elif widget_class == "Entry":
+                        child.configure(
+                            bg=colors["input_bg"],
+                            fg=colors["fg_primary"],
+                            insertbackground=colors["fg_primary"],
+                        )
+                    elif widget_class == "Text":
                         child.configure(bg=colors["input_bg"], fg=colors["fg_primary"])
 
                 # Continue recursion
-                if hasattr(child, 'winfo_children'):
+                if hasattr(child, "winfo_children"):
                     self._update_widget_tree(child, colors)
-        except Exception as e:
+        except Exception:
             # Silently ignore errors in widget updates
             pass
 
@@ -314,21 +350,25 @@ class ThemeManager:
         colors = self.get_current_theme_colors()
         return colors.get(color_key, "#000000")
 
-    def create_colored_button(self, parent, text: str, color_key: str = "accent_primary",
-                            command=None) -> tk.Button:
+    def create_colored_button(
+        self, parent, text: str, color_key: str = "accent_primary", command=None
+    ) -> tk.Button:
         """Create a custom colored button."""
         colors = self.get_current_theme_colors()
         button_color = colors.get(color_key, colors["accent_primary"])
 
-        button = tk.Button(parent, text=text,
-                          bg=button_color,
-                          fg=colors["button_fg"],
-                          activebackground=colors["accent_secondary"],
-                          activeforeground=colors["button_fg"],
-                          relief="raised",
-                          borderwidth=2,
-                          font=("Arial", 10, "bold"),
-                          command=command)
+        button = tk.Button(
+            parent,
+            text=text,
+            bg=button_color,
+            fg=colors["button_fg"],
+            activebackground=colors["accent_secondary"],
+            activeforeground=colors["button_fg"],
+            relief="raised",
+            borderwidth=2,
+            font=("Arial", 10, "bold"),
+            command=command,
+        )
         return button
 
     def create_highlight_frame(self, parent, highlight_color: str = None) -> tk.Frame:
@@ -337,11 +377,13 @@ class ThemeManager:
         if highlight_color is None:
             highlight_color = colors["accent_primary"]
 
-        frame = tk.Frame(parent,
-                        bg=colors["bg_secondary"],
-                        highlightbackground=highlight_color,
-                        highlightcolor=highlight_color,
-                        highlightthickness=2)
+        frame = tk.Frame(
+            parent,
+            bg=colors["bg_secondary"],
+            highlightbackground=highlight_color,
+            highlightcolor=highlight_color,
+            highlightthickness=2,
+        )
         return frame
 
 
@@ -368,5 +410,3 @@ def get_current_theme_colors() -> Dict[str, str]:
     if _theme_manager:
         return _theme_manager.get_current_theme_colors()
     return {}
-
-

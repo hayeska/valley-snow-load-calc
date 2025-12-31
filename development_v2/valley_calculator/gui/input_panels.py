@@ -2,7 +2,7 @@
 
 import tkinter as tk
 from tkinter import ttk
-from typing import Dict, Optional
+from typing import Dict
 from .tooltips import add_tooltip
 
 
@@ -30,7 +30,7 @@ class InputPanel(ttk.Frame):
 
         self.scrollable_frame.bind(
             "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")),
         )
 
         self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
@@ -50,7 +50,9 @@ class InputPanel(ttk.Frame):
 
     def _create_project_section(self):
         """Create project information section."""
-        frame = ttk.LabelFrame(self.scrollable_frame, text="Project Information", padding=10)
+        frame = ttk.LabelFrame(
+            self.scrollable_frame, text="Project Information", padding=10
+        )
         frame.pack(fill="x", padx=5, pady=5)
 
         # Project name
@@ -77,13 +79,15 @@ class InputPanel(ttk.Frame):
 
     def _create_snow_load_section(self):
         """Create snow load parameters section."""
-        frame = ttk.LabelFrame(self.scrollable_frame, text="Snow Load Parameters", padding=10)
+        frame = ttk.LabelFrame(
+            self.scrollable_frame, text="Snow Load Parameters", padding=10
+        )
         frame.pack(fill="x", padx=5, pady=5)
 
         # Ground snow load
         pg_label = ttk.Label(frame, text="Ground Snow Load pg (psf):")
         pg_label.grid(row=0, column=0, sticky="w", pady=2)
-        self.pg = tk.DoubleVar(value=self.defaults['ground_snow_load'])
+        self.pg = tk.DoubleVar(value=self.defaults["ground_snow_load"])
         pg_entry = ttk.Entry(frame, textvariable=self.pg)
         pg_entry.grid(row=0, column=1, sticky="ew", pady=2)
         if self.tooltip_manager:
@@ -93,7 +97,7 @@ class InputPanel(ttk.Frame):
         # Winter wind parameter
         w2_label = ttk.Label(frame, text="Winter Wind Parameter W2:")
         w2_label.grid(row=1, column=0, sticky="w", pady=2)
-        self.w2 = tk.DoubleVar(value=self.defaults['winter_wind_parameter'])
+        self.w2 = tk.DoubleVar(value=self.defaults["winter_wind_parameter"])
         w2_entry = ttk.Entry(frame, textvariable=self.w2)
         w2_entry.grid(row=1, column=1, sticky="ew", pady=2)
         if self.tooltip_manager:
@@ -103,7 +107,7 @@ class InputPanel(ttk.Frame):
         # Exposure factor
         ce_label = ttk.Label(frame, text="Exposure Factor Ce:")
         ce_label.grid(row=2, column=0, sticky="w", pady=2)
-        self.ce = tk.DoubleVar(value=self.defaults['exposure_factor'])
+        self.ce = tk.DoubleVar(value=self.defaults["exposure_factor"])
         ce_entry = ttk.Entry(frame, textvariable=self.ce)
         ce_entry.grid(row=2, column=1, sticky="ew", pady=2)
         if self.tooltip_manager:
@@ -113,7 +117,7 @@ class InputPanel(ttk.Frame):
         # Thermal factor
         ct_label = ttk.Label(frame, text="Thermal Factor Ct:")
         ct_label.grid(row=3, column=0, sticky="w", pady=2)
-        self.ct = tk.DoubleVar(value=self.defaults['thermal_factor'])
+        self.ct = tk.DoubleVar(value=self.defaults["thermal_factor"])
         ct_entry = ttk.Entry(frame, textvariable=self.ct)
         ct_entry.grid(row=3, column=1, sticky="ew", pady=2)
         if self.tooltip_manager:
@@ -123,7 +127,7 @@ class InputPanel(ttk.Frame):
         # Importance factor
         is_label = ttk.Label(frame, text="Importance Factor Is:")
         is_label.grid(row=4, column=0, sticky="w", pady=2)
-        self.is_factor = tk.DoubleVar(value=self.defaults['importance_factor'])
+        self.is_factor = tk.DoubleVar(value=self.defaults["importance_factor"])
         is_entry = ttk.Entry(frame, textvariable=self.is_factor)
         is_entry.grid(row=4, column=1, sticky="ew", pady=2)
         if self.tooltip_manager:
@@ -140,7 +144,7 @@ class InputPanel(ttk.Frame):
         # North span
         north_span_label = ttk.Label(frame, text="North Span (ft):")
         north_span_label.grid(row=0, column=0, sticky="w", pady=2)
-        self.north_span = tk.DoubleVar(value=self.defaults['north_span'])
+        self.north_span = tk.DoubleVar(value=self.defaults["north_span"])
         north_span_entry = ttk.Entry(frame, textvariable=self.north_span)
         north_span_entry.grid(row=0, column=1, sticky="ew", pady=2)
         if self.tooltip_manager:
@@ -150,7 +154,7 @@ class InputPanel(ttk.Frame):
         # South span
         south_span_label = ttk.Label(frame, text="South Span (ft):")
         south_span_label.grid(row=1, column=0, sticky="w", pady=2)
-        self.south_span = tk.DoubleVar(value=self.defaults['south_span'])
+        self.south_span = tk.DoubleVar(value=self.defaults["south_span"])
         south_span_entry = ttk.Entry(frame, textvariable=self.south_span)
         south_span_entry.grid(row=1, column=1, sticky="ew", pady=2)
         if self.tooltip_manager:
@@ -160,7 +164,7 @@ class InputPanel(ttk.Frame):
         # E-W half width
         ew_label = ttk.Label(frame, text="E-W Half Width (ft):")
         ew_label.grid(row=2, column=0, sticky="w", pady=2)
-        self.ew_half_width = tk.DoubleVar(value=self.defaults['ew_half_width'])
+        self.ew_half_width = tk.DoubleVar(value=self.defaults["ew_half_width"])
         ew_entry = ttk.Entry(frame, textvariable=self.ew_half_width)
         ew_entry.grid(row=2, column=1, sticky="ew", pady=2)
         if self.tooltip_manager:
@@ -170,7 +174,7 @@ class InputPanel(ttk.Frame):
         # Valley offset
         valley_label = ttk.Label(frame, text="Valley Offset (ft):")
         valley_label.grid(row=3, column=0, sticky="w", pady=2)
-        self.valley_offset = tk.DoubleVar(value=self.defaults['valley_offset'])
+        self.valley_offset = tk.DoubleVar(value=self.defaults["valley_offset"])
         valley_entry = ttk.Entry(frame, textvariable=self.valley_offset)
         valley_entry.grid(row=3, column=1, sticky="ew", pady=2)
         if self.tooltip_manager:
@@ -180,7 +184,7 @@ class InputPanel(ttk.Frame):
         # North pitch
         pitch_n_label = ttk.Label(frame, text="North Roof Pitch (rise/12):")
         pitch_n_label.grid(row=4, column=0, sticky="w", pady=2)
-        self.pitch_north = tk.DoubleVar(value=self.defaults['roof_pitch_north'])
+        self.pitch_north = tk.DoubleVar(value=self.defaults["roof_pitch_north"])
         pitch_n_entry = ttk.Entry(frame, textvariable=self.pitch_north)
         pitch_n_entry.grid(row=4, column=1, sticky="ew", pady=2)
         if self.tooltip_manager:
@@ -190,7 +194,7 @@ class InputPanel(ttk.Frame):
         # West pitch
         pitch_w_label = ttk.Label(frame, text="West Roof Pitch (rise/12):")
         pitch_w_label.grid(row=5, column=0, sticky="w", pady=2)
-        self.pitch_west = tk.DoubleVar(value=self.defaults['roof_pitch_west'])
+        self.pitch_west = tk.DoubleVar(value=self.defaults["roof_pitch_west"])
         pitch_w_entry = ttk.Entry(frame, textvariable=self.pitch_west)
         pitch_w_entry.grid(row=5, column=1, sticky="ew", pady=2)
         if self.tooltip_manager:
@@ -201,13 +205,15 @@ class InputPanel(ttk.Frame):
 
     def _create_material_section(self):
         """Create material properties section."""
-        frame = ttk.LabelFrame(self.scrollable_frame, text="Material Properties", padding=10)
+        frame = ttk.LabelFrame(
+            self.scrollable_frame, text="Material Properties", padding=10
+        )
         frame.pack(fill="x", padx=5, pady=5)
 
         # Dead load
         dl_label = ttk.Label(frame, text="Dead Load (psf):")
         dl_label.grid(row=0, column=0, sticky="w", pady=2)
-        self.dead_load = tk.DoubleVar(value=self.defaults['dead_load'])
+        self.dead_load = tk.DoubleVar(value=self.defaults["dead_load"])
         dl_entry = ttk.Entry(frame, textvariable=self.dead_load)
         dl_entry.grid(row=0, column=1, sticky="ew", pady=2)
         if self.tooltip_manager:
@@ -217,7 +223,7 @@ class InputPanel(ttk.Frame):
         # Beam width
         width_label = ttk.Label(frame, text="Beam Width (in):")
         width_label.grid(row=1, column=0, sticky="w", pady=2)
-        self.beam_width = tk.DoubleVar(value=self.defaults['beam_width'])
+        self.beam_width = tk.DoubleVar(value=self.defaults["beam_width"])
         width_entry = ttk.Entry(frame, textvariable=self.beam_width)
         width_entry.grid(row=1, column=1, sticky="ew", pady=2)
         if self.tooltip_manager:
@@ -227,7 +233,7 @@ class InputPanel(ttk.Frame):
         # Beam depth
         depth_label = ttk.Label(frame, text="Beam Depth (in):")
         depth_label.grid(row=2, column=0, sticky="w", pady=2)
-        self.beam_depth = tk.DoubleVar(value=self.defaults['beam_depth'])
+        self.beam_depth = tk.DoubleVar(value=self.defaults["beam_depth"])
         depth_entry = ttk.Entry(frame, textvariable=self.beam_depth)
         depth_entry.grid(row=2, column=1, sticky="ew", pady=2)
         if self.tooltip_manager:
@@ -238,7 +244,7 @@ class InputPanel(ttk.Frame):
 
     def _on_mousewheel(self, event):
         """Handle mouse wheel scrolling."""
-        self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
     def get_project_name(self) -> str:
         """Get the project name."""
@@ -247,39 +253,47 @@ class InputPanel(ttk.Frame):
     def get_values(self) -> Dict:
         """Get all input values as a dictionary."""
         return {
-            'project_name': self.project_name.get(),
-            'location': self.location.get(),
-            'pg': self.pg.get(),
-            'w2': self.w2.get(),
-            'ce': self.ce.get(),
-            'ct': self.ct.get(),
-            'is': self.is_factor.get(),
-            'north_span': self.north_span.get(),
-            'south_span': self.south_span.get(),
-            'ew_half_width': self.ew_half_width.get(),
-            'valley_offset': self.valley_offset.get(),
-            'pitch_north': self.pitch_north.get(),
-            'pitch_west': self.pitch_west.get(),
-            'dead_load': self.dead_load.get(),
-            'beam_width': self.beam_width.get(),
-            'beam_depth': self.beam_depth.get()
+            "project_name": self.project_name.get(),
+            "location": self.location.get(),
+            "pg": self.pg.get(),
+            "w2": self.w2.get(),
+            "ce": self.ce.get(),
+            "ct": self.ct.get(),
+            "is": self.is_factor.get(),
+            "north_span": self.north_span.get(),
+            "south_span": self.south_span.get(),
+            "ew_half_width": self.ew_half_width.get(),
+            "valley_offset": self.valley_offset.get(),
+            "pitch_north": self.pitch_north.get(),
+            "pitch_west": self.pitch_west.get(),
+            "dead_load": self.dead_load.get(),
+            "beam_width": self.beam_width.get(),
+            "beam_depth": self.beam_depth.get(),
         }
 
     def set_values(self, values: Dict):
         """Set input values from a dictionary."""
-        self.project_name.set(values.get('project_name', self.defaults.get('project_name', 'New Project')))
-        self.location.set(values.get('location', 'Site Location'))
-        self.pg.set(values.get('pg', self.defaults['ground_snow_load']))
-        self.w2.set(values.get('w2', self.defaults['winter_wind_parameter']))
-        self.ce.set(values.get('ce', self.defaults['exposure_factor']))
-        self.ct.set(values.get('ct', self.defaults['thermal_factor']))
-        self.is_factor.set(values.get('is', self.defaults['importance_factor']))
-        self.north_span.set(values.get('north_span', self.defaults['north_span']))
-        self.south_span.set(values.get('south_span', self.defaults['south_span']))
-        self.ew_half_width.set(values.get('ew_half_width', self.defaults['ew_half_width']))
-        self.valley_offset.set(values.get('valley_offset', self.defaults['valley_offset']))
-        self.pitch_north.set(values.get('pitch_north', self.defaults['roof_pitch_north']))
-        self.pitch_west.set(values.get('pitch_west', self.defaults['roof_pitch_west']))
-        self.dead_load.set(values.get('dead_load', self.defaults['dead_load']))
-        self.beam_width.set(values.get('beam_width', self.defaults['beam_width']))
-        self.beam_depth.set(values.get('beam_depth', self.defaults['beam_depth']))
+        self.project_name.set(
+            values.get("project_name", self.defaults.get("project_name", "New Project"))
+        )
+        self.location.set(values.get("location", "Site Location"))
+        self.pg.set(values.get("pg", self.defaults["ground_snow_load"]))
+        self.w2.set(values.get("w2", self.defaults["winter_wind_parameter"]))
+        self.ce.set(values.get("ce", self.defaults["exposure_factor"]))
+        self.ct.set(values.get("ct", self.defaults["thermal_factor"]))
+        self.is_factor.set(values.get("is", self.defaults["importance_factor"]))
+        self.north_span.set(values.get("north_span", self.defaults["north_span"]))
+        self.south_span.set(values.get("south_span", self.defaults["south_span"]))
+        self.ew_half_width.set(
+            values.get("ew_half_width", self.defaults["ew_half_width"])
+        )
+        self.valley_offset.set(
+            values.get("valley_offset", self.defaults["valley_offset"])
+        )
+        self.pitch_north.set(
+            values.get("pitch_north", self.defaults["roof_pitch_north"])
+        )
+        self.pitch_west.set(values.get("pitch_west", self.defaults["roof_pitch_west"]))
+        self.dead_load.set(values.get("dead_load", self.defaults["dead_load"]))
+        self.beam_width.set(values.get("beam_width", self.defaults["beam_width"]))
+        self.beam_depth.set(values.get("beam_depth", self.defaults["beam_depth"]))

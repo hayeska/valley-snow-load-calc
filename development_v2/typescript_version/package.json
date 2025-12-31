@@ -18,11 +18,18 @@
     "test:summary": "node test-summary.js",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
+    "precommit:install": "pre-commit install",
+    "precommit:run": "pre-commit run --all-files",
     "backup": "node backup-scheduler.js",
     "backup:test": "node backup-scheduler.js --test",
     "backup:once": "node backup-scheduler.js --once"
   },
-  "keywords": ["snow-load", "ASCE-7-22", "engineering", "resilient"],
+  "keywords": [
+    "snow-load",
+    "ASCE-7-22",
+    "engineering",
+    "resilient"
+  ],
   "author": "Valley Snow Load Calculator Team",
   "license": "MIT",
   "dependencies": {

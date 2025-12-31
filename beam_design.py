@@ -5,34 +5,39 @@ import math
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+
 class ValleyBeamInputs:
-    def __init__(self,
-                 tributary_width=4.0,
-                 beam_width_b=5.125,
-                 beam_depth_d=11.875,
-                 Fb=2400.0,
-                 Fv=265.0,
-                 E=1800000.0,
-                 deflection_limit_n=240,
-                 rafter_sloped_length_ft=None,
-                 jack_spacing_inches=None,
-                 # New parameter names for compatibility
-                 tributary_perp_ft=None,
-                 beam_width_in=None,
-                 beam_depth_trial_in=None,
-                 fb_allowable_psi=None,
-                 fv_allowable_psi=None,
-                 modulus_e_psi=None,
-                 deflection_snow_limit=None,
-                 deflection_total_limit=None,
-                 ps_balanced_psf=None,
-                 governing_pd_max_psf=None,
-                 roof_dead_psf=None,
-                 governing_drift_width_ft=None,
-                 **kwargs):
+    def __init__(
+        self,
+        tributary_width=4.0,
+        beam_width_b=5.125,
+        beam_depth_d=11.875,
+        Fb=2400.0,
+        Fv=265.0,
+        E=1800000.0,
+        deflection_limit_n=240,
+        rafter_sloped_length_ft=None,
+        jack_spacing_inches=None,
+        # New parameter names for compatibility
+        tributary_perp_ft=None,
+        beam_width_in=None,
+        beam_depth_trial_in=None,
+        fb_allowable_psi=None,
+        fv_allowable_psi=None,
+        modulus_e_psi=None,
+        deflection_snow_limit=None,
+        deflection_total_limit=None,
+        ps_balanced_psf=None,
+        governing_pd_max_psf=None,
+        roof_dead_psf=None,
+        governing_drift_width_ft=None,
+        **kwargs,
+    ):
         # Use new parameter names if provided, otherwise fall back to old ones
         self.tributary_width = float(tributary_perp_ft or tributary_width or 4.0)
-        self.tributary_perp_ft = self.tributary_width  # Also set new name for consistency
+        self.tributary_perp_ft = (
+            self.tributary_width
+        )  # Also set new name for consistency
 
         self.beam_width_b = float(beam_width_in or beam_width_b or 5.125)
         self.beam_width_in = self.beam_width_b  # Also set new name
@@ -49,9 +54,13 @@ class ValleyBeamInputs:
         self.E = float(modulus_e_psi or E or 1800000.0)
         self.modulus_e_psi = self.E  # Also set new name
 
-        self.deflection_limit_n = int(deflection_snow_limit or deflection_limit_n or 240)
+        self.deflection_limit_n = int(
+            deflection_snow_limit or deflection_limit_n or 240
+        )
         self.deflection_snow_limit = self.deflection_limit_n  # Also set new name
-        self.deflection_total_limit = int(deflection_total_limit or 360)  # Default 360 for total deflection
+        self.deflection_total_limit = int(
+            deflection_total_limit or 360
+        )  # Default 360 for total deflection
 
         self.rafter_sloped_length_ft = rafter_sloped_length_ft
         self.jack_spacing_inches = jack_spacing_inches
@@ -62,12 +71,15 @@ class ValleyBeamInputs:
         self.roof_dead_psf = roof_dead_psf or 15.0
         self.governing_drift_width_ft = governing_drift_width_ft or 20.0
 
+
 class ValleyBeamDesigner:
     def __init__(self, inputs: ValleyBeamInputs):
         self.inputs = inputs
         self.results = None
 
-    def design_with_point_loads(self, snow_point_loads, dead_point_loads, lv, valley_rafter_length):
+    def design_with_point_loads(
+        self, snow_point_loads, dead_point_loads, lv, valley_rafter_length
+    ):
         """
         Design valley beam with separate snow and dead point loads from jack rafters.
         snow_point_loads: list of (position_from_eave_ft, snow_load_lb) tuples
@@ -82,7 +94,9 @@ class ValleyBeamDesigner:
 
             # Combine loads for structural analysis (ASD: D + 0.7S for stresses)
             point_loads_sorted = []
-            for i, ((pos_s, load_s), (pos_d, load_d)) in enumerate(zip(snow_point_loads_sorted, dead_point_loads_sorted)):
+            for i, ((pos_s, load_s), (pos_d, load_d)) in enumerate(
+                zip(snow_point_loads_sorted, dead_point_loads_sorted)
+            ):
                 combined_load = load_d + 0.7 * load_s  # ASD loads for stress analysis
                 point_loads_sorted.append((pos_s, combined_load))
 
@@ -98,7 +112,9 @@ class ValleyBeamDesigner:
 
             # Calculate moments at multiple points along the beam for exact maximum
             # Use 0.1 ft intervals for precise calculation
-            num_points = max(50, int(lv / 0.1))  # At least 50 points or 10 points per foot
+            num_points = max(
+                50, int(lv / 0.1)
+            )  # At least 50 points or 10 points per foot
             positions = [i * lv / (num_points - 1) for i in range(num_points)]
             moments = []
 
@@ -130,20 +146,26 @@ class ValleyBeamDesigner:
             max_shear = max(shears) if shears else 0
 
             forces = {
-                'total_load_kips': total_load / 1000,
-                'reaction_eave_lb': reaction_eave,
-                'reaction_ridge_lb': reaction_ridge,
-                'max_moment_ft_kip': max_moment / 1000,  # Convert to ft-kip
-                'max_shear_kip': max_shear / 1000,        # Convert to kip
-                'moment_location_ft_from_eave': max_moment_location
+                "total_load_kips": total_load / 1000,
+                "reaction_eave_lb": reaction_eave,
+                "reaction_ridge_lb": reaction_ridge,
+                "max_moment_ft_kip": max_moment / 1000,  # Convert to ft-kip
+                "max_shear_kip": max_shear / 1000,  # Convert to kip
+                "moment_location_ft_from_eave": max_moment_location,
             }
 
             # Perform design checks
-            self.results = self._perform_point_load_design_checks(forces, valley_rafter_length, point_loads_sorted, snow_point_loads_sorted, dead_point_loads_sorted)
+            self.results = self._perform_point_load_design_checks(
+                forces,
+                valley_rafter_length,
+                point_loads_sorted,
+                snow_point_loads_sorted,
+                dead_point_loads_sorted,
+            )
             return self.results
 
         except Exception as e:
-            return {'error': f'Beam design error: {str(e)}'}
+            return {"error": f"Beam design error: {str(e)}"}
 
     def _calculate_reactions(self, point_loads, lv):
         """Calculate support reactions for simply supported beam"""
@@ -200,7 +222,14 @@ class ValleyBeamDesigner:
             return max(point_loads, key=lambda x: x[1])[0]
         return lv / 2
 
-    def _perform_point_load_design_checks(self, forces, valley_rafter_length, point_loads, snow_point_loads, dead_point_loads):
+    def _perform_point_load_design_checks(
+        self,
+        forces,
+        valley_rafter_length,
+        point_loads,
+        snow_point_loads,
+        dead_point_loads,
+    ):
         """Perform design checks for beam with point loads"""
         try:
             L_ft = valley_rafter_length or self.inputs.rafter_sloped_length_ft or 70.0
@@ -209,8 +238,8 @@ class ValleyBeamDesigner:
             L_in = L_ft * 12
 
             # Use the calculated forces
-            Mu_ftlb = forces['max_moment_ft_kip'] * 1000  # Convert back to ft-lb
-            Vu_lb = forces['max_shear_kip'] * 1000        # Convert back to lb
+            Mu_ftlb = forces["max_moment_ft_kip"] * 1000  # Convert back to ft-lb
+            Vu_lb = forces["max_shear_kip"] * 1000  # Convert back to lb
 
             # Calculate deflections for serviceability checks (IBC Table 1604.3 footnote)
             I = self.inputs.beam_width_in * self.inputs.beam_depth_trial_in**3 / 12
@@ -218,14 +247,24 @@ class ValleyBeamDesigner:
             # Snow deflection: 0.7 * snow loads only
             snow_load_total = sum(load for _, load in snow_point_loads)
             snow_load_plf = snow_load_total / L_ft  # lb/ft
-            w_snow_pli = (0.7 * snow_load_plf) / 12  # lb/in (0.7 factor for serviceability)
-            delta_snow_in = 5 * w_snow_pli * L_in**4 / (384 * self.inputs.modulus_e_psi * I) if I > 0 and self.inputs.modulus_e_psi > 0 else 0
+            w_snow_pli = (
+                0.7 * snow_load_plf
+            ) / 12  # lb/in (0.7 factor for serviceability)
+            delta_snow_in = (
+                5 * w_snow_pli * L_in**4 / (384 * self.inputs.modulus_e_psi * I)
+                if I > 0 and self.inputs.modulus_e_psi > 0
+                else 0
+            )
 
             # Total deflection: dead loads + 0.7 * snow loads
             dead_load_total = sum(load for _, load in dead_point_loads)
             total_service_load_plf = dead_load_total + 0.7 * snow_load_total  # lb/ft
             w_total_pli = total_service_load_plf / L_ft / 12  # lb/in
-            delta_total_in = 5 * w_total_pli * L_in**4 / (384 * self.inputs.modulus_e_psi * I) if I > 0 and self.inputs.modulus_e_psi > 0 else 0
+            delta_total_in = (
+                5 * w_total_pli * L_in**4 / (384 * self.inputs.modulus_e_psi * I)
+                if I > 0 and self.inputs.modulus_e_psi > 0
+                else 0
+            )
 
             Fb_prime = self.inputs.fb_allowable_psi * 1.15
             Fv_prime = self.inputs.fv_allowable_psi * 1.15
@@ -239,56 +278,74 @@ class ValleyBeamDesigner:
             ratio_shear = fv / Fv_prime if Fv_prime > 0 else 0
             delta_limit_snow = L_in / self.inputs.deflection_snow_limit
             delta_limit_total = L_in / self.inputs.deflection_total_limit
-            ratio_deflection_snow = delta_snow_in / delta_limit_snow if delta_limit_snow > 0 else 0
-            ratio_deflection_total = delta_total_in / delta_limit_total if delta_limit_total > 0 else 0
+            ratio_deflection_snow = (
+                delta_snow_in / delta_limit_snow if delta_limit_snow > 0 else 0
+            )
+            ratio_deflection_total = (
+                delta_total_in / delta_limit_total if delta_limit_total > 0 else 0
+            )
 
-            passes = all(r <= 1.0 for r in [ratio_bending, ratio_shear, ratio_deflection_snow, ratio_deflection_total])
+            passes = all(
+                r <= 1.0
+                for r in [
+                    ratio_bending,
+                    ratio_shear,
+                    ratio_deflection_snow,
+                    ratio_deflection_total,
+                ]
+            )
 
             # Determine pass/fail for each check
             bending_status = "PASS" if ratio_bending <= 1.0 else "FAIL"
             shear_status = "PASS" if ratio_shear <= 1.0 else "FAIL"
             deflection_snow_status = "PASS" if ratio_deflection_snow <= 1.0 else "FAIL"
-            deflection_total_status = "PASS" if ratio_deflection_total <= 1.0 else "FAIL"
+            deflection_total_status = (
+                "PASS" if ratio_deflection_total <= 1.0 else "FAIL"
+            )
 
             results = {
-                'L_sloped_ft': L_ft,
-                'total_point_loads': len(point_loads),
-                'reactions_lb': f"{forces['reaction_eave_lb']:.0f} @ eave, {forces['reaction_ridge_lb']:.0f} @ ridge",
-                'Mu_ftlb': Mu_ftlb,
-                'Vu_lb': Vu_lb,
-                'delta_snow_in': delta_snow_in,
-                'delta_total_in': delta_total_in,
-                'delta_limit_snow_in': delta_limit_snow,
-                'delta_limit_total_in': delta_limit_total,
-                'fb_actual_psi': fb,
-                'fb_allowable_psi': Fb_prime,
-                'fv_actual_psi': fv,
-                'fv_allowable_psi': Fv_prime,
-                'ratio_bending': ratio_bending,
-                'ratio_shear': ratio_shear,
-                'ratio_deflection_snow': ratio_deflection_snow,
-                'ratio_deflection_total': ratio_deflection_total,
-                'bending_status': bending_status,
-                'shear_status': shear_status,
-                'deflection_snow_status': deflection_snow_status,
-                'deflection_total_status': deflection_total_status,
-                'passes': passes,
-                'section': f"{self.inputs.beam_width_in:.3f} x {self.inputs.beam_depth_trial_in:.3f} inches"
+                "L_sloped_ft": L_ft,
+                "total_point_loads": len(point_loads),
+                "reactions_lb": f"{forces['reaction_eave_lb']:.0f} @ eave, {forces['reaction_ridge_lb']:.0f} @ ridge",
+                "Mu_ftlb": Mu_ftlb,
+                "Vu_lb": Vu_lb,
+                "delta_snow_in": delta_snow_in,
+                "delta_total_in": delta_total_in,
+                "delta_limit_snow_in": delta_limit_snow,
+                "delta_limit_total_in": delta_limit_total,
+                "fb_actual_psi": fb,
+                "fb_allowable_psi": Fb_prime,
+                "fv_actual_psi": fv,
+                "fv_allowable_psi": Fv_prime,
+                "ratio_bending": ratio_bending,
+                "ratio_shear": ratio_shear,
+                "ratio_deflection_snow": ratio_deflection_snow,
+                "ratio_deflection_total": ratio_deflection_total,
+                "bending_status": bending_status,
+                "shear_status": shear_status,
+                "deflection_snow_status": deflection_snow_status,
+                "deflection_total_status": deflection_total_status,
+                "passes": passes,
+                "section": f"{self.inputs.beam_width_in:.3f} x {self.inputs.beam_depth_trial_in:.3f} inches",
             }
 
         except Exception as e:
-            results = {'error': f"Point load design check error: {str(e)}"}
+            results = {"error": f"Point load design check error: {str(e)}"}
 
         return results
 
-    def design(self, ps, pd_max_n, w_n, pd_max_w, w_w, lv, valley_rafter_length, phi_rad):
+    def design(
+        self, ps, pd_max_n, w_n, pd_max_w, w_w, lv, valley_rafter_length, phi_rad
+    ):
         try:
             trib = self.inputs.tributary_width
             w_uniform_plf = ps * trib if ps else 0
 
             # Debug: ensure inputs are valid
             if not valley_rafter_length or valley_rafter_length <= 0:
-                raise ValueError(f"Invalid valley_rafter_length: {valley_rafter_length}")
+                raise ValueError(
+                    f"Invalid valley_rafter_length: {valley_rafter_length}"
+                )
             if trib <= 0:
                 raise ValueError(f"Invalid tributary width: {trib}")
 
@@ -319,7 +376,11 @@ class ValleyBeamDesigner:
             w_eq_plf = w_uniform_plf + 0.5 * max_var_plf
             w_eq_pli = w_eq_plf / 12
             I = self.inputs.beam_width_in * self.inputs.beam_depth_trial_in**3 / 12
-            delta_in = 5 * w_eq_pli * L_in**4 / (384 * self.inputs.modulus_e_psi * I) if I > 0 and self.inputs.modulus_e_psi > 0 else 0
+            delta_in = (
+                5 * w_eq_pli * L_in**4 / (384 * self.inputs.modulus_e_psi * I)
+                if I > 0 and self.inputs.modulus_e_psi > 0
+                else 0
+            )
 
             Fb_prime = self.inputs.fb_allowable_psi * 1.15
             Fv_prime = self.inputs.fv_allowable_psi * 1.15
@@ -334,35 +395,39 @@ class ValleyBeamDesigner:
             delta_limit = L_in / self.inputs.deflection_snow_limit
             ratio_deflection = delta_in / delta_limit if delta_limit > 0 else 0
 
-            passes = all(r <= 1.0 for r in [ratio_bending, ratio_shear, ratio_deflection])
+            passes = all(
+                r <= 1.0 for r in [ratio_bending, ratio_shear, ratio_deflection]
+            )
 
             self.results = {
-                'L_sloped_ft': L_ft,
-                'w_uniform_plf': w_uniform_plf,
-                'w_max_total_plf': w_max_total_plf,
-                'Mu_ftlb': Mu_ftlb,
-                'Vu_lb': Vu_lb,
-                'delta_in': delta_in,
-                'delta_limit_in': delta_limit,
-                'ratio_bending': ratio_bending,
-                'ratio_shear': ratio_shear,
-                'ratio_deflection': ratio_deflection,
-                'passes': passes,
-                'section': f"{self.inputs.beam_width_in:.3f} x {self.inputs.beam_depth_trial_in:.3f} inches"
+                "L_sloped_ft": L_ft,
+                "w_uniform_plf": w_uniform_plf,
+                "w_max_total_plf": w_max_total_plf,
+                "Mu_ftlb": Mu_ftlb,
+                "Vu_lb": Vu_lb,
+                "delta_in": delta_in,
+                "delta_limit_in": delta_limit,
+                "ratio_bending": ratio_bending,
+                "ratio_shear": ratio_shear,
+                "ratio_deflection": ratio_deflection,
+                "passes": passes,
+                "section": f"{self.inputs.beam_width_in:.3f} x {self.inputs.beam_depth_trial_in:.3f} inches",
             }
         except Exception as e:
-            self.results = {'error': f"Beam calculation error: {str(e)}"}
+            self.results = {"error": f"Beam calculation error: {str(e)}"}
         return self.results
 
     def design_summary(self):
         if not self.results:
             return "Beam design not calculated (no data)."
 
-        if 'error' in self.results:
+        if "error" in self.results:
             return f"ERROR in beam design: {self.results['error']}"
 
         r = self.results
-        status = "PASSES" if r['passes'] else "FAILS - Increase section or material grade"
+        status = (
+            "PASSES" if r["passes"] else "FAILS - Increase section or material grade"
+        )
         summary = f"""
 === VALLEY BEAM DESIGN RESULTS ===
 Section: {r['section']}
@@ -385,13 +450,14 @@ Verify connections, lateral bracing, and actual supports with licensed engineer.
         """
         return summary.strip()
 
+
 def create_beam_summary(results, beam_inputs):
     """Create beam design summary from results dict"""
-    if 'error' in results:
+    if "error" in results:
         return f"ERROR in beam design: {results['error']}"
 
     r = results
-    status = "PASSES" if r['passes'] else "FAILS - Increase section or material grade"
+    status = "PASSES" if r["passes"] else "FAILS - Increase section or material grade"
     summary = f"""
 {'='*60}
 VALLEY RAFTER BEAM DESIGN ANALYSIS
@@ -421,6 +487,7 @@ Verify connections, lateral bracing, and actual supports with licensed engineer.
     """
     return summary.strip()
 
+
 class ValleySnowCalculator:
     def __init__(self, root):
         self.root = root
@@ -438,7 +505,11 @@ class ValleySnowCalculator:
         main_frame.rowconfigure(1, weight=1)
 
         # Title
-        title_label = ttk.Label(main_frame, text="ASCE 7-22 Valley Snow Load Calculator", font=("Arial", 16, "bold"))
+        title_label = ttk.Label(
+            main_frame,
+            text="ASCE 7-22 Valley Snow Load Calculator",
+            font=("Arial", 16, "bold"),
+        )
         title_label.grid(row=0, column=0, columnspan=2, pady=(0, 10))
 
         # Create input frame
@@ -451,7 +522,9 @@ class ValleySnowCalculator:
 
         # Results text area
         self.results_text = tk.Text(results_frame, height=40, width=80, wrap=tk.WORD)
-        results_scrollbar = ttk.Scrollbar(results_frame, orient=tk.VERTICAL, command=self.results_text.yview)
+        results_scrollbar = ttk.Scrollbar(
+            results_frame, orient=tk.VERTICAL, command=self.results_text.yview
+        )
         self.results_text.configure(yscrollcommand=results_scrollbar.set)
 
         self.results_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -488,7 +561,11 @@ class ValleySnowCalculator:
         self.create_input_widgets(input_frame)
 
         # Calculate button
-        calc_button = ttk.Button(main_frame, text="CALCULATE SNOW LOADS & BEAM DESIGN", command=self.calculate)
+        calc_button = ttk.Button(
+            main_frame,
+            text="CALCULATE SNOW LOADS & BEAM DESIGN",
+            command=self.calculate,
+        )
         calc_button.grid(row=2, column=0, columnspan=2, pady=(10, 0))
 
         # Status label
@@ -500,98 +577,172 @@ class ValleySnowCalculator:
         row = 0
 
         # Snow Load Inputs
-        ttk.Label(parent, text="GROUND SNOW LOAD (psf)", font=("Arial", 10, "bold")).grid(
-            row=row, column=0, columnspan=2, sticky=tk.W, pady=(0, 5))
+        ttk.Label(
+            parent, text="GROUND SNOW LOAD (psf)", font=("Arial", 10, "bold")
+        ).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(0, 5))
         row += 1
 
-        ttk.Label(parent, text="pg (Ground snow load):").grid(row=row, column=0, sticky=tk.W)
-        ttk.Entry(parent, textvariable=self.pg, width=15).grid(row=row, column=1, sticky=tk.W)
+        ttk.Label(parent, text="pg (Ground snow load):").grid(
+            row=row, column=0, sticky=tk.W
+        )
+        ttk.Entry(parent, textvariable=self.pg, width=15).grid(
+            row=row, column=1, sticky=tk.W
+        )
         row += 1
 
-        ttk.Label(parent, text="lu_north (North upwind fetch, ft):").grid(row=row, column=0, sticky=tk.W)
-        ttk.Entry(parent, textvariable=self.lu_north, width=15).grid(row=row, column=1, sticky=tk.W)
+        ttk.Label(parent, text="lu_north (North upwind fetch, ft):").grid(
+            row=row, column=0, sticky=tk.W
+        )
+        ttk.Entry(parent, textvariable=self.lu_north, width=15).grid(
+            row=row, column=1, sticky=tk.W
+        )
         row += 1
 
-        ttk.Label(parent, text="lu_west (West upwind fetch, ft):").grid(row=row, column=0, sticky=tk.W)
-        ttk.Entry(parent, textvariable=self.lu_west, width=15).grid(row=row, column=1, sticky=tk.W)
+        ttk.Label(parent, text="lu_west (West upwind fetch, ft):").grid(
+            row=row, column=0, sticky=tk.W
+        )
+        ttk.Entry(parent, textvariable=self.lu_west, width=15).grid(
+            row=row, column=1, sticky=tk.W
+        )
         row += 1
 
-        ttk.Label(parent, text="W2 (Winter wind parameter):").grid(row=row, column=0, sticky=tk.W)
-        ttk.Entry(parent, textvariable=self.w2, width=15).grid(row=row, column=1, sticky=tk.W)
+        ttk.Label(parent, text="W2 (Winter wind parameter):").grid(
+            row=row, column=0, sticky=tk.W
+        )
+        ttk.Entry(parent, textvariable=self.w2, width=15).grid(
+            row=row, column=1, sticky=tk.W
+        )
         row += 1
 
-        ttk.Label(parent, text="Ce (Exposure factor):").grid(row=row, column=0, sticky=tk.W)
-        ttk.Entry(parent, textvariable=self.ce, width=15).grid(row=row, column=1, sticky=tk.W)
+        ttk.Label(parent, text="Ce (Exposure factor):").grid(
+            row=row, column=0, sticky=tk.W
+        )
+        ttk.Entry(parent, textvariable=self.ce, width=15).grid(
+            row=row, column=1, sticky=tk.W
+        )
         row += 1
 
-        ttk.Label(parent, text="Ct (Thermal factor):").grid(row=row, column=0, sticky=tk.W)
-        ttk.Entry(parent, textvariable=self.ct, width=15).grid(row=row, column=1, sticky=tk.W)
+        ttk.Label(parent, text="Ct (Thermal factor):").grid(
+            row=row, column=0, sticky=tk.W
+        )
+        ttk.Entry(parent, textvariable=self.ct, width=15).grid(
+            row=row, column=1, sticky=tk.W
+        )
         row += 1
 
-        ttk.Label(parent, text="Is (Importance factor):").grid(row=row, column=0, sticky=tk.W)
-        ttk.Entry(parent, textvariable=self.is_factor, width=15).grid(row=row, column=1, sticky=tk.W)
+        ttk.Label(parent, text="Is (Importance factor):").grid(
+            row=row, column=0, sticky=tk.W
+        )
+        ttk.Entry(parent, textvariable=self.is_factor, width=15).grid(
+            row=row, column=1, sticky=tk.W
+        )
         row += 1
 
         # Geometry
         ttk.Label(parent, text="ROOF GEOMETRY", font=("Arial", 10, "bold")).grid(
-            row=row, column=0, columnspan=2, sticky=tk.W, pady=(10, 5))
+            row=row, column=0, columnspan=2, sticky=tk.W, pady=(10, 5)
+        )
         row += 1
 
-        ttk.Label(parent, text="Pitch North (X/12):").grid(row=row, column=0, sticky=tk.W)
-        ttk.Entry(parent, textvariable=self.pitch_north, width=15).grid(row=row, column=1, sticky=tk.W)
+        ttk.Label(parent, text="Pitch North (X/12):").grid(
+            row=row, column=0, sticky=tk.W
+        )
+        ttk.Entry(parent, textvariable=self.pitch_north, width=15).grid(
+            row=row, column=1, sticky=tk.W
+        )
         row += 1
 
-        ttk.Label(parent, text="Pitch West (X/12):").grid(row=row, column=0, sticky=tk.W)
-        ttk.Entry(parent, textvariable=self.pitch_west, width=15).grid(row=row, column=1, sticky=tk.W)
+        ttk.Label(parent, text="Pitch West (X/12):").grid(
+            row=row, column=0, sticky=tk.W
+        )
+        ttk.Entry(parent, textvariable=self.pitch_west, width=15).grid(
+            row=row, column=1, sticky=tk.W
+        )
         row += 1
 
-        ttk.Label(parent, text="de_north (North eave distance, ft):").grid(row=row, column=0, sticky=tk.W)
-        ttk.Entry(parent, textvariable=self.de_north, width=15).grid(row=row, column=1, sticky=tk.W)
+        ttk.Label(parent, text="de_north (North eave distance, ft):").grid(
+            row=row, column=0, sticky=tk.W
+        )
+        ttk.Entry(parent, textvariable=self.de_north, width=15).grid(
+            row=row, column=1, sticky=tk.W
+        )
         row += 1
 
-        ttk.Label(parent, text="de_west (West eave distance, ft):").grid(row=row, column=0, sticky=tk.W)
-        ttk.Entry(parent, textvariable=self.de_west, width=15).grid(row=row, column=1, sticky=tk.W)
+        ttk.Label(parent, text="de_west (West eave distance, ft):").grid(
+            row=row, column=0, sticky=tk.W
+        )
+        ttk.Entry(parent, textvariable=self.de_west, width=15).grid(
+            row=row, column=1, sticky=tk.W
+        )
         row += 1
 
-        ttk.Label(parent, text="Valley angle (degrees):").grid(row=row, column=0, sticky=tk.W)
-        ttk.Entry(parent, textvariable=self.valley_angle, width=15).grid(row=row, column=1, sticky=tk.W)
+        ttk.Label(parent, text="Valley angle (degrees):").grid(
+            row=row, column=0, sticky=tk.W
+        )
+        ttk.Entry(parent, textvariable=self.valley_angle, width=15).grid(
+            row=row, column=1, sticky=tk.W
+        )
         row += 1
 
         ttk.Checkbutton(parent, text="Slippery surface", variable=self.slippery).grid(
-            row=row, column=0, columnspan=2, sticky=tk.W)
+            row=row, column=0, columnspan=2, sticky=tk.W
+        )
         row += 1
 
         # Beam Design
         ttk.Label(parent, text="BEAM DESIGN", font=("Arial", 10, "bold")).grid(
-            row=row, column=0, columnspan=2, sticky=tk.W, pady=(10, 5))
+            row=row, column=0, columnspan=2, sticky=tk.W, pady=(10, 5)
+        )
         row += 1
 
-        ttk.Label(parent, text="Tributary width (ft):").grid(row=row, column=0, sticky=tk.W)
-        ttk.Entry(parent, textvariable=self.tributary_width, width=15).grid(row=row, column=1, sticky=tk.W)
+        ttk.Label(parent, text="Tributary width (ft):").grid(
+            row=row, column=0, sticky=tk.W
+        )
+        ttk.Entry(parent, textvariable=self.tributary_width, width=15).grid(
+            row=row, column=1, sticky=tk.W
+        )
         row += 1
 
         ttk.Label(parent, text="Beam width (in):").grid(row=row, column=0, sticky=tk.W)
-        ttk.Entry(parent, textvariable=self.beam_width, width=15).grid(row=row, column=1, sticky=tk.W)
+        ttk.Entry(parent, textvariable=self.beam_width, width=15).grid(
+            row=row, column=1, sticky=tk.W
+        )
         row += 1
 
         ttk.Label(parent, text="Beam depth (in):").grid(row=row, column=0, sticky=tk.W)
-        ttk.Entry(parent, textvariable=self.beam_depth, width=15).grid(row=row, column=1, sticky=tk.W)
+        ttk.Entry(parent, textvariable=self.beam_depth, width=15).grid(
+            row=row, column=1, sticky=tk.W
+        )
         row += 1
 
-        ttk.Label(parent, text="Fb allowable (psi):").grid(row=row, column=0, sticky=tk.W)
-        ttk.Entry(parent, textvariable=self.fb_allowable, width=15).grid(row=row, column=1, sticky=tk.W)
+        ttk.Label(parent, text="Fb allowable (psi):").grid(
+            row=row, column=0, sticky=tk.W
+        )
+        ttk.Entry(parent, textvariable=self.fb_allowable, width=15).grid(
+            row=row, column=1, sticky=tk.W
+        )
         row += 1
 
-        ttk.Label(parent, text="Fv allowable (psi):").grid(row=row, column=0, sticky=tk.W)
-        ttk.Entry(parent, textvariable=self.fv_allowable, width=15).grid(row=row, column=1, sticky=tk.W)
+        ttk.Label(parent, text="Fv allowable (psi):").grid(
+            row=row, column=0, sticky=tk.W
+        )
+        ttk.Entry(parent, textvariable=self.fv_allowable, width=15).grid(
+            row=row, column=1, sticky=tk.W
+        )
         row += 1
 
         ttk.Label(parent, text="E (psi):").grid(row=row, column=0, sticky=tk.W)
-        ttk.Entry(parent, textvariable=self.modulus_e, width=15).grid(row=row, column=1, sticky=tk.W)
+        ttk.Entry(parent, textvariable=self.modulus_e, width=15).grid(
+            row=row, column=1, sticky=tk.W
+        )
         row += 1
 
-        ttk.Label(parent, text="Deflection limit (L/n):").grid(row=row, column=0, sticky=tk.W)
-        ttk.Entry(parent, textvariable=self.deflection_limit, width=15).grid(row=row, column=1, sticky=tk.W)
+        ttk.Label(parent, text="Deflection limit (L/n):").grid(
+            row=row, column=0, sticky=tk.W
+        )
+        ttk.Entry(parent, textvariable=self.deflection_limit, width=15).grid(
+            row=row, column=1, sticky=tk.W
+        )
 
     def calculate_slope_factor(self, theta_deg, ct, slippery=False):
         """Calculate slope factor Cs per ASCE 7-22 Figure 7.4-1"""
@@ -628,7 +779,7 @@ class ValleySnowCalculator:
         gamma = min(0.13 * pg + 14, 30)  # Snow density
 
         # Drift height (simplified)
-        hd = min(1.5 * (pg**0.74 * lu**0.7 * w2**1.7 / gamma)**0.5, lu * pitch / 12)
+        hd = min(1.5 * (pg**0.74 * lu**0.7 * w2**1.7 / gamma) ** 0.5, lu * pitch / 12)
 
         # Drift surcharge
         s = pitch / 12.0
@@ -696,9 +847,15 @@ class ValleySnowCalculator:
             hd_governing = max(hd_n, hd_w)
 
             # Valley geometry
-            lv = math.sqrt(de_n**2 + de_w**2 - 2 * de_n * de_w * math.cos(math.radians(valley_angle)))
+            lv = math.sqrt(
+                de_n**2
+                + de_w**2
+                - 2 * de_n * de_w * math.cos(math.radians(valley_angle))
+            )
             phi_rad = math.radians(valley_angle)
-            valley_rafter_length = math.sqrt(lv**2 + ((de_n * pitch_n + de_w * pitch_w) / 24)**2)
+            valley_rafter_length = math.sqrt(
+                lv**2 + ((de_n * pitch_n + de_w * pitch_w) / 24) ** 2
+            )
 
             # Total load at valley corner
             total_load_corner = ps_governing + pd_max_governing
@@ -714,7 +871,7 @@ class ValleySnowCalculator:
                 fb_allowable_psi=fb_allowable,
                 fv_allowable_psi=fv_allowable,
                 modulus_e_psi=modulus_e,
-                deflection_snow_limit=int(deflection_limit)
+                deflection_snow_limit=int(deflection_limit),
             )
 
             beam_designer = ValleyBeamDesigner(beam_inputs)
@@ -726,7 +883,16 @@ class ValleySnowCalculator:
             pd_max_w_val = pd_max_w  # West drift surcharge
             w_w = lu_west if hd_w > 0 else 0  # West drift width approximation
 
-            beam_results = beam_designer.design(ps, pd_max_n_val, w_n, pd_max_w_val, w_w, lv, valley_rafter_length, phi_rad)
+            beam_results = beam_designer.design(
+                ps,
+                pd_max_n_val,
+                w_n,
+                pd_max_w_val,
+                w_w,
+                lv,
+                valley_rafter_length,
+                phi_rad,
+            )
 
             # Output results
             result = f"""
@@ -775,10 +941,10 @@ VALLEY RAFTER BEAM DESIGN ANALYSIS
 """
 
             # Add beam design results
-            if beam_results and 'error' not in beam_results:
+            if beam_results and "error" not in beam_results:
                 beam_summary = create_beam_summary(beam_results, beam_inputs)
                 result += "\n" + beam_summary
-            elif beam_results and 'error' in beam_results:
+            elif beam_results and "error" in beam_results:
                 result += f"\nBEAM DESIGN ERROR: {beam_results['error']}"
             else:
                 result += f"\nBEAM DESIGN: No results returned (beam_results = {beam_results})"
@@ -793,13 +959,17 @@ Consult licensed structural engineer for final design.
             self.status_label.config(text="Calculation complete", foreground="green")
 
         except Exception as e:
-            messagebox.showerror("Calculation Error", f"An error occurred during calculation:\n{str(e)}")
+            messagebox.showerror(
+                "Calculation Error", f"An error occurred during calculation:\n{str(e)}"
+            )
             self.status_label.config(text="Error in calculation", foreground="red")
+
 
 def main():
     root = tk.Tk()
     app = ValleySnowCalculator(root)
     root.mainloop()
+
 
 if __name__ == "__main__":
     main()

@@ -5,30 +5,35 @@ A complete TypeScript implementation of the Valley Snow Load Calculator featurin
 ## 🚀 Features
 
 ### **Persistent Storage**
+
 - **SQLite database** with ACID transactions
 - **Data integrity** verification with SHA256 checksums
 - **Automatic backups** and point-in-time recovery
 - **Concurrent access** protection
 
 ### **Comprehensive Logging**
+
 - **Winston logging** with multiple transports
 - **Performance monitoring** with operation timing
 - **Error tracking** with context and stack traces
 - **Crash recovery** logging
 
 ### **Auto-Save & Checkpoints**
+
 - **Automatic checkpoints** every 5 minutes
 - **Change-based saves** when data is modified
 - **Manual checkpoints** on key operations
 - **Emergency checkpoints** on application errors
 
 ### **Error Handling & Recovery**
+
 - **Resilient operations** with automatic retry
 - **Input validation** with custom validators
 - **Timeout protection** for long-running calculations
 - **Graceful degradation** during failures
 
 ### **Idempotent Operations**
+
 - **Idempotency keys** prevent duplicate operations
 - **Transaction safety** ensures data consistency
 - **Operation deduplication** with TTL-based cleanup
@@ -44,13 +49,13 @@ npm run build
 ## 🏃‍♂️ Quick Start
 
 ```typescript
-import { ValleySnowLoadCalculator } from './dist/core/calculator';
+import { ValleySnowLoadCalculator } from "./dist/core/calculator";
 
 async function main() {
   const calculator = new ValleySnowLoadCalculator();
 
   // Create project with automatic persistence
-  const projectId = await calculator.createProject('My Valley Project');
+  const projectId = await calculator.createProject("My Valley Project");
 
   // Update geometry with validation and auto-save
   await calculator.updateGeometry(projectId, {
@@ -60,7 +65,7 @@ async function main() {
     southSpan: 18,
     ewHalfWidth: 45,
     valleyOffset: 15,
-    valleyAngle: 90
+    valleyAngle: 90,
   });
 
   // Update inputs and auto-calculate results
@@ -69,11 +74,11 @@ async function main() {
     importanceFactor: 1.1,
     exposureFactor: 1.0,
     thermalFactor: 0.9,
-    winterWindParameter: 0.4
+    winterWindParameter: 0.4,
   });
 
   // Data is automatically saved and checkpointed
-  console.log('Project saved with automatic resilience features!');
+  console.log("Project saved with automatic resilience features!");
 }
 ```
 
@@ -96,17 +101,17 @@ src/
 ## 💾 Persistent Storage Features
 
 ### **SQLite Database Schema**
+
 - **Projects table**: Project metadata and JSON data
 - **Checkpoints table**: Incremental saves and recovery points
 - **Sessions table**: Crash recovery tracking
 - **Idempotency keys**: Operation deduplication
 
 ### **Data Integrity**
+
 ```typescript
 // Automatic checksum calculation and verification
-const checksum = crypto.createHash('sha256')
-  .update(jsonData)
-  .digest('hex');
+const checksum = crypto.createHash("sha256").update(jsonData).digest("hex");
 
 // Data corruption detection
 if (!validateChecksum(data, checksum)) {
@@ -116,15 +121,16 @@ if (!validateChecksum(data, checksum)) {
 ```
 
 ### **Transaction Safety**
+
 ```typescript
 // ACID transactions for data consistency
-await db.run('BEGIN TRANSACTION');
+await db.run("BEGIN TRANSACTION");
 try {
   await db.saveProject(projectData);
   await db.createCheckpoint(checkpointData);
-  await db.run('COMMIT');
+  await db.run("COMMIT");
 } catch (error) {
-  await db.run('ROLLBACK');
+  await db.run("ROLLBACK");
   throw error;
 }
 ```
@@ -132,46 +138,53 @@ try {
 ## 📊 Logging & Monitoring
 
 ### **Winston Configuration**
+
 ```typescript
 const logger = winston.createLogger({
-  level: 'info',
+  level: "info",
   format: winston.format.combine(
     winston.format.timestamp(),
     winston.format.errors({ stack: true }),
-    winston.format.json()
+    winston.format.json(),
   ),
   transports: [
     new winston.transports.DailyRotateFile({
-      filename: 'logs/error-%DATE%.log',
-      level: 'error'
+      filename: "logs/error-%DATE%.log",
+      level: "error",
     }),
-    new winston.transports.Console()
-  ]
+    new winston.transports.Console(),
+  ],
 });
 ```
 
 ### **Performance Monitoring**
+
 ```typescript
 // Automatic performance tracking
-logger.logPerformance('calculation', duration, success, {
+logger.logPerformance("calculation", duration, success, {
   inputSize: data.length,
-  operation: 'slope_calculation'
+  operation: "slope_calculation",
 });
 ```
 
 ## 🔄 Auto-Save & Checkpoint System
 
 ### **Automatic Checkpoints**
+
 ```typescript
 // Auto-save every 5 minutes for active projects
-const autoSaveInterval = setInterval(() => {
-  activeProjects.forEach(projectId => {
-    checkpointManager.createCheckpoint(projectId, 'auto_save');
-  });
-}, 5 * 60 * 1000);
+const autoSaveInterval = setInterval(
+  () => {
+    activeProjects.forEach((projectId) => {
+      checkpointManager.createCheckpoint(projectId, "auto_save");
+    });
+  },
+  5 * 60 * 1000,
+);
 ```
 
 ### **Change-Based Saves**
+
 ```typescript
 @checkpointOnChange()
 async updateProject(projectId: string, data: ProjectData) {
@@ -181,6 +194,7 @@ async updateProject(projectId: string, data: ProjectData) {
 ```
 
 ### **Recovery Options**
+
 ```typescript
 const recoveryOptions = await calculator.getRecoveryOptions(projectId);
 // Returns: checkpoints, backups, last good state options
@@ -189,6 +203,7 @@ const recoveryOptions = await calculator.getRecoveryOptions(projectId);
 ## 🛡️ Error Handling & Resilience
 
 ### **Resilient Operations**
+
 ```typescript
 @resilientOperation(3, 1000, true, true) // 3 retries, 1s backoff, recoverable, save checkpoint
 async performComplexCalculation(inputs: any): Promise<Result> {
@@ -199,6 +214,7 @@ async performComplexCalculation(inputs: any): Promise<Result> {
 ```
 
 ### **Input Validation**
+
 ```typescript
 @validateInput(validatePositiveNumber, validateRange(0, 100))
 async updateGeometry(geometry: RoofGeometry): Promise<void> {
@@ -207,6 +223,7 @@ async updateGeometry(geometry: RoofGeometry): Promise<void> {
 ```
 
 ### **Timeout Protection**
+
 ```typescript
 @withTimeout(10000) // 10 second timeout
 async performCalculations(): Promise<Results> {
@@ -215,6 +232,7 @@ async performCalculations(): Promise<Results> {
 ```
 
 ### **Idempotent Operations**
+
 ```typescript
 @idempotent('create_project')
 async createProject(name: string): Promise<string> {
@@ -226,6 +244,7 @@ async createProject(name: string): Promise<string> {
 ## 🎯 Idempotency Implementation
 
 ### **Operation Deduplication**
+
 ```typescript
 // Generate idempotency key
 const key = this.generateIdempotencyKey(operation, args);
@@ -243,6 +262,7 @@ await db.markOperationCompleted(key, result, 3600); // 1 hour TTL
 ```
 
 ### **Database-Level Idempotency**
+
 ```sql
 CREATE TABLE idempotency_keys (
   key TEXT PRIMARY KEY,
@@ -260,6 +280,7 @@ CREATE TABLE idempotency_keys (
 The test suite provides **enterprise-grade validation** of all data persistence, error handling, and recovery mechanisms:
 
 #### **Database Layer Tests** (`database.test.ts`)
+
 - ✅ **Initialization & Setup**: Database creation, table setup, integrity validation
 - ✅ **CRUD Operations**: Save, load, update, delete with data integrity checks
 - ✅ **Error Scenarios**: Connection failures, disk full, corruption, timeouts
@@ -269,6 +290,7 @@ The test suite provides **enterprise-grade validation** of all data persistence,
 - ✅ **System Health**: Status monitoring, diagnostics
 
 #### **Checkpoint System Tests** (`checkpointSystem.test.ts`)
+
 - ✅ **Auto-Save Functionality**: Interval-based checkpoints, activity tracking
 - ✅ **Manual Checkpoints**: On-demand saves with operation context
 - ✅ **Change Detection**: Data change tracking, threshold-based saves
@@ -277,6 +299,7 @@ The test suite provides **enterprise-grade validation** of all data persistence,
 - ✅ **Performance**: Concurrent operations, memory management
 
 #### **Error Handler Tests** (`errorHandlers.test.ts`)
+
 - ✅ **Resilient Operations**: Retry logic, backoff strategies, timeout handling
 - ✅ **Input Validation**: Pre-operation validation, error boundaries
 - ✅ **Recovery Strategies**: Custom error recovery, fallback operations
@@ -284,12 +307,14 @@ The test suite provides **enterprise-grade validation** of all data persistence,
 - ✅ **Performance**: Load testing, concurrent error scenarios
 
 #### **Calculator Integration Tests** (`calculator.test.ts`)
+
 - ✅ **Business Logic**: Project CRUD, geometry/input updates, calculations
 - ✅ **Error Resilience**: Validation, recovery, graceful degradation
 - ✅ **Idempotent Operations**: Safe duplicate calls
 - ✅ **Performance**: Operation timing, success rates
 
 #### **Integration Tests** (`integration.test.ts`)
+
 - ✅ **End-to-End Workflows**: Complete project lifecycles
 - ✅ **Real Database Operations**: File-based SQLite testing
 - ✅ **Crash Recovery**: Data integrity through failures
@@ -321,12 +346,14 @@ npm test -- --verbose
 ### **Test Scenarios Covered**
 
 #### **Data Loss Prevention**
+
 - **Save/Load Operations**: Verify data persistence and integrity
 - **Retry Validation**: Ensure no data loss during transient failures
 - **Transaction Atomicity**: Partial failures don't corrupt data
 - **Backup Recovery**: Data restoration from checkpoints
 
 #### **Crash Simulation**
+
 - **Database Disconnection**: Connection loss mid-operation
 - **Disk Full**: Storage exhaustion handling
 - **Corruption Detection**: Data integrity validation
@@ -334,12 +361,14 @@ npm test -- --verbose
 - **Memory Pressure**: Large dataset handling
 
 #### **Error Recovery Validation**
+
 - **Automatic Retries**: Failed operations retry with backoff
 - **Checkpoint Restoration**: Data recovery from save points
 - **Graceful Degradation**: System continues with reduced functionality
 - **Error Boundary Testing**: Operations fail safely without cascading
 
 #### **Concurrent Access Testing**
+
 - **Race Condition Prevention**: Multiple users accessing same data
 - **Lock Contention**: Database-level concurrency handling
 - **Transaction Isolation**: Changes don't interfere between operations
@@ -348,6 +377,7 @@ npm test -- --verbose
 ### **Test Data Integrity**
 
 All tests validate:
+
 - **Checksum Verification**: Data corruption detection
 - **Referential Integrity**: Foreign key constraints maintained
 - **Data Consistency**: Related data stays synchronized
@@ -356,6 +386,7 @@ All tests validate:
 ### **Performance Benchmarks**
 
 Tests include performance validation:
+
 - **Operation Timing**: Individual operations complete within time limits
 - **Throughput Testing**: Bulk operations handle expected load
 - **Memory Usage**: No memory leaks during extended testing
@@ -364,6 +395,7 @@ Tests include performance validation:
 ### **CI/CD Integration**
 
 Tests are designed for automated testing:
+
 ```yaml
 # Example GitHub Actions workflow
 - name: Run Tests
@@ -396,6 +428,7 @@ npm test -- --inspect-brk
 ### **Test Environment Setup**
 
 Tests use isolated environments:
+
 - **Temporary Databases**: Each test gets clean SQLite database
 - **Mock Dependencies**: Logger, checkpoint manager mocked where needed
 - **Real Integration**: Full stack testing with real components
@@ -404,6 +437,7 @@ Tests use isolated environments:
 ### **Coverage Requirements**
 
 Tests maintain high coverage standards:
+
 ```json
 {
   "coverageThreshold": {
@@ -420,6 +454,7 @@ Tests maintain high coverage standards:
 ### **Continuous Testing**
 
 Tests validate the resilience claims:
+
 - **No Data Loss**: Verified through retry and transaction testing
 - **Error Recovery**: All error paths lead to valid system states
 - **Performance**: Operations complete within expected time bounds
@@ -428,11 +463,13 @@ Tests validate the resilience claims:
 ## 📈 Performance & Reliability
 
 ### **Performance Metrics**
+
 - **Operation timing** automatically tracked
 - **Success rates** calculated per operation type
 - **Bottleneck identification** through logging analysis
 
 ### **Reliability Features**
+
 - **Crash detection** and automatic recovery
 - **Data integrity** verification on load
 - **Backup creation** and validation
@@ -441,21 +478,23 @@ Tests validate the resilience claims:
 ## 🛡️ Comprehensive Error Handling
 
 ### **Global Error Management**
+
 ```typescript
 // Automatic global error handling
-process.on('uncaughtException', async (error) => {
-  await logger.logCriticalError(error, 'uncaught_exception');
+process.on("uncaughtException", async (error) => {
+  await logger.logCriticalError(error, "uncaught_exception");
   await performEmergencyRecovery(error);
   setTimeout(() => process.exit(1), 2000);
 });
 
-process.on('unhandledRejection', async (reason, promise) => {
+process.on("unhandledRejection", async (reason, promise) => {
   await logger.logUnhandledRejection(reason, promise);
   // Handle without crashing
 });
 ```
 
 ### **Resilient Operation Wrappers**
+
 ```typescript
 @resilientOperation(3, 1000, true, true)
 async function riskyOperation(data: any): Promise<Result> {
@@ -467,41 +506,44 @@ async function riskyOperation(data: any): Promise<Result> {
 ```
 
 ### **Error Boundary Contexts**
+
 ```typescript
 const result = await withErrorBoundary(
   () => riskyDatabaseOperation(),
-  { operation: 'db_query', userId },
+  { operation: "db_query", userId },
   {
-    'TimeoutError': async (error) => {
+    TimeoutError: async (error) => {
       // Custom recovery for timeouts
       return await fallbackQuery();
     },
-    'ConnectionError': async (error) => {
+    ConnectionError: async (error) => {
       // Custom recovery for connection issues
       await reconnectDatabase();
       return await retryQuery();
-    }
-  }
+    },
+  },
 );
 ```
 
 ### **Recovery Strategies**
+
 ```typescript
 // Define recovery strategies for different error types
 const recoveryStrategies = {
-  'ValidationError': async (error: Error) => {
-    console.warn('Validation failed, using defaults');
+  ValidationError: async (error: Error) => {
+    console.warn("Validation failed, using defaults");
   },
-  'DatabaseError': async (error: Error) => {
+  DatabaseError: async (error: Error) => {
     await attemptDatabaseReconnect();
   },
-  'TimeoutError': async (error: Error) => {
+  TimeoutError: async (error: Error) => {
     return await simplifiedCalculation();
-  }
+  },
 };
 ```
 
 ### **Input Validation with Error Logging**
+
 ```typescript
 @validateInput(validatePositiveNumber, validateNonEmptyString)
 async function processUserInput(value: number, name: string) {
@@ -519,6 +561,7 @@ const validatePositiveNumber: Validator<number> = (value, fieldName) => {
 ```
 
 ### **Timeout Protection**
+
 ```typescript
 @withTimeout(5000) // 5 second timeout
 async function longRunningCalculation(): Promise<Result> {
@@ -528,6 +571,7 @@ async function longRunningCalculation(): Promise<Result> {
 ```
 
 ### **Idempotent Operations**
+
 ```typescript
 @idempotent('create_project')
 async function createProject(name: string): Promise<Project> {
@@ -540,6 +584,7 @@ async function createProject(name: string): Promise<Project> {
 ## 🔧 Configuration
 
 ### **Environment Variables**
+
 ```bash
 # Database
 DB_PATH=./data/valley_calc.db
@@ -557,23 +602,26 @@ CALCULATION_TIMEOUT=30000  # 30 seconds
 ```
 
 ### **Runtime Configuration**
+
 ```typescript
 const calculator = new ValleySnowLoadCalculator({
   autoSaveInterval: 5 * 60 * 1000, // 5 minutes
   maxRetries: 3,
   checkpointOnChange: true,
-  enablePerformanceLogging: true
+  enablePerformanceLogging: true,
 });
 ```
 
 ## 🚀 Production Deployment
 
 ### **Build**
+
 ```bash
 npm run build
 ```
 
 ### **Run**
+
 ```bash
 # Development
 npm run dev
@@ -583,15 +631,16 @@ npm start
 ```
 
 ### **Monitoring**
+
 ```typescript
 // Health check endpoint
-app.get('/health', async (req, res) => {
+app.get("/health", async (req, res) => {
   const health = await calculator.getSystemHealth();
   res.json(health);
 });
 
 // Metrics endpoint
-app.get('/metrics', async (req, res) => {
+app.get("/metrics", async (req, res) => {
   const performance = logger.getPerformanceStats();
   const errors = logger.getErrorSummary();
   res.json({ performance, errors });
@@ -603,6 +652,7 @@ app.get('/metrics', async (req, res) => {
 ### **Common Issues**
 
 **Database Connection Failed**
+
 ```bash
 # Check database file permissions
 ls -la data/valley_calc.db
@@ -613,19 +663,21 @@ npm run build && npm start
 ```
 
 **High Memory Usage**
+
 ```typescript
 // Adjust checkpoint settings
 const calculator = new ValleySnowLoadCalculator({
   maxCheckpoints: 25, // Reduce from default 50
-  autoSaveInterval: 10 * 60 * 1000 // Increase to 10 minutes
+  autoSaveInterval: 10 * 60 * 1000, // Increase to 10 minutes
 });
 ```
 
 **Slow Performance**
+
 ```typescript
 // Enable performance logging to identify bottlenecks
 const logger = getLogger();
-const stats = logger.getPerformanceStats('slow_operation');
+const stats = logger.getPerformanceStats("slow_operation");
 // Analyze stats to optimize
 ```
 
@@ -634,21 +686,25 @@ const stats = logger.getPerformanceStats('slow_operation');
 ### **ValleySnowLoadCalculator**
 
 #### **Project Operations**
+
 - `createProject(name, description?)` - Create new project
 - `loadProject(projectId)` - Load existing project
 - `saveProject(projectData)` - Save project with auto-checkpoint
 - `deleteProject(projectId)` - Delete project safely
 
 #### **Calculation Operations**
+
 - `updateGeometry(projectId, geometry)` - Update with validation
 - `updateInputs(projectId, inputs)` - Update and recalculate
 - `performCalculations(geometry, inputs)` - Core calculations
 
 #### **Recovery Operations**
+
 - `getRecoveryOptions(projectId)` - List recovery options
 - `recoverFromCheckpoint(checkpointId)` - Restore from checkpoint
 
 #### **System Operations**
+
 - `listProjects()` - List all projects
 - `getSystemHealth()` - System health status
 

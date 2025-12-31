@@ -9,16 +9,19 @@ This document describes the resilient architecture implemented for the Valley Sn
 ### 1. Core Resilience Modules
 
 #### Data Persistence (`data/persistence/`)
+
 - **SQLite Database**: ACID-compliant storage with transaction safety
 - **Automatic Integrity Checking**: SHA256 checksums for data validation
 - **Backup and Recovery**: Automated backup creation and restoration
 
 #### Logging System (`utils/logging/`)
+
 - **Comprehensive Error Tracking**: Multi-level logging with context
 - **Performance Monitoring**: Operation timing and success rates
 - **Crash Recovery Logging**: Detailed crash analysis and recovery tracking
 
 #### Recovery System (`core/recovery/`)
+
 - **Error Wrappers**: Decorators for automatic retry and recovery
 - **Checkpoint System**: Incremental saves and data recovery points
 - **Graceful Degradation**: Continued operation during partial failures
@@ -26,21 +29,25 @@ This document describes the resilient architecture implemented for the Valley Sn
 ### 2. Key Features
 
 #### Crash Prevention
+
 - Auto-save every 5 minutes
 - Checkpoints on significant data changes
 - Emergency save on application exit/crash
 
 #### Data Integrity
+
 - SQLite transactions for atomic operations
 - Checksum validation for data corruption detection
 - Backup creation and validation
 
 #### Error Recovery
+
 - Automatic retry with exponential backoff
 - Recovery strategies for specific error types
 - Graceful degradation for non-critical failures
 
 #### Monitoring & Logging
+
 - Performance metrics collection
 - Error pattern analysis
 - System health monitoring

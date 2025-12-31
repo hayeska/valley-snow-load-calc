@@ -12,12 +12,7 @@ from .gui.main_window import MainWindow
 
 # Import resilience utilities for advanced users
 from .utils.logging.logger import get_logger
-from .data.persistence.database import get_database
-from .core.recovery.error_handlers import (
-    resilient_operation, error_boundary, validate_input,
-    get_recovery_manager, register_error_recovery
-)
-from .core.recovery.checkpoint_system import get_checkpoint_manager
+
 
 def create_application():
     """Factory function to create the resilient main application."""

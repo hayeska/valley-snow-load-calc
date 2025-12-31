@@ -4,7 +4,7 @@
 import functools
 import time
 import threading
-from typing import Callable, Any, Dict, Optional, TypeVar
+from typing import Callable, Any, TypeVar
 from contextlib import contextmanager
 import traceback
 import signal
@@ -14,7 +14,7 @@ import sys
 from ...utils.logging.logger import get_logger
 from ...data.persistence.database import get_database
 
-T = TypeVar('T')
+T = TypeVar("T")
 logger = get_logger()
 
 
@@ -38,8 +38,11 @@ class RecoveryManager:
 
     def _setup_signal_handlers(self):
         """Setup signal handlers for graceful shutdown."""
+
         def signal_handler(signum, frame):
-            logger.log_recovery_action(f"Received signal {signum}, initiating graceful shutdown", True)
+            logger.log_recovery_action(
+                f"Received signal {signum}, initiating graceful shutdown", True
+            )
             self._perform_emergency_save()
             sys.exit(0)
 
@@ -53,9 +56,9 @@ class RecoveryManager:
                 operation="unhandled_exception",
                 recoverable=False,
                 context={
-                    'exception_type': str(exc_type),
-                    'traceback': ''.join(traceback.format_tb(exc_traceback))
-                }
+                    "exception_type": str(exc_type),
+                    "traceback": "".join(traceback.format_tb(exc_traceback)),
+                },
             )
             self._perform_emergency_save()
 
@@ -93,8 +96,12 @@ class RecoveryManager:
         self.crash_handlers.append(handler)
 
 
-def resilient_operation(retries: int = 3, backoff: float = 1.0,
-                       recoverable: bool = True, save_checkpoint: bool = False):
+def resilient_operation(
+    retries: int = 3,
+    backoff: float = 1.0,
+    recoverable: bool = True,
+    save_checkpoint: bool = False,
+):
     """
     Decorator for resilient operations with automatic retry and recovery.
 
@@ -104,6 +111,7 @@ def resilient_operation(retries: int = 3, backoff: float = 1.0,
         recoverable: Whether operation failures are recoverable
         save_checkpoint: Whether to save checkpoint before operation
     """
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> T:
@@ -116,13 +124,15 @@ def resilient_operation(retries: int = 3, backoff: float = 1.0,
                 try:
                     db = get_database()
                     checkpoint_data = {
-                        'operation': operation_name,
-                        'args': str(args)[:500],  # Truncate for storage
-                        'kwargs': str(kwargs)[:500],
-                        'timestamp': time.time()
+                        "operation": operation_name,
+                        "args": str(args)[:500],  # Truncate for storage
+                        "kwargs": str(kwargs)[:500],
+                        "timestamp": time.time(),
                     }
                     checkpoint_id = f"checkpoint_{operation_name}_{int(time.time())}"
-                    db.create_checkpoint("system", checkpoint_id, checkpoint_data, operation_name)
+                    db.create_checkpoint(
+                        "system", checkpoint_id, checkpoint_data, operation_name
+                    )
                 except Exception as e:
                     logger.log_error(e, operation="checkpoint_creation")
 
@@ -133,8 +143,12 @@ def resilient_operation(retries: int = 3, backoff: float = 1.0,
 
                     # Log successful operation
                     duration = time.time() - start_time
-                    logger.log_performance(operation_name, duration, success=True,
-                                         metadata={'attempt': attempt + 1})
+                    logger.log_performance(
+                        operation_name,
+                        duration,
+                        success=True,
+                        metadata={"attempt": attempt + 1},
+                    )
 
                     return result
 
@@ -148,12 +162,12 @@ def resilient_operation(retries: int = 3, backoff: float = 1.0,
                         operation=operation_name,
                         recoverable=recoverable,
                         context={
-                            'attempt': attempt + 1,
-                            'max_retries': retries,
-                            'duration': duration,
-                            'args_count': len(args),
-                            'kwargs_keys': list(kwargs.keys())
-                        }
+                            "attempt": attempt + 1,
+                            "max_retries": retries,
+                            "duration": duration,
+                            "args_count": len(args),
+                            "kwargs_keys": list(kwargs.keys()),
+                        },
                     )
 
                     # Try recovery strategy if available
@@ -161,22 +175,24 @@ def resilient_operation(retries: int = 3, backoff: float = 1.0,
                     error_type = type(e)
                     if error_type in recovery_manager.recovery_strategies:
                         try:
-                            recovery_manager.recovery_strategies[error_type](e, *args, **kwargs)
+                            recovery_manager.recovery_strategies[error_type](
+                                e, *args, **kwargs
+                            )
                             logger.log_recovery_action(
                                 f"Recovery strategy applied for {error_type.__name__}",
                                 True,
-                                {'operation': operation_name, 'attempt': attempt + 1}
+                                {"operation": operation_name, "attempt": attempt + 1},
                             )
                         except Exception as recovery_error:
                             logger.log_error(
                                 recovery_error,
                                 operation="recovery_strategy",
-                                context={'original_error': str(e)}
+                                context={"original_error": str(e)},
                             )
 
                     # Don't retry on last attempt
                     if attempt < retries:
-                        sleep_time = backoff * (2 ** attempt)  # Exponential backoff
+                        sleep_time = backoff * (2**attempt)  # Exponential backoff
                         time.sleep(min(sleep_time, 30.0))  # Cap at 30 seconds
                     else:
                         # Final failure - raise the exception
@@ -186,7 +202,7 @@ def resilient_operation(retries: int = 3, backoff: float = 1.0,
                         logger.log_recovery_action(
                             f"Operation {operation_name} failed after {retries + 1} attempts",
                             False,
-                            {'final_error': str(last_exception)}
+                            {"final_error": str(last_exception)},
                         )
                         return None
 
@@ -194,6 +210,7 @@ def resilient_operation(retries: int = 3, backoff: float = 1.0,
             raise last_exception
 
         return wrapper
+
     return decorator
 
 
@@ -205,6 +222,7 @@ def auto_save(operation_name: str = None, checkpoint_interval: int = 300):
         operation_name: Name of the operation for logging
         checkpoint_interval: Seconds between automatic checkpoints
     """
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         last_checkpoint = time.time()
 
@@ -221,12 +239,14 @@ def auto_save(operation_name: str = None, checkpoint_interval: int = 300):
                     try:
                         db = get_database()
                         checkpoint_data = {
-                            'operation': operation_name or func.__name__,
-                            'timestamp': current_time,
-                            'auto_save': True
+                            "operation": operation_name or func.__name__,
+                            "timestamp": current_time,
+                            "auto_save": True,
                         }
                         checkpoint_id = f"auto_{operation_name or func.__name__}_{int(current_time)}"
-                        db.create_checkpoint("auto_save", checkpoint_id, checkpoint_data)
+                        db.create_checkpoint(
+                            "auto_save", checkpoint_id, checkpoint_data
+                        )
                         last_checkpoint = current_time
                     except Exception as e:
                         logger.log_error(e, operation="auto_checkpoint")
@@ -238,10 +258,10 @@ def auto_save(operation_name: str = None, checkpoint_interval: int = 300):
                 try:
                     db = get_database()
                     checkpoint_data = {
-                        'operation': operation_name or func.__name__,
-                        'error': str(e),
-                        'timestamp': time.time(),
-                        'emergency': True
+                        "operation": operation_name or func.__name__,
+                        "error": str(e),
+                        "timestamp": time.time(),
+                        "emergency": True,
                     }
                     checkpoint_id = f"emergency_{operation_name or func.__name__}_{int(time.time())}"
                     db.create_checkpoint("emergency", checkpoint_id, checkpoint_data)
@@ -251,6 +271,7 @@ def auto_save(operation_name: str = None, checkpoint_interval: int = 300):
                 raise
 
         return wrapper
+
     return decorator
 
 
@@ -280,7 +301,9 @@ def error_boundary(operation: str, recoverable: bool = True):
             raise
 
         # For recoverable errors, log recovery attempt
-        logger.log_recovery_action(f"Error boundary caught recoverable error in {operation}", True)
+        logger.log_recovery_action(
+            f"Error boundary caught recoverable error in {operation}", True
+        )
 
 
 def validate_input(*validators):
@@ -290,11 +313,13 @@ def validate_input(*validators):
     Args:
         validators: Validation functions that take (arg_value, arg_name) and return (is_valid, error_msg)
     """
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> T:
             # Get function signature for parameter names
             import inspect
+
             sig = inspect.signature(func)
             bound_args = sig.bind(*args, **kwargs)
             bound_args.apply_defaults()
@@ -306,13 +331,17 @@ def validate_input(*validators):
                     try:
                         is_valid, error_msg = validator(arg_value, arg_name)
                         if not is_valid:
-                            raise ValueError(f"Validation failed for {arg_name}: {error_msg}")
+                            raise ValueError(
+                                f"Validation failed for {arg_name}: {error_msg}"
+                            )
                     except Exception as e:
                         logger.log_error(e, operation=f"input_validation_{arg_name}")
                         raise
 
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -323,6 +352,7 @@ def with_timeout(timeout_seconds: float):
     Args:
         timeout_seconds: Maximum execution time in seconds
     """
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> T:
@@ -340,7 +370,9 @@ def with_timeout(timeout_seconds: float):
             thread.join(timeout_seconds)
 
             if thread.is_alive():
-                raise TimeoutError(f"Function {func.__name__} timed out after {timeout_seconds} seconds")
+                raise TimeoutError(
+                    f"Function {func.__name__} timed out after {timeout_seconds} seconds"
+                )
 
             if exception[0]:
                 raise exception[0]
@@ -348,6 +380,7 @@ def with_timeout(timeout_seconds: float):
             return result[0]
 
         return wrapper
+
     return decorator
 
 

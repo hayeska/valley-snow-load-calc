@@ -6,6 +6,7 @@
 
 from slope_factors import calculate_cs
 
+
 def flat_roof_snow_load(
     pg: float,
     Ce: float,
@@ -18,6 +19,7 @@ def flat_roof_snow_load(
     """
     pf = 0.7 * Ce * Ct * Is * pg
     return round(pf, 1)
+
 
 def sloped_roof_balanced_load(
     pf: float,
@@ -37,6 +39,7 @@ def sloped_roof_balanced_load(
     ps = pf * cs_min
     return round(ps, 1)
 
+
 def minimum_snow_load_for_low_slope_roofs(
     pf: float,
     ps: float,
@@ -54,6 +57,7 @@ def minimum_snow_load_for_low_slope_roofs(
     # Pm shall not be less than ps for sloped roofs
     return max(pm, ps)
 
+
 def full_balanced_load_calculation(
     pg: float,
     Ce: float,
@@ -69,7 +73,9 @@ def full_balanced_load_calculation(
     Returns pf, ps, and minimum Pm
     """
     pf = flat_roof_snow_load(pg, Ce, Ct, Is)
-    ps = sloped_roof_balanced_load(pf, theta_north_deg, theta_west_deg, Ct, slippery, warm_roof)
+    ps = sloped_roof_balanced_load(
+        pf, theta_north_deg, theta_west_deg, Ct, slippery, warm_roof
+    )
     pm = minimum_snow_load_for_low_slope_roofs(pf, ps, Is)
 
     return {

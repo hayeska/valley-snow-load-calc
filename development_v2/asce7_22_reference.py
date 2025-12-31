@@ -5,6 +5,7 @@
 from dataclasses import dataclass
 from typing import Dict, List
 
+
 @dataclass
 class GroundSnowLoadSource:
     name: str = "ASCE Design Ground Snow Load Geodatabase"
@@ -23,8 +24,9 @@ class GroundSnowLoadSource:
                 "Contours spaced by constant ratio 1.18 (values: 10, 12, 14, ..., 140 psf)",
                 "Gray shaded areas indicate pg > 140 psf – must use online tool",
                 "W2 = percent time wind >10 mph Oct–Apr (new in ASCE 7-22)",
-                "Site-specific case studies required only in limited high-variance zones"
+                "Site-specific case studies required only in limited high-variance zones",
             ]
+
 
 GROUND_SNOW_SOURCE = GroundSnowLoadSource()
 
@@ -52,7 +54,7 @@ SYMBOLS: Dict[str, str] = {
     "W": "Horizontal distance from eave to ridge, ft (m)",
     "W2": "Percent time wind speed is above 10 mph during winter (October through April); winter wind parameter",
     "γ": "Snow density, as determined from Equation (7.7-1), lb/ft³ (kN/m³)",
-    "θ": "Roof slope on the leeward side, degrees"
+    "θ": "Roof slope on the leeward side, degrees",
 }
 
 # Key definitions from Section 7.1.1 (page 55)
@@ -62,5 +64,5 @@ DEFINITIONS = {
     "FREEZER BUILDINGS": "Buildings in which the inside temperature is kept at or below freezing. Buildings with an air space between the roof insulation layer above and a ceiling of the freezer area below are not considered freezer buildings",
     "GROUND SNOW LOAD": "The site-specific weight of the accumulated snow at the ground level used to develop roof snow loads on the structure",
     "SLIPPERY SURFACE": "Membranes with a smooth surface, for example, glass, metal, or rubber. Membranes with an embedded aggregate or mineral granule surface are not considered a slippery surface",
-    "VENTILATED ROOF": "Roof that allows exterior air to naturally circulate between the roof surface above and the insulation layer below"
+    "VENTILATED ROOF": "Roof that allows exterior air to naturally circulate between the roof surface above and the insulation layer below",
 }

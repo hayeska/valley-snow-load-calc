@@ -9,7 +9,8 @@ import sys
 import json
 import tempfile
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime
+
 
 def create_test_scenario():
     """Create a test scenario with various backup files"""
@@ -31,7 +32,7 @@ def create_test_scenario():
             "name": "Valley Snow Load Calculator",
             "version": "1.0",
             "auto_saved": datetime.now().isoformat(),
-            "description": "Auto-saved state after crash"
+            "description": "Auto-saved state after crash",
         },
         "inputs": {
             "snow_load_parameters": {
@@ -39,25 +40,22 @@ def create_test_scenario():
                 "w2": "0.6",
                 "ce": "1.1",
                 "ct": "1.0",
-                "is_factor": "1.0 - Risk Cat II"
+                "is_factor": "1.0 - Risk Cat II",
             },
             "building_geometry": {
                 "pitch_north": "8.5",
                 "pitch_west": "7.2",
                 "north_span": "18.0",
-                "south_span": "16.5"
-            }
+                "south_span": "16.5",
+            },
         },
         "results": {
-            "balanced_loads": {
-                "north_roof": 25.3,
-                "west_roof": 22.1
-            },
-            "calculation_timestamp": datetime.now().isoformat()
-        }
+            "balanced_loads": {"north_roof": 25.3, "west_roof": 22.1},
+            "calculation_timestamp": datetime.now().isoformat(),
+        },
     }
 
-    with open(state_backup, 'w') as f:
+    with open(state_backup, "w") as f:
         json.dump(state_data, f, indent=2)
     print("💾 Created state backup")
 
@@ -69,25 +67,26 @@ def create_test_scenario():
     user_prefs = {
         "window_geometry": "1920x1080+100+100",
         "theme": "dark",
-        "last_project": "test_project.json"
+        "last_project": "test_project.json",
     }
 
-    with open(auto_backup_dir / "user_preferences.json", 'w') as f:
+    with open(auto_backup_dir / "user_preferences.json", "w") as f:
         json.dump(user_prefs, f, indent=2)
 
     material_data = {
         "materials": [
             {"name": "Southern Pine No. 2", "Fb": 875, "E": 1600000},
-            {"name": "Douglas Fir", "Fb": 1000, "E": 1800000}
+            {"name": "Douglas Fir", "Fb": 1000, "E": 1800000},
         ]
     }
 
-    with open(auto_backup_dir / "material_database.json", 'w') as f:
+    with open(auto_backup_dir / "material_database.json", "w") as f:
         json.dump(material_data, f, indent=2)
 
     print("📦 Created auto-backup with partial data")
 
     return test_dir
+
 
 def test_recovery_system(test_dir):
     """Test the recovery system with the created scenario"""
@@ -126,7 +125,7 @@ def test_recovery_system(test_dir):
         options = recovery.analyze_recovery_options()
 
         print("   Recommendations:")
-        for rec in options['recommended_actions']:
+        for rec in options["recommended_actions"]:
             print(f"   • {rec}")
 
         print(f"   Git revert options: {len(options['git_revert_options'])}")
@@ -141,7 +140,7 @@ def test_recovery_system(test_dir):
         print("\n5. Testing data merging...")
         merge_success = recovery.merge_backup_data(
             "state_backup",
-            ["2025-12-31_15-30-00"] if recovery.backup_dir.exists() else []
+            ["2025-12-31_15-30-00"] if recovery.backup_dir.exists() else [],
         )
         print(f"   Data merging: {'✅ Success' if merge_success else '❌ Failed'}")
 
@@ -151,7 +150,7 @@ def test_recovery_system(test_dir):
             print(f"   Merged file created: {merged_files[0].name}")
 
             # Show merge contents
-            with open(merged_files[0], 'r') as f:
+            with open(merged_files[0], "r") as f:
                 merged_data = json.load(f)
 
             merge_info = merged_data.get("_merge_info", {})
@@ -167,6 +166,7 @@ def test_recovery_system(test_dir):
     finally:
         # Restore original directory
         os.chdir(original_cwd)
+
 
 def test_data_merge_utilities(test_dir):
     """Test the data merge utilities"""
@@ -184,7 +184,7 @@ def test_data_merge_utilities(test_dir):
         print("1. Testing source analysis...")
         sources = [
             str(test_dir / "state.backup.json"),
-            str(test_dir / "auto_backups" / "2025-12-31_15-30-00")
+            str(test_dir / "auto_backups" / "2025-12-31_15-30-00"),
         ]
 
         analysis = util.analyze_backup_sources(*sources)
@@ -196,9 +196,7 @@ def test_data_merge_utilities(test_dir):
         # Test data merging
         print("\n2. Testing data merging...")
         merged_data = util.merge_backup_sources(
-            sources[0],
-            [sources[1]],
-            str(test_dir / "test_merged.json")
+            sources[0], [sources[1]], str(test_dir / "test_merged.json")
         )
 
         merge_info = merged_data.get("_merge_info", {})
@@ -217,15 +215,18 @@ def test_data_merge_utilities(test_dir):
         print(f"❌ Data merge test failed: {e}")
         return False
 
+
 def cleanup_test_scenario(test_dir):
     """Clean up the test scenario"""
     print(f"\n🧹 Cleaning up test scenario: {test_dir}")
     try:
         import shutil
+
         shutil.rmtree(test_dir)
         print("✅ Test cleanup completed")
     except Exception as e:
         print(f"⚠️  Cleanup warning: {e}")
+
 
 def main():
     """Run all recovery system tests"""
@@ -247,7 +248,7 @@ def main():
 
         tests = [
             ("Crash Recovery System", recovery_success),
-            ("Data Merge Utilities", merge_success)
+            ("Data Merge Utilities", merge_success),
         ]
 
         passed = 0
@@ -278,6 +279,7 @@ def main():
     finally:
         # Always cleanup
         cleanup_test_scenario(test_dir)
+
 
 if __name__ == "__main__":
     success = main()

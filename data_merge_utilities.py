@@ -9,23 +9,27 @@ Usage:
     python data_merge_utilities.py --resolve-conflicts merged_data.json
 """
 
-import os
 import sys
 import json
 import argparse
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional
 import difflib
 import logging
+
 
 class DataMergeUtilities:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         logging.basicConfig(level=logging.INFO)
 
-    def merge_backup_sources(self, primary_source: str, secondary_sources: List[str],
-                           output_file: Optional[str] = None) -> Dict[str, Any]:
+    def merge_backup_sources(
+        self,
+        primary_source: str,
+        secondary_sources: List[str],
+        output_file: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Merge data from multiple backup sources with conflict resolution
 
@@ -42,31 +46,37 @@ class DataMergeUtilities:
             "sources": [],
             "conflicts_resolved": 0,
             "data_preserved": 0,
-            "merge_timestamp": datetime.now().isoformat()
+            "merge_timestamp": datetime.now().isoformat(),
         }
 
         # Load primary source
         primary_data = self.load_backup_data(primary_source)
         if primary_data:
             merged_data.update(primary_data)
-            merge_report["sources"].append({
-                "path": primary_source,
-                "type": "primary",
-                "data_points": self.count_data_points(primary_data)
-            })
+            merge_report["sources"].append(
+                {
+                    "path": primary_source,
+                    "type": "primary",
+                    "data_points": self.count_data_points(primary_data),
+                }
+            )
 
         # Merge secondary sources
         for source_path in secondary_sources:
             source_data = self.load_backup_data(source_path)
             if source_data:
-                conflicts = self.merge_with_conflict_resolution(merged_data, source_data, primary_override=True)
+                conflicts = self.merge_with_conflict_resolution(
+                    merged_data, source_data, primary_override=True
+                )
                 merge_report["conflicts_resolved"] += len(conflicts)
-                merge_report["sources"].append({
-                    "path": source_path,
-                    "type": "secondary",
-                    "data_points": self.count_data_points(source_data),
-                    "conflicts": len(conflicts)
-                })
+                merge_report["sources"].append(
+                    {
+                        "path": source_path,
+                        "type": "secondary",
+                        "data_points": self.count_data_points(source_data),
+                        "conflicts": len(conflicts),
+                    }
+                )
 
         merge_report["data_preserved"] = self.count_data_points(merged_data)
 
@@ -85,9 +95,9 @@ class DataMergeUtilities:
         path = Path(source_path)
 
         try:
-            if path.is_file() and path.suffix == '.json':
+            if path.is_file() and path.suffix == ".json":
                 # Direct JSON file
-                with open(path, 'r', encoding='utf-8') as f:
+                with open(path, "r", encoding="utf-8") as f:
                     return json.load(f)
 
             elif path.is_dir():
@@ -95,10 +105,12 @@ class DataMergeUtilities:
                 data = {}
                 for file_path in path.glob("*.json"):
                     try:
-                        with open(file_path, 'r', encoding='utf-8') as f:
+                        with open(file_path, "r", encoding="utf-8") as f:
                             file_data = json.load(f)
                         # Merge file data into combined data
-                        self.merge_dict_recursive(data, file_data, primary_override=False)
+                        self.merge_dict_recursive(
+                            data, file_data, primary_override=False
+                        )
                     except Exception as e:
                         self.logger.warning(f"Could not load {file_path}: {e}")
                 return data if data else None
@@ -111,8 +123,12 @@ class DataMergeUtilities:
             self.logger.error(f"Error loading backup data from {source_path}: {e}")
             return None
 
-    def merge_with_conflict_resolution(self, target: Dict[str, Any], source: Dict[str, Any],
-                                     primary_override: bool = True) -> List[Dict[str, Any]]:
+    def merge_with_conflict_resolution(
+        self,
+        target: Dict[str, Any],
+        source: Dict[str, Any],
+        primary_override: bool = True,
+    ) -> List[Dict[str, Any]]:
         """
         Merge dictionaries with intelligent conflict resolution
 
@@ -134,17 +150,23 @@ class DataMergeUtilities:
                     resolved_value = self.resolve_conflict(conflict, primary_override)
                     target[key] = resolved_value
 
-                    conflicts.append({
-                        "key": key,
-                        "target_value": target_value,
-                        "source_value": source_value,
-                        "resolution": "primary_override" if primary_override else "latest_wins",
-                        "resolved_value": resolved_value
-                    })
+                    conflicts.append(
+                        {
+                            "key": key,
+                            "target_value": target_value,
+                            "source_value": source_value,
+                            "resolution": "primary_override"
+                            if primary_override
+                            else "latest_wins",
+                            "resolved_value": resolved_value,
+                        }
+                    )
 
                 elif isinstance(target_value, dict) and isinstance(source_value, dict):
                     # Recursive merge for nested dictionaries
-                    sub_conflicts = self.merge_with_conflict_resolution(target_value, source_value, primary_override)
+                    sub_conflicts = self.merge_with_conflict_resolution(
+                        target_value, source_value, primary_override
+                    )
                     conflicts.extend(sub_conflicts)
 
                 elif isinstance(target_value, list) and isinstance(source_value, list):
@@ -155,7 +177,9 @@ class DataMergeUtilities:
 
         return conflicts
 
-    def detect_conflict(self, key: str, value1: Any, value2: Any) -> Optional[Dict[str, Any]]:
+    def detect_conflict(
+        self, key: str, value1: Any, value2: Any
+    ) -> Optional[Dict[str, Any]]:
         """Detect if two values conflict"""
         if value1 == value2:
             return None  # No conflict
@@ -177,7 +201,7 @@ class DataMergeUtilities:
             "key": key,
             "value1": value1,
             "value2": value2,
-            "type": self.get_conflict_type(value1, value2)
+            "type": self.get_conflict_type(value1, value2),
         }
 
     def get_conflict_type(self, value1: Any, value2: Any) -> str:
@@ -215,8 +239,12 @@ class DataMergeUtilities:
 
         return merged
 
-    def merge_dict_recursive(self, target: Dict[str, Any], source: Dict[str, Any],
-                           primary_override: bool = False):
+    def merge_dict_recursive(
+        self,
+        target: Dict[str, Any],
+        source: Dict[str, Any],
+        primary_override: bool = False,
+    ):
         """Recursively merge dictionaries"""
         for key, value in source.items():
             if key not in target:
@@ -230,7 +258,7 @@ class DataMergeUtilities:
         """Count the number of data points in a dictionary"""
         count = 0
         for key, value in data.items():
-            if key.startswith('_'):  # Skip metadata
+            if key.startswith("_"):  # Skip metadata
                 continue
             count += 1
             if isinstance(value, dict):
@@ -246,7 +274,7 @@ class DataMergeUtilities:
             "compatibility_score": 0,
             "recommended_merge_strategy": "none",
             "potential_conflicts": 0,
-            "data_coverage": {}
+            "data_coverage": {},
         }
 
         loaded_sources = []
@@ -257,16 +285,20 @@ class DataMergeUtilities:
                     "path": source_path,
                     "data_points": self.count_data_points(data),
                     "data_keys": list(data.keys()),
-                    "timestamp": self.extract_timestamp(data)
+                    "timestamp": self.extract_timestamp(data),
                 }
                 loaded_sources.append(source_info)
                 analysis["sources"].append(source_info)
 
         if len(loaded_sources) >= 2:
             # Analyze compatibility
-            analysis["compatibility_score"] = self.calculate_compatibility_score(loaded_sources)
+            analysis["compatibility_score"] = self.calculate_compatibility_score(
+                loaded_sources
+            )
             analysis["potential_conflicts"] = self.estimate_conflicts(loaded_sources)
-            analysis["recommended_merge_strategy"] = self.recommend_merge_strategy(loaded_sources)
+            analysis["recommended_merge_strategy"] = self.recommend_merge_strategy(
+                loaded_sources
+            )
             analysis["data_coverage"] = self.analyze_data_coverage(loaded_sources)
 
         return analysis
@@ -303,7 +335,9 @@ class DataMergeUtilities:
             return "none"
 
         # Check timestamps to determine which is newer
-        timestamps = [source.get("timestamp") for source in sources if source.get("timestamp")]
+        timestamps = [
+            source.get("timestamp") for source in sources if source.get("timestamp")
+        ]
         if timestamps and len(set(str(t) for t in timestamps)) > 1:
             return "timestamp_priority"
 
@@ -332,9 +366,11 @@ class DataMergeUtilities:
         """Extract timestamp from backup data"""
         # Try various timestamp fields
         timestamp_fields = [
-            "timestamp", "created_at", "updated_at",
+            "timestamp",
+            "created_at",
+            "updated_at",
             ["project_info", "auto_saved"],
-            ["project_info", "created"]
+            ["project_info", "created"],
         ]
 
         for field in timestamp_fields:
@@ -353,7 +389,7 @@ class DataMergeUtilities:
             if value:
                 try:
                     if isinstance(value, str):
-                        return datetime.fromisoformat(value.replace('Z', '+00:00'))
+                        return datetime.fromisoformat(value.replace("Z", "+00:00"))
                     elif isinstance(value, (int, float)):
                         return datetime.fromtimestamp(value)
                 except:
@@ -361,7 +397,9 @@ class DataMergeUtilities:
 
         return None
 
-    def resolve_conflicts_interactive(self, merged_data: Dict[str, Any]) -> Dict[str, Any]:
+    def resolve_conflicts_interactive(
+        self, merged_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Interactive conflict resolution for merged data"""
         print("🔧 Interactive Conflict Resolution")
         print("=" * 40)
@@ -380,14 +418,16 @@ class DataMergeUtilities:
 
             while True:
                 choice = input("Choose A, B, or 'skip': ").strip().upper()
-                if choice == 'A':
+                if choice == "A":
                     # Apply value_a (already in merged data)
                     break
-                elif choice == 'B':
+                elif choice == "B":
                     # Apply value_b
-                    self.set_nested_value(merged_data, conflict['key'].split('.'), conflict['value_b'])
+                    self.set_nested_value(
+                        merged_data, conflict["key"].split("."), conflict["value_b"]
+                    )
                     break
-                elif choice == 'SKIP':
+                elif choice == "SKIP":
                     print("Skipped this conflict")
                     break
                 else:
@@ -416,20 +456,33 @@ class DataMergeUtilities:
         if "_merge_info" in data:
             data["_merge_info"]["completion_timestamp"] = datetime.now().isoformat()
 
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
         print(f"💾 Merged data saved to: {output_path}")
         print(f"📊 Total data points: {self.count_data_points(data)}")
 
+
 def main():
-    parser = argparse.ArgumentParser(description='Data Merge Utilities for Valley Snow Load Calculator')
-    parser.add_argument('sources', nargs='+', help='Backup source paths')
-    parser.add_argument('--output', '-o', help='Output file for merged data')
-    parser.add_argument('--analyze', action='store_true', help='Analyze sources without merging')
-    parser.add_argument('--resolve-conflicts', action='store_true', help='Interactive conflict resolution')
-    parser.add_argument('--primary-override', action='store_true', default=True,
-                       help='Primary source takes precedence in conflicts')
+    parser = argparse.ArgumentParser(
+        description="Data Merge Utilities for Valley Snow Load Calculator"
+    )
+    parser.add_argument("sources", nargs="+", help="Backup source paths")
+    parser.add_argument("--output", "-o", help="Output file for merged data")
+    parser.add_argument(
+        "--analyze", action="store_true", help="Analyze sources without merging"
+    )
+    parser.add_argument(
+        "--resolve-conflicts",
+        action="store_true",
+        help="Interactive conflict resolution",
+    )
+    parser.add_argument(
+        "--primary-override",
+        action="store_true",
+        default=True,
+        help="Primary source takes precedence in conflicts",
+    )
 
     args = parser.parse_args()
 
@@ -448,7 +501,7 @@ def main():
 
         # Load existing merged data
         try:
-            with open(args.output, 'r') as f:
+            with open(args.output, "r") as f:
                 merged_data = json.load(f)
         except FileNotFoundError:
             print(f"❌ File not found: {args.output}")
@@ -466,13 +519,11 @@ def main():
         primary = args.sources[0]
         secondary = args.sources[1:] if len(args.sources) > 1 else []
 
-        merged_data = util.merge_backup_sources(
-            primary, secondary, args.output
-        )
+        merged_data = util.merge_backup_sources(primary, secondary, args.output)
 
         # Show merge summary
         merge_info = merged_data.get("_merge_info", {})
-        print(f"✅ Merge completed:")
+        print("✅ Merge completed:")
         print(f"   Sources merged: {len(merge_info.get('sources', []))}")
         print(f"   Conflicts resolved: {merge_info.get('conflicts_resolved', 0)}")
         print(f"   Data points preserved: {merge_info.get('data_preserved', 0)}")
@@ -480,6 +531,7 @@ def main():
         if not args.output:
             print("\n📋 Merged data preview:")
             print(json.dumps(merged_data, indent=2, default=str)[:1000] + "...")
+
 
 if __name__ == "__main__":
     main()

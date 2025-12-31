@@ -5,9 +5,7 @@ Comprehensive comparison of Valley Snow Load Calculator versions
 """
 
 import sys
-import os
 from pathlib import Path
-import json
 
 # Add paths for both versions
 v1_path = Path(__file__).parent
@@ -15,6 +13,7 @@ v2_path = Path(__file__).parent / "development_v2"
 
 sys.path.insert(0, str(v1_path))
 sys.path.insert(0, str(v2_path))
+
 
 def test_v1_calculation():
     """Test V1 calculation functionality."""
@@ -29,6 +28,7 @@ def test_v1_calculation():
 
         # Create a mock Tk root for testing
         import tkinter as tk
+
         root = tk.Tk()
         root.withdraw()  # Hide the window
 
@@ -37,19 +37,19 @@ def test_v1_calculation():
 
         # Set test inputs (using V1's internal methods)
         test_inputs = {
-            'pg': 25.0,
-            'north_span': 16.0,
-            'south_span': 16.0,
-            'ew_half_width': 42.0,
-            'valley_offset': 42.0,
-            'pitch_north': 8.0,
-            'pitch_west': 8.0,
-            'beam_width': 3.5,
-            'beam_depth_trial': 9.5,
-            'ce': 1.0,
-            'ct': 1.0,
-            'is': 1.0,
-            'w2': 0.3
+            "pg": 25.0,
+            "north_span": 16.0,
+            "south_span": 16.0,
+            "ew_half_width": 42.0,
+            "valley_offset": 42.0,
+            "pitch_north": 8.0,
+            "pitch_west": 8.0,
+            "beam_width": 3.5,
+            "beam_depth_trial": 9.5,
+            "ce": 1.0,
+            "ct": 1.0,
+            "is": 1.0,
+            "w2": 0.3,
         }
 
         # Set inputs in V1 app (simulate user input)
@@ -68,13 +68,13 @@ def test_v1_calculation():
 
         # Check for key results in output
         results_found = {
-            'balanced_load': 'ps =' in output_text,
-            'drift_load': 'Governing drift' in output_text or 'pd_max' in output_text,
-            'beam_analysis': 'Maximum Moment' in output_text,
-            'shear_force': 'Maximum shear' in output_text,
-            'deflection': 'Maximum deflection' in output_text,
-            'diagrams': 'generating diagrams' in output_text.lower(),
-            'validation': 'Validation passed' in output_text
+            "balanced_load": "ps =" in output_text,
+            "drift_load": "Governing drift" in output_text or "pd_max" in output_text,
+            "beam_analysis": "Maximum Moment" in output_text,
+            "shear_force": "Maximum shear" in output_text,
+            "deflection": "Maximum deflection" in output_text,
+            "diagrams": "generating diagrams" in output_text.lower(),
+            "validation": "Validation passed" in output_text,
         }
 
         print(f"V1 Results found: {sum(results_found.values())}/{len(results_found)}")
@@ -88,8 +88,10 @@ def test_v1_calculation():
     except Exception as e:
         print(f"V1 test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return None, {}
+
 
 def test_v2_calculation():
     """Test V2 calculation functionality."""
@@ -106,19 +108,19 @@ def test_v2_calculation():
 
         # Test inputs
         test_inputs = {
-            'pg': 25.0,
-            'north_span': 16.0,
-            'south_span': 16.0,
-            'ew_half_width': 42.0,
-            'valley_offset': 42.0,
-            'pitch_north': 8.0,
-            'pitch_west': 8.0,
-            'beam_width': 3.5,
-            'beam_depth_trial': 9.5,
-            'ce': 1.0,
-            'ct': 1.0,
-            'is': 1.0,
-            'w2': 0.3
+            "pg": 25.0,
+            "north_span": 16.0,
+            "south_span": 16.0,
+            "ew_half_width": 42.0,
+            "valley_offset": 42.0,
+            "pitch_north": 8.0,
+            "pitch_west": 8.0,
+            "beam_width": 3.5,
+            "beam_depth_trial": 9.5,
+            "ce": 1.0,
+            "ct": 1.0,
+            "is": 1.0,
+            "w2": 0.3,
         }
 
         print("Running V2 calculation...")
@@ -128,15 +130,17 @@ def test_v2_calculation():
 
         # Check results structure
         results_found = {
-            'inputs': 'inputs' in results,
-            'slope_parameters': 'slope_parameters' in results,
-            'snow_loads': 'snow_loads' in results and 'ps_balanced' in results['snow_loads'],
-            'drift_loads': 'drift_loads' in results.get('snow_loads', {}),
-            'beam_analysis': 'beam_analysis' in results,
-            'beam_results': 'beam_results' in results.get('beam_analysis', {}),
-            'stress_checks': 'stress_checks' in results.get('beam_analysis', {}).get('beam_results', {}),
-            'diagrams': 'diagrams' in results,
-            'validation': results.get('status') == 'analysis_complete'
+            "inputs": "inputs" in results,
+            "slope_parameters": "slope_parameters" in results,
+            "snow_loads": "snow_loads" in results
+            and "ps_balanced" in results["snow_loads"],
+            "drift_loads": "drift_loads" in results.get("snow_loads", {}),
+            "beam_analysis": "beam_analysis" in results,
+            "beam_results": "beam_results" in results.get("beam_analysis", {}),
+            "stress_checks": "stress_checks"
+            in results.get("beam_analysis", {}).get("beam_results", {}),
+            "diagrams": "diagrams" in results,
+            "validation": results.get("status") == "analysis_complete",
         }
 
         print(f"V2 Results found: {sum(results_found.values())}/{len(results_found)}")
@@ -149,8 +153,10 @@ def test_v2_calculation():
     except Exception as e:
         print(f"V2 test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return None, {}
+
 
 def compare_features():
     """Compare feature sets between V1 and V2."""
@@ -159,48 +165,48 @@ def compare_features():
     print("=" * 80)
 
     features = {
-        'Core Calculations': {
-            'ASCE 7-22 Snow Loads': 'Both have this',
-            'Balanced Load Calculation': 'Both have this',
-            'Drift Load Analysis': 'Both have this',
-            'Slope Factor Calculation': 'Both have this',
-            'Load Factor Application': 'Both have this'
+        "Core Calculations": {
+            "ASCE 7-22 Snow Loads": "Both have this",
+            "Balanced Load Calculation": "Both have this",
+            "Drift Load Analysis": "Both have this",
+            "Slope Factor Calculation": "Both have this",
+            "Load Factor Application": "Both have this",
         },
-        'Structural Analysis': {
-            'ASD Beam Design': 'Both have this',
-            'Load Combinations': 'Both have this',
-            'Stress Checks (Bending/Shear)': 'Both have this',
-            'Deflection Analysis': 'Both have this',
-            'Point Load Distribution': 'Both have this'
+        "Structural Analysis": {
+            "ASD Beam Design": "Both have this",
+            "Load Combinations": "Both have this",
+            "Stress Checks (Bending/Shear)": "Both have this",
+            "Deflection Analysis": "Both have this",
+            "Point Load Distribution": "Both have this",
         },
-        'Geometry & Diagrams': {
-            'Valley Rafter Calculations': 'Both have this',
-            'Roof Plan Diagrams': 'Both have this',
-            'Drift Profile Diagrams': 'Both have this',
-            'Load Distribution Diagrams': 'Both have this',
-            'Real-time Diagram Updates': 'V1 only'
+        "Geometry & Diagrams": {
+            "Valley Rafter Calculations": "Both have this",
+            "Roof Plan Diagrams": "Both have this",
+            "Drift Profile Diagrams": "Both have this",
+            "Load Distribution Diagrams": "Both have this",
+            "Real-time Diagram Updates": "V1 only",
         },
-        'User Interface': {
-            'Input Validation': 'Both have this',
-            'Error Messages': 'Both have this',
-            'Progress Indicators': 'V2 only (modern)',
-            'Themes (Light/Dark)': 'V2 only',
-            'Tooltips': 'V2 only (comprehensive)',
-            'Responsive Layout': 'V2 only'
+        "User Interface": {
+            "Input Validation": "Both have this",
+            "Error Messages": "Both have this",
+            "Progress Indicators": "V2 only (modern)",
+            "Themes (Light/Dark)": "V2 only",
+            "Tooltips": "V2 only (comprehensive)",
+            "Responsive Layout": "V2 only",
         },
-        'Reporting': {
-            'PDF Report Generation': 'Both have this',
-            'HTML Report Generation': 'V1 only',
-            'Project Save/Load': 'Both have this',
-            'Results Export': 'Both have this'
+        "Reporting": {
+            "PDF Report Generation": "Both have this",
+            "HTML Report Generation": "V1 only",
+            "Project Save/Load": "Both have this",
+            "Results Export": "Both have this",
         },
-        'Architecture': {
-            'Modular Design': 'V2 only',
-            'Maintainable Code': 'V2 only',
-            'Unit Testing Ready': 'V2 only',
-            'Single Monolithic File': 'V1 only',
-            'Hard to Maintain': 'V1 only'
-        }
+        "Architecture": {
+            "Modular Design": "V2 only",
+            "Maintainable Code": "V2 only",
+            "Unit Testing Ready": "V2 only",
+            "Single Monolithic File": "V1 only",
+            "Hard to Maintain": "V1 only",
+        },
     }
 
     for category, category_features in features.items():
@@ -208,6 +214,7 @@ def compare_features():
         print("-" * len(category))
         for feature, status in category_features.items():
             print(f"  {feature}: {status}")
+
 
 def main():
     """Main comparison function."""
@@ -236,7 +243,11 @@ def main():
 
     if v1_score > v2_score:
         print("\n🔴 V2 is MISSING functionality compared to V1")
-        missing = [k for k, v in v2_results.items() if not v and k in v1_results and v1_results[k]]
+        missing = [
+            k
+            for k, v in v2_results.items()
+            if not v and k in v1_results and v1_results[k]
+        ]
         if missing:
             print("Missing in V2:", ", ".join(missing))
     elif v2_score > v1_score:
@@ -248,6 +259,7 @@ def main():
     print("- Use V1 for complete, proven engineering calculations")
     print("- Use V2 for modern UI and maintainable codebase (once complete)")
     print("- V2 needs additional migration work to match V1 functionality")
+
 
 if __name__ == "__main__":
     main()

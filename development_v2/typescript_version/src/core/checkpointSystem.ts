@@ -1,16 +1,16 @@
 // Auto-save checkpoint system with change detection and recovery points
 
-import { EventEmitter } from 'events';
-import * as fs from 'fs';
-import * as path from 'path';
-import { getDatabase } from '../data/database';
-import { getLogger } from '../utils/logger';
+import { EventEmitter } from "events";
+import * as fs from "fs";
+import * as path from "path";
+import { getDatabase } from "../data/database";
+import { getLogger } from "../utils/logger";
 import {
   CheckpointData,
   CheckpointEvent,
   RecoveryOptions,
-  ProjectData
-} from '../types';
+  ProjectData,
+} from "../types";
 
 export class CheckpointManager extends EventEmitter {
   private db = getDatabase();
@@ -20,12 +20,12 @@ export class CheckpointManager extends EventEmitter {
   private lastCheckpointTime = new Map<string, number>();
   private changeDetector = new DataChangeTracker();
   private isInitialized = false;
-  private crashFlagFile = '.crash';
-  private stateBackupFile = 'state.backup.json';
+  private crashFlagFile = ".crash";
+  private stateBackupFile = "state.backup.json";
 
   constructor(
     private autoSaveMinutes: number = 2, // Changed to 2 minutes
-    private maxCheckpointsPerProject: number = 50
+    private maxCheckpointsPerProject: number = 50,
   ) {
     super();
     this.setupEventHandlers();
@@ -40,20 +40,20 @@ export class CheckpointManager extends EventEmitter {
     this.startAutoSaveTimer();
     this.isInitialized = true;
 
-    this.logger.info('Checkpoint manager initialized', {
+    this.logger.info("Checkpoint manager initialized", {
       autoSaveMinutes: this.autoSaveMinutes,
-      maxCheckpointsPerProject: this.maxCheckpointsPerProject
+      maxCheckpointsPerProject: this.maxCheckpointsPerProject,
     });
   }
 
   private setupEventHandlers(): void {
     // Handle process termination for emergency checkpoints
-    process.on('SIGINT', () => this.handleShutdown());
-    process.on('SIGTERM', () => this.handleShutdown());
+    process.on("SIGINT", () => this.handleShutdown());
+    process.on("SIGTERM", () => this.handleShutdown());
 
     // Handle uncaught exceptions
-    process.on('uncaughtException', () => this.handleShutdown());
-    process.on('unhandledRejection', () => this.handleShutdown());
+    process.on("uncaughtException", () => this.handleShutdown());
+    process.on("unhandledRejection", () => this.handleShutdown());
   }
 
   private createCrashFlag(): void {
@@ -61,7 +61,7 @@ export class CheckpointManager extends EventEmitter {
       fs.writeFileSync(this.crashFlagFile, new Date().toISOString());
     } catch (error) {
       this.logger.logError(error as Error, {
-        operation: 'create_crash_flag'
+        operation: "create_crash_flag",
       });
     }
   }
@@ -73,21 +73,24 @@ export class CheckpointManager extends EventEmitter {
       }
     } catch (error) {
       this.logger.logError(error as Error, {
-        operation: 'remove_crash_flag'
+        operation: "remove_crash_flag",
       });
     }
   }
 
   private checkCrashRecovery(): void {
-    if (fs.existsSync(this.crashFlagFile) && fs.existsSync(this.stateBackupFile)) {
+    if (
+      fs.existsSync(this.crashFlagFile) &&
+      fs.existsSync(this.stateBackupFile)
+    ) {
       try {
-        const crashTime = fs.readFileSync(this.crashFlagFile, 'utf8').trim();
+        const crashTime = fs.readFileSync(this.crashFlagFile, "utf8").trim();
         console.log(`\n🚨 Crash detected from ${crashTime}`);
-        console.log('💾 Auto-recovery system is active');
-        console.log('   Backup file available: state.backup.json\n');
+        console.log("💾 Auto-recovery system is active");
+        console.log("   Backup file available: state.backup.json\n");
       } catch (error) {
         this.logger.logError(error as Error, {
-          operation: 'check_crash_recovery'
+          operation: "check_crash_recovery",
         });
       }
     }
@@ -104,15 +107,18 @@ export class CheckpointManager extends EventEmitter {
       }
     } catch (error) {
       this.logger.logError(error as Error, {
-        operation: 'cleanup_backup_on_exit'
+        operation: "cleanup_backup_on_exit",
       });
     }
   }
 
   private startAutoSaveTimer(): void {
-    this.autoSaveInterval = setInterval(() => {
-      this.performAutoCheckpoints();
-    }, this.autoSaveMinutes * 60 * 1000);
+    this.autoSaveInterval = setInterval(
+      () => {
+        this.performAutoCheckpoints();
+      },
+      this.autoSaveMinutes * 60 * 1000,
+    );
   }
 
   private async performAutoCheckpoints(): Promise<void> {
@@ -124,13 +130,13 @@ export class CheckpointManager extends EventEmitter {
         const timeSinceLastCheckpoint = Date.now() - lastCheckpoint;
 
         if (timeSinceLastCheckpoint >= this.autoSaveMinutes * 60 * 1000) {
-          await this.createCheckpoint(projectId, 'auto_save');
+          await this.createCheckpoint(projectId, "auto_save");
           await this.saveToBackupFile(projectId);
         }
       } catch (error) {
         this.logger.logError(error as Error, {
-          operation: 'auto_checkpoint',
-          projectId
+          operation: "auto_checkpoint",
+          projectId,
         });
       }
     }
@@ -139,7 +145,7 @@ export class CheckpointManager extends EventEmitter {
   async createCheckpoint(
     projectId: string,
     operation: string,
-    data?: Partial<ProjectData>
+    data?: Partial<ProjectData>,
   ): Promise<string> {
     const checkpointId = `checkpoint_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -156,7 +162,7 @@ export class CheckpointManager extends EventEmitter {
       }
 
       const jsonData = JSON.stringify(checkpointData);
-      const dataSize = Buffer.byteLength(jsonData, 'utf8');
+      const dataSize = Buffer.byteLength(jsonData, "utf8");
 
       const checkpoint: CheckpointData = {
         id: checkpointId,
@@ -164,7 +170,7 @@ export class CheckpointManager extends EventEmitter {
         data: checkpointData,
         dataSize,
         operation,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       await this.db.createCheckpoint(checkpoint);
@@ -177,21 +183,20 @@ export class CheckpointManager extends EventEmitter {
 
       // Emit event
       const event: CheckpointEvent = {
-        trigger: 'manual_save',
+        trigger: "manual_save",
         projectId,
-        data: checkpointData
+        data: checkpointData,
       };
-      this.emit('checkpointCreated', event);
+      this.emit("checkpointCreated", event);
 
       this.logger.logCheckpoint(checkpointId, dataSize, operation);
 
       return checkpointId;
-
     } catch (error) {
       this.logger.logError(error as Error, {
-        operation: 'create_checkpoint',
+        operation: "create_checkpoint",
         projectId,
-        checkpointId
+        checkpointId,
       });
       throw error;
     }
@@ -199,7 +204,10 @@ export class CheckpointManager extends EventEmitter {
 
   private async cleanupOldCheckpoints(projectId: string): Promise<void> {
     try {
-      const checkpoints = await this.db.getCheckpoints(projectId, this.maxCheckpointsPerProject + 10);
+      const checkpoints = await this.db.getCheckpoints(
+        projectId,
+        this.maxCheckpointsPerProject + 10,
+      );
 
       if (checkpoints.length > this.maxCheckpointsPerProject) {
         const excessCount = checkpoints.length - this.maxCheckpointsPerProject;
@@ -209,20 +217,25 @@ export class CheckpointManager extends EventEmitter {
         this.logger.logRecoveryAction(
           `Checkpoint cleanup needed: ${excessCount} excess checkpoints`,
           true,
-          { projectId }
+          { projectId },
         );
       }
     } catch (error) {
       this.logger.logError(error as Error, {
-        operation: 'cleanup_checkpoints',
-        projectId
+        operation: "cleanup_checkpoints",
+        projectId,
       });
     }
   }
 
-  async restoreFromCheckpoint(checkpointId: string): Promise<ProjectData | null> {
+  async restoreFromCheckpoint(
+    checkpointId: string,
+  ): Promise<ProjectData | null> {
     try {
-      const checkpoint = await this.db.get(`SELECT * FROM checkpoints WHERE id = ?`, [checkpointId]);
+      const checkpoint = await this.db.get(
+        `SELECT * FROM checkpoints WHERE id = ?`,
+        [checkpointId],
+      );
 
       if (!checkpoint) {
         return null;
@@ -234,21 +247,20 @@ export class CheckpointManager extends EventEmitter {
         data: JSON.parse(checkpoint.data),
         dataSize: checkpoint.data_size,
         operation: checkpoint.operation,
-        timestamp: new Date(checkpoint.created_at)
+        timestamp: new Date(checkpoint.created_at),
       };
 
       this.logger.logRecoveryAction(
         `Restored from checkpoint ${checkpointId}`,
         true,
-        { checkpointId, operation: checkpointData.operation }
+        { checkpointId, operation: checkpointData.operation },
       );
 
       return checkpointData.data as ProjectData;
-
     } catch (error) {
       this.logger.logError(error as Error, {
-        operation: 'restore_from_checkpoint',
-        checkpointId
+        operation: "restore_from_checkpoint",
+        checkpointId,
       });
       return null;
     }
@@ -261,13 +273,15 @@ export class CheckpointManager extends EventEmitter {
       // Check for backup file first
       if (fs.existsSync(this.stateBackupFile)) {
         try {
-          const backupContent = JSON.parse(fs.readFileSync(this.stateBackupFile, 'utf8'));
+          const backupContent = JSON.parse(
+            fs.readFileSync(this.stateBackupFile, "utf8"),
+          );
           options.push({
-            type: 'backup_file',
-            id: 'state_backup',
+            type: "backup_file",
+            id: "state_backup",
             timestamp: new Date(backupContent.project_info.auto_saved),
-            operation: 'auto_save',
-            description: `Restore from auto-saved state (${new Date(backupContent.project_info.auto_saved).toLocaleString()})`
+            operation: "auto_save",
+            description: `Restore from auto-saved state (${new Date(backupContent.project_info.auto_saved).toLocaleString()})`,
           });
         } catch (error) {
           // Backup file corrupted, skip it
@@ -279,12 +293,12 @@ export class CheckpointManager extends EventEmitter {
 
       for (const checkpoint of checkpoints) {
         options.push({
-          type: 'checkpoint',
+          type: "checkpoint",
           id: checkpoint.id,
           timestamp: checkpoint.timestamp,
           operation: checkpoint.operation,
-          description: `Restore from ${checkpoint.operation || 'checkpoint'} (${checkpoint.timestamp.toLocaleString()})`,
-          dataSize: checkpoint.dataSize
+          description: `Restore from ${checkpoint.operation || "checkpoint"} (${checkpoint.timestamp.toLocaleString()})`,
+          dataSize: checkpoint.dataSize,
         });
       }
 
@@ -292,19 +306,18 @@ export class CheckpointManager extends EventEmitter {
       const project = await this.db.loadProject(projectId);
       if (project) {
         options.push({
-          type: 'last_good_state',
-          id: 'last_good_state',
+          type: "last_good_state",
+          id: "last_good_state",
           timestamp: project.updatedAt,
-          description: 'Restore from last successfully saved state'
+          description: "Restore from last successfully saved state",
         });
       }
 
       return options;
-
     } catch (error) {
       this.logger.logError(error as Error, {
-        operation: 'get_recovery_options',
-        projectId
+        operation: "get_recovery_options",
+        projectId,
       });
       return [];
     }
@@ -316,14 +329,16 @@ export class CheckpointManager extends EventEmitter {
         return null;
       }
 
-      const backupContent = JSON.parse(fs.readFileSync(this.stateBackupFile, 'utf8'));
+      const backupContent = JSON.parse(
+        fs.readFileSync(this.stateBackupFile, "utf8"),
+      );
       const projectData = backupContent.project_data;
 
       if (projectData) {
         this.logger.logRecoveryAction(
-          'Restored from auto-save backup file',
+          "Restored from auto-save backup file",
           true,
-          { backupTime: backupContent.project_info.auto_saved }
+          { backupTime: backupContent.project_info.auto_saved },
         );
         return projectData;
       }
@@ -331,22 +346,32 @@ export class CheckpointManager extends EventEmitter {
       return null;
     } catch (error) {
       this.logger.logError(error as Error, {
-        operation: 'restore_from_backup_file'
+        operation: "restore_from_backup_file",
       });
       return null;
     }
   }
 
-  async trackDataChange(projectId: string, newData: ProjectData, forceCheckpoint: boolean = false): Promise<void> {
-    const hasSignificantChange = this.changeDetector.hasSignificantChange(projectId, newData);
+  async trackDataChange(
+    projectId: string,
+    newData: ProjectData,
+    forceCheckpoint: boolean = false,
+  ): Promise<void> {
+    const hasSignificantChange = this.changeDetector.hasSignificantChange(
+      projectId,
+      newData,
+    );
 
     if (forceCheckpoint || hasSignificantChange) {
-      await this.createCheckpoint(projectId, 'data_change', newData);
+      await this.createCheckpoint(projectId, "data_change", newData);
       await this.saveToBackupFile(projectId, newData);
     }
   }
 
-  private async saveToBackupFile(projectId: string, data?: ProjectData): Promise<void> {
+  private async saveToBackupFile(
+    projectId: string,
+    data?: ProjectData,
+  ): Promise<void> {
     try {
       let backupData = data;
       if (!backupData) {
@@ -356,21 +381,26 @@ export class CheckpointManager extends EventEmitter {
       if (backupData) {
         const backupContent = {
           project_info: {
-            name: 'Auto-saved Valley Snow Load State',
-            version: '1.0',
+            name: "Auto-saved Valley Snow Load State",
+            version: "1.0",
             auto_saved: new Date().toISOString(),
-            description: 'Automatic backup for crash recovery'
+            description: "Automatic backup for crash recovery",
           },
-          project_data: backupData
+          project_data: backupData,
         };
 
-        fs.writeFileSync(this.stateBackupFile, JSON.stringify(backupContent, null, 2));
-        console.log(`💾 Auto-saved state at ${new Date().toLocaleTimeString()}`);
+        fs.writeFileSync(
+          this.stateBackupFile,
+          JSON.stringify(backupContent, null, 2),
+        );
+        console.log(
+          `💾 Auto-saved state at ${new Date().toLocaleTimeString()}`,
+        );
       }
     } catch (error) {
       this.logger.logError(error as Error, {
-        operation: 'save_to_backup_file',
-        projectId
+        operation: "save_to_backup_file",
+        projectId,
       });
     }
   }
@@ -386,18 +416,18 @@ export class CheckpointManager extends EventEmitter {
   }
 
   async emergencyCheckpointAll(): Promise<void> {
-    this.logger.logRecoveryAction('Emergency checkpoint initiated', true);
+    this.logger.logRecoveryAction("Emergency checkpoint initiated", true);
 
     const activeProjects = Array.from(this.activeProjects);
 
     for (const projectId of activeProjects) {
       try {
-        await this.createCheckpoint(projectId, 'emergency_save');
+        await this.createCheckpoint(projectId, "emergency_save");
         await this.saveToBackupFile(projectId);
       } catch (error) {
         this.logger.logError(error as Error, {
-          operation: 'emergency_checkpoint',
-          projectId
+          operation: "emergency_checkpoint",
+          projectId,
         });
       }
     }
@@ -412,11 +442,11 @@ export class CheckpointManager extends EventEmitter {
 
     for (const projectId of activeProjects) {
       try {
-        await this.createCheckpoint(projectId, 'forced_save');
+        await this.createCheckpoint(projectId, "forced_save");
       } catch (error) {
         this.logger.logError(error as Error, {
-          operation: 'force_checkpoint',
-          projectId
+          operation: "force_checkpoint",
+          projectId,
         });
       }
     }
@@ -429,7 +459,7 @@ export class CheckpointManager extends EventEmitter {
     }
 
     this.handleShutdown();
-    this.logger.info('Checkpoint manager shutdown');
+    this.logger.info("Checkpoint manager shutdown");
   }
 }
 
@@ -466,7 +496,7 @@ class DataChangeTracker {
 
     for (let i = 0; i < dataString.length; i++) {
       const char = dataString.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convert to 32-bit integer
     }
 
@@ -480,11 +510,15 @@ class DataChangeTracker {
 
 // Decorators for checkpoint integration
 export function checkpointOnChange(projectId?: string) {
-  return function(target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+  return function (
+    target: any,
+    propertyKey: string,
+    descriptor: PropertyDescriptor,
+  ) {
     const originalMethod = descriptor.value;
     const logger = getLogger();
 
-    descriptor.value = async function(...args: any[]): Promise<any> {
+    descriptor.value = async function (...args: any[]): Promise<any> {
       const result = await originalMethod.apply(this, args);
 
       // Try to create checkpoint if project data changed
@@ -499,8 +533,8 @@ export function checkpointOnChange(projectId?: string) {
         }
       } catch (error) {
         logger.logError(error as Error, {
-          operation: 'checkpoint_on_change_decorator',
-          inputData: { method: propertyKey }
+          operation: "checkpoint_on_change_decorator",
+          inputData: { method: propertyKey },
         });
       }
 
@@ -526,11 +560,17 @@ export function initializeCheckpointSystem(): Promise<void> {
 }
 
 // Convenience functions
-export async function createCheckpoint(projectId: string, operation: string, data?: Partial<ProjectData>): Promise<string> {
+export async function createCheckpoint(
+  projectId: string,
+  operation: string,
+  data?: Partial<ProjectData>,
+): Promise<string> {
   return getCheckpointManager().createCheckpoint(projectId, operation, data);
 }
 
-export async function getRecoveryOptions(projectId: string): Promise<RecoveryOptions[]> {
+export async function getRecoveryOptions(
+  projectId: string,
+): Promise<RecoveryOptions[]> {
   return getCheckpointManager().getRecoveryOptions(projectId);
 }
 

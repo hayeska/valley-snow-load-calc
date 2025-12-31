@@ -74,3 +74,5 @@ if ($existingBackups.Count -gt 10) {
 Write-Host "Data backup completed successfully!" -ForegroundColor Green
 Write-Host "Backup location: $CURRENT_BACKUP_DIR" -ForegroundColor Cyan
 Write-Host ""
+
+

@@ -84,3 +84,5 @@ if [ "$1" = "--remove" ]; then
     echo "✅ Backup cron job removed"
     exit 0
 fi
+
+

@@ -1,16 +1,16 @@
 // Resilient Valley Snow Load Calculator with persistent storage and recovery
 
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 import {
   ProjectData,
   RoofGeometry,
   SnowLoadInputs,
   CalculationResults,
-  RecoveryOptions
-} from '../types';
-import { getDatabase } from '../data/database';
-import { getLogger } from '../utils/logger';
-import { getCheckpointManager } from './checkpointSystem';
+  RecoveryOptions,
+} from "../types";
+import { getDatabase } from "../data/database";
+import { getLogger } from "../utils/logger";
+import { getCheckpointManager } from "./checkpointSystem";
 import {
   resilientOperation,
   withTimeout,
@@ -18,18 +18,18 @@ import {
   validatePositiveNumber,
   validateRange,
   withRecoveryStrategies,
-  withErrorBoundary
-} from './errorHandlers';
+  withErrorBoundary,
+} from "./errorHandlers";
 
 @withRecoveryStrategies({
-  'ValidationError': async (error: Error) => {
+  ValidationError: async (error: Error) => {
     // Log validation errors but don't retry
-    console.warn('Validation error encountered:', error.message);
+    console.warn("Validation error encountered:", error.message);
   },
-  'TimeoutError': async (error: Error, ...args: any[]) => {
+  TimeoutError: async (error: Error, ...args: any[]) => {
     // For timeout errors, try with reduced precision
-    console.warn('Operation timed out, attempting simplified calculation');
-  }
+    console.warn("Operation timed out, attempting simplified calculation");
+  },
 })
 export class ValleySnowLoadCalculator {
   private db = getDatabase();
@@ -43,60 +43,70 @@ export class ValleySnowLoadCalculator {
 
   private async initialize(): Promise<void> {
     try {
-      this.logger.info('Initializing Valley Snow Load Calculator...');
+      this.logger.info("Initializing Valley Snow Load Calculator...");
 
       // Initialize database with comprehensive error handling
       await withErrorBoundary(
         () => this.db.initialize(),
-        { operation: 'calculator_db_init' },
+        { operation: "calculator_db_init" },
         {
-          'Error': async (error: Error) => {
-            this.logger.logRecoveryAction('Attempting database recovery', true);
+          Error: async (error: Error) => {
+            this.logger.logRecoveryAction("Attempting database recovery", true);
             // Recovery logic would go here - could try alternative db location, etc.
-          }
-        }
+          },
+        },
       );
 
       // Initialize checkpoint manager
       await withErrorBoundary(
         () => this.checkpointManager.initialize(),
-        { operation: 'calculator_checkpoint_init' },
+        { operation: "calculator_checkpoint_init" },
         {
-          'Error': async (error: Error) => {
-            this.logger.warn('Checkpoint system failed to initialize, continuing without auto-save', {
-              error: error.message
-            });
+          Error: async (error: Error) => {
+            this.logger.warn(
+              "Checkpoint system failed to initialize, continuing without auto-save",
+              {
+                error: error.message,
+              },
+            );
             // Continue without checkpointing rather than failing completely
-          }
-        }
+          },
+        },
       );
 
       // Store global references for error recovery
       (global as any).database = this.db;
       (global as any).checkpointManager = this.checkpointManager;
 
-      this.logger.info('Valley Snow Load Calculator initialized successfully with resilient architecture');
-
+      this.logger.info(
+        "Valley Snow Load Calculator initialized successfully with resilient architecture",
+      );
     } catch (error) {
       const initError = error as Error;
-      this.logger.logError(initError, {
-        operation: 'calculator_initialization',
-        stackTrace: initError.stack
-      }, false);
+      this.logger.logError(
+        initError,
+        {
+          operation: "calculator_initialization",
+          stackTrace: initError.stack,
+        },
+        false,
+      );
 
       // Attempt minimal recovery
       try {
-        this.logger.logRecoveryAction('Attempting minimal calculator initialization', true);
+        this.logger.logRecoveryAction(
+          "Attempting minimal calculator initialization",
+          true,
+        );
 
         // Try to create in-memory fallback if database fails
         if (!this.db) {
-          this.logger.warn('Running in degraded mode without persistence');
+          this.logger.warn("Running in degraded mode without persistence");
           // Could implement in-memory storage as fallback
         }
-
       } catch (recoveryError) {
         this.logger.logError(recoveryError as Error, {
-          operation: 'calculator_recovery'
+          operation: "calculator_recovery",
         });
       }
 
@@ -113,14 +123,14 @@ export class ValleySnowLoadCalculator {
     const projectData: ProjectData = {
       id: projectId,
       name,
-      description: description || '',
+      description: description || "",
       geometry: this.getDefaultGeometry(),
       inputs: this.getDefaultInputs(),
       results: this.getEmptyResults(),
       createdAt: new Date(),
       updatedAt: new Date(),
-      version: '2.0.0',
-      checksum: '' // Will be calculated during save
+      version: "2.0.0",
+      checksum: "", // Will be calculated during save
     };
 
     await this.db.saveProject(projectData);
@@ -137,46 +147,59 @@ export class ValleySnowLoadCalculator {
   async loadProject(projectId: string): Promise<ProjectData> {
     try {
       // Validate input
-      if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
-        throw new Error('Invalid project ID provided');
+      if (
+        !projectId ||
+        typeof projectId !== "string" ||
+        projectId.trim() === ""
+      ) {
+        throw new Error("Invalid project ID provided");
       }
 
       // Attempt to load from database
       const project = await withErrorBoundary(
         () => this.db.loadProject(projectId),
         {
-          operation: 'load_project_db',
-          projectId
+          operation: "load_project_db",
+          projectId,
         },
         {
-          'Error': async (error: Error) => {
+          Error: async (error: Error) => {
             // Try recovery from checkpoint
-            this.logger.logRecoveryAction('Attempting checkpoint recovery for project load', true);
-            const recoveredProject = await this.attemptProjectRecovery(projectId);
+            this.logger.logRecoveryAction(
+              "Attempting checkpoint recovery for project load",
+              true,
+            );
+            const recoveredProject =
+              await this.attemptProjectRecovery(projectId);
             if (recoveredProject) {
               return recoveredProject;
             }
             throw error; // Re-throw if recovery fails
-          }
-        }
+          },
+        },
       );
 
       if (!project) {
         // Try to find project by partial ID or name
         const allProjects = await withErrorBoundary(
           () => this.db.listProjects(),
-          { operation: 'list_projects_fallback', projectId }
+          { operation: "list_projects_fallback", projectId },
         );
 
-        const foundProject = allProjects.find(p =>
-          p.id.includes(projectId) || p.name.toLowerCase().includes(projectId.toLowerCase())
+        const foundProject = allProjects.find(
+          (p) =>
+            p.id.includes(projectId) ||
+            p.name.toLowerCase().includes(projectId.toLowerCase()),
         );
 
         if (foundProject) {
-          this.logger.info(`Project found by fuzzy match: ${foundProject.name}`, {
-            requestedId: projectId,
-            foundId: foundProject.id
-          });
+          this.logger.info(
+            `Project found by fuzzy match: ${foundProject.name}`,
+            {
+              requestedId: projectId,
+              foundId: foundProject.id,
+            },
+          );
           // Recursively load the found project
           return await this.loadProject(foundProject.id);
         }
@@ -190,9 +213,9 @@ export class ValleySnowLoadCalculator {
       // Mark as active for checkpointing
       await withErrorBoundary(
         () => this.checkpointManager.markProjectActive(projectId),
-        { operation: 'mark_project_active', projectId },
+        { operation: "mark_project_active", projectId },
         {}, // Non-critical, don't fail if this fails
-        true
+        true,
       );
 
       this.currentProjectId = projectId;
@@ -200,66 +223,78 @@ export class ValleySnowLoadCalculator {
       this.logger.info(`Project loaded successfully: ${project.name}`, {
         projectId,
         dataSize: JSON.stringify(project).length,
-        lastUpdated: project.updatedAt.toISOString()
+        lastUpdated: project.updatedAt.toISOString(),
       });
 
       return project;
-
     } catch (error) {
       const loadError = error as Error;
       this.logger.logError(loadError, {
-        operation: 'load_project_comprehensive',
+        operation: "load_project_comprehensive",
         projectId,
-        stackTrace: loadError.stack
+        stackTrace: loadError.stack,
       });
 
       // Final recovery attempt - try to create a minimal project structure
-      if (loadError.message.includes('not found')) {
-        this.logger.logRecoveryAction('Project not found, offering recovery options', true, { projectId });
+      if (loadError.message.includes("not found")) {
+        this.logger.logRecoveryAction(
+          "Project not found, offering recovery options",
+          true,
+          { projectId },
+        );
 
         // Could return a "recovery mode" project or throw with recovery suggestions
-        throw new Error(`Project ${projectId} not found. Check recovery options or create a new project.`);
+        throw new Error(
+          `Project ${projectId} not found. Check recovery options or create a new project.`,
+        );
       }
 
       throw loadError;
     }
   }
 
-  private async attemptProjectRecovery(projectId: string): Promise<ProjectData | null> {
+  private async attemptProjectRecovery(
+    projectId: string,
+  ): Promise<ProjectData | null> {
     try {
-      this.logger.info('Attempting project recovery from checkpoints', { projectId });
+      this.logger.info("Attempting project recovery from checkpoints", {
+        projectId,
+      });
 
       // Get recovery options
       const recoveryOptions = await this.getRecoveryOptions(projectId);
 
       // Try the most recent checkpoint
       for (const option of recoveryOptions) {
-        if (option.type === 'checkpoint' && option.id) {
+        if (option.type === "checkpoint" && option.id) {
           try {
             const recovered = await this.recoverFromCheckpoint(option.id);
             if (recovered) {
-              this.logger.logRecoveryAction('Project recovered from checkpoint', true, {
-                projectId,
-                checkpointId: option.id
-              });
+              this.logger.logRecoveryAction(
+                "Project recovered from checkpoint",
+                true,
+                {
+                  projectId,
+                  checkpointId: option.id,
+                },
+              );
               return recovered;
             }
           } catch (checkpointError) {
             this.logger.logError(checkpointError as Error, {
-              operation: 'checkpoint_recovery_attempt',
+              operation: "checkpoint_recovery_attempt",
               projectId,
-              checkpointId: option.id
+              checkpointId: option.id,
             });
           }
         }
       }
 
       return null;
-
     } catch (error) {
       this.logger.logError(error as Error, {
-        operation: 'project_recovery_attempt',
-        projectId
+        operation: "project_recovery_attempt",
+        projectId,
       });
       return null;
     }
@@ -268,39 +303,42 @@ export class ValleySnowLoadCalculator {
   private async validateProjectData(project: ProjectData): Promise<void> {
     // Basic validation
     if (!project.id || !project.name) {
-      throw new Error('Invalid project data: missing required fields');
+      throw new Error("Invalid project data: missing required fields");
     }
 
     // Validate geometry
-    if (!project.geometry || typeof project.geometry !== 'object') {
-      throw new Error('Invalid project geometry data');
+    if (!project.geometry || typeof project.geometry !== "object") {
+      throw new Error("Invalid project geometry data");
     }
 
     // Validate calculations can be performed
     try {
       this.validateGeometry(project.geometry);
     } catch (geomError) {
-      this.logger.warn('Project geometry validation failed, but continuing', {
+      this.logger.warn("Project geometry validation failed, but continuing", {
         projectId: project.id,
-        error: (geomError as Error).message
+        error: (geomError as Error).message,
       });
     }
 
     // Check data integrity if checksum exists
     if (project.checksum) {
-      const crypto = require('crypto');
+      const crypto = require("crypto");
       const dataString = JSON.stringify({
         ...project,
         checksum: undefined,
-        updatedAt: undefined
+        updatedAt: undefined,
       });
-      const calculatedChecksum = crypto.createHash('sha256').update(dataString).digest('hex');
+      const calculatedChecksum = crypto
+        .createHash("sha256")
+        .update(dataString)
+        .digest("hex");
 
       if (calculatedChecksum !== project.checksum) {
-        this.logger.warn('Project data integrity check failed', {
+        this.logger.warn("Project data integrity check failed", {
           projectId: project.id,
           stored: project.checksum,
-          calculated: calculatedChecksum
+          calculated: calculatedChecksum,
         });
         // Don't throw - data might still be usable
       }
@@ -313,9 +351,15 @@ export class ValleySnowLoadCalculator {
     await this.db.saveProject(projectData);
 
     // Create manual checkpoint
-    await this.checkpointManager.createCheckpoint(projectData.id, 'manual_save', projectData);
+    await this.checkpointManager.createCheckpoint(
+      projectData.id,
+      "manual_save",
+      projectData,
+    );
 
-    this.logger.info(`Project saved: ${projectData.name}`, { projectId: projectData.id });
+    this.logger.info(`Project saved: ${projectData.name}`, {
+      projectId: projectData.id,
+    });
   }
 
   @resilientOperation(2, 1000, true)
@@ -342,15 +386,15 @@ export class ValleySnowLoadCalculator {
   @validateInput(
     validatePositiveNumber, // pitchN
     validatePositiveNumber, // pitchW
-    validateRange(0, 100),  // northSpan
-    validateRange(0, 100),  // southSpan
-    validateRange(0, 200),  // ewHalfWidth
+    validateRange(0, 100), // northSpan
+    validateRange(0, 100), // southSpan
+    validateRange(0, 200), // ewHalfWidth
     validateRange(-50, 50), // valleyOffset
-    validateRange(0, 180)   // valleyAngle
+    validateRange(0, 180), // valleyAngle
   )
   async updateGeometry(
     projectId: string,
-    geometry: RoofGeometry
+    geometry: RoofGeometry,
   ): Promise<ProjectData> {
     return await withErrorBoundary(
       async () => {
@@ -363,14 +407,16 @@ export class ValleySnowLoadCalculator {
         // Auto-save with checkpoint
         await this.saveProject(project);
 
-        this.logger.info(`Geometry updated for project ${project.name}`, { projectId });
+        this.logger.info(`Geometry updated for project ${project.name}`, {
+          projectId,
+        });
         return project;
       },
       {
-        operation: 'update_geometry',
-        projectId
+        operation: "update_geometry",
+        projectId,
       },
-      this.recoveryStrategies
+      this.recoveryStrategies,
     );
   }
 
@@ -381,11 +427,11 @@ export class ValleySnowLoadCalculator {
     validateRange(0.7, 1.3), // importanceFactor
     validateRange(0.7, 1.3), // exposureFactor
     validateRange(0.8, 1.3), // thermalFactor
-    validateRange(0, 1)     // winterWindParameter
+    validateRange(0, 1), // winterWindParameter
   )
   async updateInputs(
     projectId: string,
-    inputs: SnowLoadInputs
+    inputs: SnowLoadInputs,
   ): Promise<ProjectData> {
     return await withErrorBoundary(
       async () => {
@@ -393,18 +439,24 @@ export class ValleySnowLoadCalculator {
         project.inputs = inputs;
 
         // Recalculate results with new inputs
-        project.results = await this.performCalculations(project.geometry, inputs);
+        project.results = await this.performCalculations(
+          project.geometry,
+          inputs,
+        );
 
         await this.saveProject(project);
 
-        this.logger.info(`Inputs updated and calculations completed for project ${project.name}`, { projectId });
+        this.logger.info(
+          `Inputs updated and calculations completed for project ${project.name}`,
+          { projectId },
+        );
         return project;
       },
       {
-        operation: 'update_inputs',
-        projectId
+        operation: "update_inputs",
+        projectId,
       },
-      this.recoveryStrategies
+      this.recoveryStrategies,
     );
   }
 
@@ -412,43 +464,54 @@ export class ValleySnowLoadCalculator {
   @withTimeout(30000) // 30 second timeout for full calculation suite
   async performCalculations(
     geometry: RoofGeometry,
-    inputs: SnowLoadInputs
+    inputs: SnowLoadInputs,
   ): Promise<CalculationResults> {
     return await withErrorBoundary(
       async () => {
         const startTime = Date.now();
 
         // Perform slope calculations
-        const slopeParams = this.calculateSlopeParameters(geometry.roofPitchN, geometry.roofPitchW);
+        const slopeParams = this.calculateSlopeParameters(
+          geometry.roofPitchN,
+          geometry.roofPitchW,
+        );
 
         // Calculate snow loads
         const balancedLoads = this.calculateBalancedLoads(inputs, slopeParams);
-        const unbalancedLoads = this.calculateUnbalancedLoads(inputs, slopeParams, geometry);
+        const unbalancedLoads = this.calculateUnbalancedLoads(
+          inputs,
+          slopeParams,
+          geometry,
+        );
         const driftLoads = this.calculateDriftLoads(inputs, geometry);
 
         // Calculate valley-specific loads
-        const valleyLoads = this.calculateValleyLoads(balancedLoads, unbalancedLoads, geometry);
+        const valleyLoads = this.calculateValleyLoads(
+          balancedLoads,
+          unbalancedLoads,
+          geometry,
+        );
 
         const results: CalculationResults = {
           balancedLoads,
           unbalancedLoads,
           driftLoads,
-          valleyLoads
+          valleyLoads,
         };
 
         const duration = Date.now() - startTime;
-        this.logger.logPerformance('full_calculation', duration, true, {
+        this.logger.logPerformance("full_calculation", duration, true, {
           geometry: Object.keys(geometry).length,
-          inputs: Object.keys(inputs).length
+          inputs: Object.keys(inputs).length,
         });
 
         return results;
       },
       {
-        operation: 'perform_calculations',
-        inputData: { geometry: geometry, inputs: inputs }
+        operation: "perform_calculations",
+        inputData: { geometry: geometry, inputs: inputs },
       },
-      this.recoveryStrategies
+      this.recoveryStrategies,
     );
   }
 
@@ -458,8 +521,11 @@ export class ValleySnowLoadCalculator {
   }
 
   @resilientOperation(2, 1000, true)
-  async recoverFromCheckpoint(checkpointId: string): Promise<ProjectData | null> {
-    const recoveredData = await this.checkpointManager.restoreFromCheckpoint(checkpointId);
+  async recoverFromCheckpoint(
+    checkpointId: string,
+  ): Promise<ProjectData | null> {
+    const recoveredData =
+      await this.checkpointManager.restoreFromCheckpoint(checkpointId);
 
     if (recoveredData) {
       // Save recovered data as current state
@@ -494,8 +560,8 @@ export class ValleySnowLoadCalculator {
       slopeRatioW: sW,
       runPerRiseN: pitchN > 0 ? 12.0 / pitchN : Infinity,
       runPerRiseW: pitchW > 0 ? 12.0 / pitchW : Infinity,
-      angleN: Math.atan(sN) * 180 / Math.PI,
-      angleW: Math.atan(sW) * 180 / Math.PI
+      angleN: (Math.atan(sN) * 180) / Math.PI,
+      angleW: (Math.atan(sW) * 180) / Math.PI,
     };
   }
 
@@ -510,11 +576,15 @@ export class ValleySnowLoadCalculator {
 
     return {
       northRoof: balancedLoad,
-      westRoof: balancedLoad
+      westRoof: balancedLoad,
     };
   }
 
-  private calculateUnbalancedLoads(inputs: SnowLoadInputs, slopeParams: any, geometry: RoofGeometry) {
+  private calculateUnbalancedLoads(
+    inputs: SnowLoadInputs,
+    slopeParams: any,
+    geometry: RoofGeometry,
+  ) {
     // Simplified unbalanced load calculation
     const balanced = this.calculateBalancedLoads(inputs, slopeParams);
 
@@ -522,12 +592,16 @@ export class ValleySnowLoadCalculator {
     const minSlope = 0.5 / 12.0;
     const maxSlope = 7.0 / 12.0;
 
-    const unbalancedN = slopeParams.slopeRatioN >= minSlope && slopeParams.slopeRatioN <= maxSlope;
-    const unbalancedW = slopeParams.slopeRatioW >= minSlope && slopeParams.slopeRatioW <= maxSlope;
+    const unbalancedN =
+      slopeParams.slopeRatioN >= minSlope &&
+      slopeParams.slopeRatioN <= maxSlope;
+    const unbalancedW =
+      slopeParams.slopeRatioW >= minSlope &&
+      slopeParams.slopeRatioW <= maxSlope;
 
     return {
       northRoof: unbalancedN ? balanced.northRoof * 1.5 : balanced.northRoof,
-      westRoof: unbalancedW ? balanced.westRoof * 1.5 : balanced.westRoof
+      westRoof: unbalancedW ? balanced.westRoof * 1.5 : balanced.westRoof,
     };
   }
 
@@ -539,34 +613,40 @@ export class ValleySnowLoadCalculator {
 
     return {
       leeSide: leeSideDrift,
-      windwardSide: windwardSideDrift
+      windwardSide: windwardSideDrift,
     };
   }
 
-  private calculateValleyLoads(balanced: any, unbalanced: any, geometry: RoofGeometry) {
+  private calculateValleyLoads(
+    balanced: any,
+    unbalanced: any,
+    geometry: RoofGeometry,
+  ) {
     // Simplified valley load calculation
-    const horizontalLoad = Math.max(balanced.northRoof, balanced.westRoof) * 1.2;
-    const verticalLoad = horizontalLoad * Math.sin((geometry.valleyAngle * Math.PI) / 180);
+    const horizontalLoad =
+      Math.max(balanced.northRoof, balanced.westRoof) * 1.2;
+    const verticalLoad =
+      horizontalLoad * Math.sin((geometry.valleyAngle * Math.PI) / 180);
 
     return {
       horizontalLoad,
-      verticalLoad
+      verticalLoad,
     };
   }
 
   private validateGeometry(geometry: RoofGeometry): void {
     if (geometry.northSpan <= 0 || geometry.southSpan <= 0) {
-      throw new Error('Roof spans must be positive');
+      throw new Error("Roof spans must be positive");
     }
 
     if (geometry.valleyAngle < 0 || geometry.valleyAngle > 180) {
-      throw new Error('Valley angle must be between 0 and 180 degrees');
+      throw new Error("Valley angle must be between 0 and 180 degrees");
     }
 
     // Check if valley offset is within reasonable bounds
     const maxOffset = Math.max(geometry.northSpan, geometry.southSpan) / 2;
     if (Math.abs(geometry.valleyOffset) > maxOffset) {
-      throw new Error('Valley offset is outside reasonable bounds');
+      throw new Error("Valley offset is outside reasonable bounds");
     }
   }
 
@@ -578,7 +658,7 @@ export class ValleySnowLoadCalculator {
       southSpan: 16,
       ewHalfWidth: 42,
       valleyOffset: 16,
-      valleyAngle: 90 // degrees
+      valleyAngle: 90, // degrees
     };
   }
 
@@ -588,7 +668,7 @@ export class ValleySnowLoadCalculator {
       importanceFactor: 1.0,
       exposureFactor: 1.0,
       thermalFactor: 1.0,
-      winterWindParameter: 0.3
+      winterWindParameter: 0.3,
     };
   }
 
@@ -597,7 +677,7 @@ export class ValleySnowLoadCalculator {
       balancedLoads: { northRoof: 0, westRoof: 0 },
       unbalancedLoads: { northRoof: 0, westRoof: 0 },
       driftLoads: { leeSide: 0, windwardSide: 0 },
-      valleyLoads: { horizontalLoad: 0, verticalLoad: 0 }
+      valleyLoads: { horizontalLoad: 0, verticalLoad: 0 },
     };
   }
 
@@ -605,22 +685,28 @@ export class ValleySnowLoadCalculator {
   private generateIdempotencyKey(operation: string, args: any[]): string {
     const keyData = `${operation}_${JSON.stringify(args)}_${Date.now()}`;
     // In a real implementation, you'd use a proper hash function
-    return Buffer.from(keyData).toString('base64').substring(0, 50);
+    return Buffer.from(keyData).toString("base64").substring(0, 50);
   }
 
   // Recovery strategies
   private recoveryStrategies = {
-    'ValidationError': async (error: Error) => {
-      this.logger.warn('Validation error in calculation, using fallback values', {
-        error: error.message
-      });
+    ValidationError: async (error: Error) => {
+      this.logger.warn(
+        "Validation error in calculation, using fallback values",
+        {
+          error: error.message,
+        },
+      );
     },
 
-    'TimeoutError': async (error: Error) => {
-      this.logger.warn('Calculation timeout, attempting simplified calculation', {
-        error: error.message
-      });
-    }
+    TimeoutError: async (error: Error) => {
+      this.logger.warn(
+        "Calculation timeout, attempting simplified calculation",
+        {
+          error: error.message,
+        },
+      );
+    },
   };
 
   // Cleanup method
@@ -631,7 +717,7 @@ export class ValleySnowLoadCalculator {
     // Close database connection
     await this.db.close();
 
-    this.logger.info('Calculator shutdown completed');
+    this.logger.info("Calculator shutdown completed");
   }
 }
 

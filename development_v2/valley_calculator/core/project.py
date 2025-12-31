@@ -9,9 +9,15 @@ from pathlib import Path
 
 from ..data.persistence.database import get_database
 from ..utils.logging.logger import get_logger
-from ..core.recovery.error_handlers import resilient_operation, error_boundary, validate_input, validate_non_empty_string
-from ..core.recovery.checkpoint_system import get_checkpoint_manager, checkpoint_on_change
-from ..core.recovery.error_handlers import validate_positive_number
+from ..core.recovery.error_handlers import (
+    resilient_operation,
+    error_boundary,
+    validate_input,
+    validate_non_empty_string,
+)
+from ..core.recovery.checkpoint_system import (
+    get_checkpoint_manager,
+)
 
 
 class ProjectManager:
@@ -54,7 +60,7 @@ class ProjectManager:
         """Load list of recent projects."""
         if self.recent_projects_file.exists():
             try:
-                with open(self.recent_projects_file, 'r') as f:
+                with open(self.recent_projects_file, "r") as f:
                     self.recent_projects = json.load(f)
             except (json.JSONDecodeError, FileNotFoundError):
                 self.recent_projects = []
@@ -63,7 +69,7 @@ class ProjectManager:
 
     def _save_recent_projects(self):
         """Save list of recent projects."""
-        with open(self.recent_projects_file, 'w') as f:
+        with open(self.recent_projects_file, "w") as f:
             json.dump(self.recent_projects, f, indent=2)
 
     @resilient_operation(retries=3, recoverable=True, save_checkpoint=True)
@@ -89,15 +95,15 @@ class ProjectManager:
                 raise ValueError("Project data must be a dictionary")
 
             # Add metadata
-            project_data['_metadata'] = {
-                'version': '2.0.0',
-                'saved_at': datetime.now().isoformat(),
-                'software': 'Valley Snow Load Calculator V2.0',
-                'project_id': project_id
+            project_data["_metadata"] = {
+                "version": "2.0.0",
+                "saved_at": datetime.now().isoformat(),
+                "software": "Valley Snow Load Calculator V2.0",
+                "project_id": project_id,
             }
 
             # Extract project name for database storage
-            project_name = project_data.get('project_name', 'Unnamed Project')
+            project_name = project_data.get("project_name", "Unnamed Project")
 
             # Save to resilient database
             success = self.db.save_project(project_id, project_name, project_data)
@@ -107,9 +113,7 @@ class ProjectManager:
 
             # Create checkpoint for recovery
             self.checkpoint_mgr.create_checkpoint(
-                project_id,
-                project_data,
-                operation="save_project"
+                project_id, project_data, operation="save_project"
             )
 
             # Mark project as active for auto-checkpointing
@@ -122,7 +126,7 @@ class ProjectManager:
             self.logger.log_recovery_action(
                 f"Project {project_name} saved successfully",
                 True,
-                {'project_id': project_id}
+                {"project_id": project_id},
             )
 
             return project_id
@@ -147,13 +151,13 @@ class ProjectManager:
                 self.checkpoint_mgr.mark_project_active(project_id)
 
                 # Add to recent projects (legacy support)
-                project_name = project_data.get('project_name', 'Unknown Project')
+                project_name = project_data.get("project_name", "Unknown Project")
                 self._add_to_recent_projects_legacy(project_id, project_name)
 
                 self.logger.log_recovery_action(
                     f"Project {project_name} loaded successfully from database",
                     True,
-                    {'project_id': project_id}
+                    {"project_id": project_id},
                 )
 
                 return project_data
@@ -173,11 +177,11 @@ class ProjectManager:
         """
         # Add default V2.0 structure
         upgraded = {
-            'project_name': project_data.get('project_name', 'Upgraded Project'),
-            'inputs': project_data.get('inputs', {}),
-            'results': project_data.get('results', {}),
-            'diagrams': project_data.get('diagrams', []),
-            'metadata': project_data.get('metadata', {})
+            "project_name": project_data.get("project_name", "Upgraded Project"),
+            "inputs": project_data.get("inputs", {}),
+            "results": project_data.get("results", {}),
+            "diagrams": project_data.get("diagrams", []),
+            "metadata": project_data.get("metadata", {}),
         }
 
         return upgraded
@@ -207,14 +211,14 @@ class ProjectManager:
                 if not filepath:
                     return None
 
-            with open(filepath, 'r') as f:
+            with open(filepath, "r") as f:
                 project_data = json.load(f)
 
             # Validate and upgrade if needed
-            metadata = project_data.get('_metadata', {})
-            version = metadata.get('version', '1.0.0')
+            metadata = project_data.get("_metadata", {})
+            version = metadata.get("version", "1.0.0")
 
-            if version.startswith('1.'):
+            if version.startswith("1."):
                 project_data = self._upgrade_project_format(project_data)
 
             # Migrate to database
@@ -226,14 +230,15 @@ class ProjectManager:
             self.logger.log_recovery_action(
                 f"Legacy project loaded and migrated: {filepath}",
                 True,
-                {'migrated_id': migrated_id}
+                {"migrated_id": migrated_id},
             )
 
             return project_data
 
         except Exception as e:
-            self.logger.log_error(e, operation="load_legacy_project",
-                                context={"project_id": project_id})
+            self.logger.log_error(
+                e, operation="load_legacy_project", context={"project_id": project_id}
+            )
             return None
 
     def _migrate_project_to_database(self, project_data: Dict, filepath: str) -> str:
@@ -248,30 +253,34 @@ class ProjectManager:
             New project ID in database
         """
         try:
-            project_name = project_data.get('project_name', Path(filepath).stem)
+            project_name = project_data.get("project_name", Path(filepath).stem)
             project_id = f"migrated_{uuid.uuid4().hex}"
 
             success = self.db.save_project(project_id, project_name, project_data)
 
             if success:
                 # Create backup of original file
-                backup_path = self.projects_dir / "backups" / f"{Path(filepath).name}.backup"
+                backup_path = (
+                    self.projects_dir / "backups" / f"{Path(filepath).name}.backup"
+                )
                 backup_path.parent.mkdir(exist_ok=True)
 
                 import shutil
+
                 shutil.copy2(filepath, backup_path)
 
                 self.logger.log_recovery_action(
                     f"Project migrated to database: {project_name}",
                     True,
-                    {'project_id': project_id, 'backup_path': str(backup_path)}
+                    {"project_id": project_id, "backup_path": str(backup_path)},
                 )
 
             return project_id
 
         except Exception as e:
-            self.logger.log_error(e, operation="migrate_project",
-                                context={"filepath": filepath})
+            self.logger.log_error(
+                e, operation="migrate_project", context={"filepath": filepath}
+            )
             return ""
 
     def _migrate_legacy_projects(self):
@@ -285,26 +294,26 @@ class ProjectManager:
             migrated_count = 0
             for json_file in self.projects_dir.glob("*.json"):
                 try:
-                    with open(json_file, 'r') as f:
+                    with open(json_file, "r") as f:
                         project_data = json.load(f)
 
                     # Skip if already migrated (has project_id in metadata)
-                    metadata = project_data.get('_metadata', {})
-                    if metadata.get('project_id'):
+                    metadata = project_data.get("_metadata", {})
+                    if metadata.get("project_id"):
                         continue
 
                     self._migrate_project_to_database(project_data, str(json_file))
                     migrated_count += 1
 
                 except Exception as e:
-                    self.logger.log_error(e, operation="bulk_migration",
-                                        context={"file": str(json_file)})
+                    self.logger.log_error(
+                        e, operation="bulk_migration", context={"file": str(json_file)}
+                    )
 
             if migrated_count > 0:
                 self.db.set_setting("legacy_migration_completed", True)
                 self.logger.log_recovery_action(
-                    f"Migrated {migrated_count} legacy projects to database",
-                    True
+                    f"Migrated {migrated_count} legacy projects to database", True
                 )
 
         except Exception as e:
@@ -315,13 +324,15 @@ class ProjectManager:
         filepath = os.path.abspath(filepath)
 
         # Remove if already exists
-        self.recent_projects = [p for p in self.recent_projects if p['path'] != filepath]
+        self.recent_projects = [
+            p for p in self.recent_projects if p["path"] != filepath
+        ]
 
         # Add to beginning
         project_info = {
-            'path': filepath,
-            'name': Path(filepath).stem,
-            'last_opened': datetime.now().isoformat()
+            "path": filepath,
+            "name": Path(filepath).stem,
+            "last_opened": datetime.now().isoformat(),
         }
 
         self.recent_projects.insert(0, project_info)
@@ -335,14 +346,16 @@ class ProjectManager:
         """Add project to recent projects list (new method)."""
         # For now, we'll maintain both systems during transition
         # Remove if already exists
-        self.recent_projects = [p for p in self.recent_projects if p.get('project_id') != project_id]
+        self.recent_projects = [
+            p for p in self.recent_projects if p.get("project_id") != project_id
+        ]
 
         # Add to beginning
         project_info = {
-            'project_id': project_id,
-            'name': project_name,
-            'last_opened': datetime.now().isoformat(),
-            'type': 'database'  # Mark as database project
+            "project_id": project_id,
+            "name": project_name,
+            "last_opened": datetime.now().isoformat(),
+            "type": "database",  # Mark as database project
         }
 
         self.recent_projects.insert(0, project_info)
@@ -361,12 +374,14 @@ class ProjectManager:
         # Convert to recent projects format
         recent_db_projects = []
         for project in db_projects[:5]:  # Last 5 database projects
-            recent_db_projects.append({
-                'project_id': project['project_id'],
-                'name': project['name'],
-                'last_opened': project['updated_at'],
-                'type': 'database'
-            })
+            recent_db_projects.append(
+                {
+                    "project_id": project["project_id"],
+                    "name": project["name"],
+                    "last_opened": project["updated_at"],
+                    "type": "database",
+                }
+            )
 
         # Combine with legacy recent projects
         combined = recent_db_projects + self.recent_projects
@@ -375,13 +390,13 @@ class ProjectManager:
         seen_ids = set()
         unique_projects = []
         for project in combined:
-            proj_id = project.get('project_id') or project.get('path')
+            proj_id = project.get("project_id") or project.get("path")
             if proj_id not in seen_ids:
                 seen_ids.add(proj_id)
                 unique_projects.append(project)
 
         # Sort by last_opened descending
-        unique_projects.sort(key=lambda x: x.get('last_opened', ''), reverse=True)
+        unique_projects.sort(key=lambda x: x.get("last_opened", ""), reverse=True)
 
         return unique_projects[:10]
 
@@ -398,10 +413,10 @@ class ProjectManager:
 
             # Add recovery information for each project
             for project in projects:
-                project_id = project['project_id']
+                project_id = project["project_id"]
                 recovery_options = self.checkpoint_mgr.get_recovery_options(project_id)
-                project['recovery_options'] = len(recovery_options)
-                project['has_checkpoints'] = len(recovery_options) > 0
+                project["recovery_options"] = len(recovery_options)
+                project["has_checkpoints"] = len(recovery_options) > 0
 
             return projects
 
@@ -426,8 +441,7 @@ class ProjectManager:
             if success:
                 # Remove from recent projects
                 self.recent_projects = [
-                    p for p in self.recent_projects
-                    if p.get('project_id') != project_id
+                    p for p in self.recent_projects if p.get("project_id") != project_id
                 ]
                 self._save_recent_projects()
 
@@ -437,14 +451,15 @@ class ProjectManager:
                 self.logger.log_recovery_action(
                     f"Project {project_id} deleted successfully",
                     True,
-                    {'project_id': project_id}
+                    {"project_id": project_id},
                 )
 
             return success
 
         except Exception as e:
-            self.logger.log_error(e, operation="delete_project",
-                                context={"project_id": project_id})
+            self.logger.log_error(
+                e, operation="delete_project", context={"project_id": project_id}
+            )
             return False
 
     @resilient_operation(retries=2, recoverable=True)
@@ -461,8 +476,9 @@ class ProjectManager:
         try:
             return self.checkpoint_mgr.get_recovery_options(project_id)
         except Exception as e:
-            self.logger.log_error(e, operation="get_recovery_options",
-                                context={"project_id": project_id})
+            self.logger.log_error(
+                e, operation="get_recovery_options", context={"project_id": project_id}
+            )
             return []
 
     @resilient_operation(retries=3, recoverable=True)
@@ -483,14 +499,17 @@ class ProjectManager:
                 self.logger.log_recovery_action(
                     f"Project recovered from checkpoint {checkpoint_id}",
                     True,
-                    {'checkpoint_id': checkpoint_id}
+                    {"checkpoint_id": checkpoint_id},
                 )
 
             return data
 
         except Exception as e:
-            self.logger.log_error(e, operation="recover_from_checkpoint",
-                                context={"checkpoint_id": checkpoint_id})
+            self.logger.log_error(
+                e,
+                operation="recover_from_checkpoint",
+                context={"checkpoint_id": checkpoint_id},
+            )
             return None
 
     @resilient_operation(retries=2, recoverable=True)
@@ -517,8 +536,9 @@ class ProjectManager:
                 return self.db.create_backup()
 
         except Exception as e:
-            self.logger.log_error(e, operation="create_backup",
-                                context={"project_id": project_id})
+            self.logger.log_error(
+                e, operation="create_backup", context={"project_id": project_id}
+            )
             return None
 
     def get_system_health_status(self) -> Dict[str, Any]:
@@ -533,25 +553,25 @@ class ProjectManager:
             db_projects = len(self.db.list_projects())
 
             health_status = {
-                'database_status': 'healthy',
-                'total_projects': db_projects,
-                'error_summary': error_summary,
-                'last_backup': None,  # Could be implemented to track backup times
-                'recovery_ready': True
+                "database_status": "healthy",
+                "total_projects": db_projects,
+                "error_summary": error_summary,
+                "last_backup": None,  # Could be implemented to track backup times
+                "recovery_ready": True,
             }
 
             # Check for recent errors
-            if error_summary.get('total_errors', 0) > 10:
-                health_status['database_status'] = 'warning'
+            if error_summary.get("total_errors", 0) > 10:
+                health_status["database_status"] = "warning"
 
             return health_status
 
         except Exception as e:
             self.logger.log_error(e, operation="health_check")
             return {
-                'database_status': 'error',
-                'error': str(e),
-                'recovery_ready': False
+                "database_status": "error",
+                "error": str(e),
+                "recovery_ready": False,
             }
 
     def create_project_template(self, name: str, template_data: Dict):
@@ -563,7 +583,7 @@ class ProjectManager:
             template_data: Template data
         """
         template_file = self.templates_dir / f"{name}.json"
-        with open(template_file, 'w') as f:
+        with open(template_file, "w") as f:
             json.dump(template_data, f, indent=2)
 
     def get_project_templates(self) -> List[str]:
@@ -581,10 +601,12 @@ class ProjectManager:
             Template data
         """
         template_file = self.templates_dir / f"{name}.json"
-        with open(template_file, 'r') as f:
+        with open(template_file, "r") as f:
             return json.load(f)
 
-    def export_results(self, results: Dict, format: str = 'json', filepath: str = None) -> str:
+    def export_results(
+        self, results: Dict, format: str = "json", filepath: str = None
+    ) -> str:
         """
         Export analysis results.
 
@@ -596,29 +618,30 @@ class ProjectManager:
         Returns:
             Path to exported file
         """
-        if format == 'json':
+        if format == "json":
             if filepath is None:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 filepath = str(self.projects_dir / f"results_export_{timestamp}.json")
 
-            with open(filepath, 'w') as f:
+            with open(filepath, "w") as f:
                 json.dump(results, f, indent=2)
 
-        elif format == 'csv':
+        elif format == "csv":
             # Basic CSV export for key results
             if filepath is None:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 filepath = str(self.projects_dir / f"results_export_{timestamp}.csv")
 
             import csv
-            with open(filepath, 'w', newline='') as f:
+
+            with open(filepath, "w", newline="") as f:
                 writer = csv.writer(f)
-                writer.writerow(['Parameter', 'Value', 'Unit'])
+                writer.writerow(["Parameter", "Value", "Unit"])
 
                 # Write key results
                 for key, value in results.items():
                     if isinstance(value, (int, float)):
-                        writer.writerow([key, value, ''])
+                        writer.writerow([key, value, ""])
 
         return filepath
 
@@ -635,14 +658,14 @@ class ProjectManager:
         errors = []
 
         # Check required sections
-        required_sections = ['inputs', 'results']
+        required_sections = ["inputs", "results"]
         for section in required_sections:
             if section not in project_data:
                 errors.append(f"Missing required section: {section}")
 
         # Check metadata
-        metadata = project_data.get('_metadata', {})
-        if 'version' not in metadata:
+        metadata = project_data.get("_metadata", {})
+        if "version" not in metadata:
             errors.append("Missing version information")
 
         return len(errors) == 0, errors

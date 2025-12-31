@@ -1,7 +1,6 @@
 # beam_analysis.py - Structural beam analysis for Valley Calculator V2.0
 
-import math
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple
 
 
 class BeamAnalyzer:
@@ -19,15 +18,17 @@ class BeamAnalyzer:
         """Initialize with default material properties."""
         # Default Douglas Fir-Larch Select Structural properties
         self.defaults = {
-            'Fb': 2400,  # Bending stress (psi)
-            'Fv': 265,   # Shear stress (psi)
-            'E': 1800000,  # Modulus of elasticity (psi)
-            'density': 35,  # pcf
-            'width': 3.5,  # inches
-            'depth': 9.5,  # inches
+            "Fb": 2400,  # Bending stress (psi)
+            "Fv": 265,  # Shear stress (psi)
+            "E": 1800000,  # Modulus of elasticity (psi)
+            "density": 35,  # pcf
+            "width": 3.5,  # inches
+            "depth": 9.5,  # inches
         }
 
-    def calculate_section_properties(self, width: float, depth: float) -> Dict[str, float]:
+    def calculate_section_properties(
+        self, width: float, depth: float
+    ) -> Dict[str, float]:
         """
         Calculate beam section properties.
 
@@ -43,15 +44,19 @@ class BeamAnalyzer:
         section_modulus = moment_inertia / (depth / 2.0)
 
         return {
-            'area_sqin': area,
-            'moment_inertia_in4': moment_inertia,
-            'section_modulus_in3': section_modulus,
-            'width_in': width,
-            'depth_in': depth
+            "area_sqin": area,
+            "moment_inertia_in4": moment_inertia,
+            "section_modulus_in3": section_modulus,
+            "width_in": width,
+            "depth_in": depth,
         }
 
-    def calculate_load_combinations(self, dead_loads: List[float], snow_loads: List[float],
-                                  valley_drift_load: float = 0.0) -> Dict[str, List[float]]:
+    def calculate_load_combinations(
+        self,
+        dead_loads: List[float],
+        snow_loads: List[float],
+        valley_drift_load: float = 0.0,
+    ) -> Dict[str, List[float]]:
         """
         Calculate ASD load combinations per ASCE 7-05 Section 2.4.
 
@@ -66,17 +71,23 @@ class BeamAnalyzer:
         combinations = {}
 
         # Basic combinations
-        combinations['D'] = dead_loads  # Dead load only
-        combinations['D+S'] = [d + s for d, s in zip(dead_loads, snow_loads)]  # D + S
-        combinations['D+0.7S'] = [d + 0.7 * s for d, s in zip(dead_loads, snow_loads)]  # D + 0.7S
+        combinations["D"] = dead_loads  # Dead load only
+        combinations["D+S"] = [d + s for d, s in zip(dead_loads, snow_loads)]  # D + S
+        combinations["D+0.7S"] = [
+            d + 0.7 * s for d, s in zip(dead_loads, snow_loads)
+        ]  # D + 0.7S
 
         # Include valley drift if present
         if valley_drift_load > 0:
-            combinations['D+S+Drift'] = [d + s + valley_drift_load for d, s in zip(dead_loads, snow_loads)]
+            combinations["D+S+Drift"] = [
+                d + s + valley_drift_load for d, s in zip(dead_loads, snow_loads)
+            ]
 
         return combinations
 
-    def calculate_shear_force(self, loads: List[float], span_length: float) -> List[float]:
+    def calculate_shear_force(
+        self, loads: List[float], span_length: float
+    ) -> List[float]:
         """
         Calculate shear force diagram.
 
@@ -97,8 +108,9 @@ class BeamAnalyzer:
 
         return shear_forces
 
-    def calculate_bending_moment(self, loads: List[float], positions: List[float],
-                               span_length: float) -> Tuple[List[float], float]:
+    def calculate_bending_moment(
+        self, loads: List[float], positions: List[float], span_length: float
+    ) -> Tuple[List[float], float]:
         """
         Calculate bending moment diagram.
 
@@ -127,8 +139,14 @@ class BeamAnalyzer:
 
         return moments, max_moment
 
-    def calculate_deflection(self, loads: List[float], positions: List[float],
-                           span_length: float, E: float, I: float) -> Tuple[List[float], float]:
+    def calculate_deflection(
+        self,
+        loads: List[float],
+        positions: List[float],
+        span_length: float,
+        E: float,
+        I: float,
+    ) -> Tuple[List[float], float]:
         """
         Calculate beam deflection using moment-area method (simplified).
 
@@ -145,7 +163,9 @@ class BeamAnalyzer:
         # Simplified deflection calculation
         # For a simply supported beam with point loads, max deflection occurs at center
         total_load = sum(loads)
-        center_deflection = (5 * total_load * span_length**4) / (384 * E * I * 1728)  # Convert to inches
+        center_deflection = (5 * total_load * span_length**4) / (
+            384 * E * I * 1728
+        )  # Convert to inches
 
         # Simplified - return constant deflection for now
         deflections = [center_deflection * 0.8] * len(loads)  # Approximation
@@ -153,8 +173,13 @@ class BeamAnalyzer:
 
         return deflections, max_deflection
 
-    def check_bending_stress(self, max_moment: float, section_modulus: float,
-                           Fb: float, load_duration_factor: float = 1.0) -> Dict[str, float]:
+    def check_bending_stress(
+        self,
+        max_moment: float,
+        section_modulus: float,
+        Fb: float,
+        load_duration_factor: float = 1.0,
+    ) -> Dict[str, float]:
         """
         Check bending stress against allowable.
 
@@ -180,13 +205,15 @@ class BeamAnalyzer:
         utilization = fb_actual / fb_allowable
 
         return {
-            'fb_actual_psi': fb_actual,
-            'fb_allowable_psi': fb_allowable,
-            'utilization_ratio': utilization,
-            'passes_bending': utilization <= 1.0
+            "fb_actual_psi": fb_actual,
+            "fb_allowable_psi": fb_allowable,
+            "utilization_ratio": utilization,
+            "passes_bending": utilization <= 1.0,
         }
 
-    def check_shear_stress(self, max_shear: float, area: float, Fv: float) -> Dict[str, float]:
+    def check_shear_stress(
+        self, max_shear: float, area: float, Fv: float
+    ) -> Dict[str, float]:
         """
         Check shear stress against allowable.
 
@@ -205,14 +232,15 @@ class BeamAnalyzer:
         utilization = fv_actual / Fv
 
         return {
-            'fv_actual_psi': fv_actual,
-            'fv_allowable_psi': Fv,
-            'utilization_ratio': utilization,
-            'passes_shear': utilization <= 1.0
+            "fv_actual_psi": fv_actual,
+            "fv_allowable_psi": Fv,
+            "utilization_ratio": utilization,
+            "passes_shear": utilization <= 1.0,
         }
 
-    def check_deflection(self, max_deflection: float, span_length: float,
-                        deflection_limit: float = 0.003) -> Dict[str, float]:
+    def check_deflection(
+        self, max_deflection: float, span_length: float, deflection_limit: float = 0.003
+    ) -> Dict[str, float]:
         """
         Check deflection against allowable limits.
 
@@ -230,15 +258,23 @@ class BeamAnalyzer:
         utilization = max_deflection / allowable_deflection
 
         return {
-            'deflection_actual_in': max_deflection,
-            'deflection_allowable_in': allowable_deflection,
-            'utilization_ratio': utilization,
-            'passes_deflection': utilization <= 1.0
+            "deflection_actual_in": max_deflection,
+            "deflection_allowable_in": allowable_deflection,
+            "utilization_ratio": utilization,
+            "passes_deflection": utilization <= 1.0,
         }
 
-    def perform_beam_analysis(self, loads: List[float], positions: List[float],
-                            span_length: float, width: float = None, depth: float = None,
-                            Fb: float = None, Fv: float = None, E: float = None) -> Dict:
+    def perform_beam_analysis(
+        self,
+        loads: List[float],
+        positions: List[float],
+        span_length: float,
+        width: float = None,
+        depth: float = None,
+        Fb: float = None,
+        Fv: float = None,
+        E: float = None,
+    ) -> Dict:
         """
         Perform complete beam analysis.
 
@@ -253,52 +289,72 @@ class BeamAnalyzer:
             Complete beam analysis results
         """
         # Use defaults if not provided
-        width = width or self.defaults['width']
-        depth = depth or self.defaults['depth']
-        Fb = Fb or self.defaults['Fb']
-        Fv = Fv or self.defaults['Fv']
-        E = E or self.defaults['E']
+        width = width or self.defaults["width"]
+        depth = depth or self.defaults["depth"]
+        Fb = Fb or self.defaults["Fb"]
+        Fv = Fv or self.defaults["Fv"]
+        E = E or self.defaults["E"]
 
         # Calculate section properties
         section_props = self.calculate_section_properties(width, depth)
 
         # Calculate shear and moment
         shear_forces = self.calculate_shear_force(loads, span_length)
-        moments, max_moment = self.calculate_bending_moment(loads, positions, span_length)
-        deflections, max_deflection = self.calculate_deflection(loads, positions, span_length, E, section_props['moment_inertia_in4'])
+        moments, max_moment = self.calculate_bending_moment(
+            loads, positions, span_length
+        )
+        deflections, max_deflection = self.calculate_deflection(
+            loads, positions, span_length, E, section_props["moment_inertia_in4"]
+        )
 
         # Stress checks
-        bending_check = self.check_bending_stress(max_moment, section_props['section_modulus_in3'], Fb)
-        shear_check = self.check_shear_stress(max(shear_forces), section_props['area_sqin'], Fv)
+        bending_check = self.check_bending_stress(
+            max_moment, section_props["section_modulus_in3"], Fb
+        )
+        shear_check = self.check_shear_stress(
+            max(shear_forces), section_props["area_sqin"], Fv
+        )
         deflection_check = self.check_deflection(max_deflection, span_length)
 
         return {
-            'section_properties': section_props,
-            'loads': {
-                'point_loads_lb': loads,
-                'positions_ft': positions,
-                'max_load_lb': max(loads)
+            "section_properties": section_props,
+            "loads": {
+                "point_loads_lb": loads,
+                "positions_ft": positions,
+                "max_load_lb": max(loads),
             },
-            'analysis': {
-                'max_shear_lb': max(shear_forces),
-                'max_moment_lbft': max_moment,
-                'max_deflection_in': max_deflection
+            "analysis": {
+                "max_shear_lb": max(shear_forces),
+                "max_moment_lbft": max_moment,
+                "max_deflection_in": max_deflection,
             },
-            'checks': {
-                'bending': bending_check,
-                'shear': shear_check,
-                'deflection': deflection_check
+            "checks": {
+                "bending": bending_check,
+                "shear": shear_check,
+                "deflection": deflection_check,
             },
-            'overall_passes': all([
-                bending_check['passes_bending'],
-                shear_check['passes_shear'],
-                deflection_check['passes_deflection']
-            ])
+            "overall_passes": all(
+                [
+                    bending_check["passes_bending"],
+                    shear_check["passes_shear"],
+                    deflection_check["passes_deflection"],
+                ]
+            ),
         }
 
-    def analyze_beam(self, span_length, snow_point_loads, dead_point_loads,
-                     beam_width, beam_depth_trial, modulus_e,
-                     fb_allowable, fv_allowable, deflection_snow_limit, deflection_total_limit):
+    def analyze_beam(
+        self,
+        span_length,
+        snow_point_loads,
+        dead_point_loads,
+        beam_width,
+        beam_depth_trial,
+        modulus_e,
+        fb_allowable,
+        fv_allowable,
+        deflection_snow_limit,
+        deflection_total_limit,
+    ):
         """
         Analyze beam per V1 logic - comprehensive ASD analysis.
 
@@ -315,7 +371,6 @@ class BeamAnalyzer:
         Returns:
             Complete beam analysis results
         """
-        import math
 
         # Convert deflection limits from inches to span ratios
         span_inches = span_length * 12.0
@@ -324,10 +379,16 @@ class BeamAnalyzer:
 
         # Create positions for loads (assume evenly spaced)
         num_loads = len(snow_point_loads)
-        positions = [i * span_length / (num_loads - 1) for i in range(num_loads)] if num_loads > 1 else [0]
+        positions = (
+            [i * span_length / (num_loads - 1) for i in range(num_loads)]
+            if num_loads > 1
+            else [0]
+        )
 
         # Calculate load combinations
-        load_combinations = self.calculate_load_combinations(dead_point_loads, snow_point_loads)
+        load_combinations = self.calculate_load_combinations(
+            dead_point_loads, snow_point_loads
+        )
 
         # Analyze each load combination
         results = {}
@@ -338,10 +399,17 @@ class BeamAnalyzer:
         for combo_name, loads in load_combinations.items():
             # Calculate shear and moment
             shear_forces = self.calculate_shear_force(loads, span_length)
-            moments, max_moment = self.calculate_bending_moment(loads, positions, span_length)
+            moments, max_moment = self.calculate_bending_moment(
+                loads, positions, span_length
+            )
             deflections, max_deflection = self.calculate_deflection(
-                loads, positions, span_length, modulus_e,
-                self.calculate_section_properties(beam_width, beam_depth_trial)['moment_inertia_in4']
+                loads,
+                positions,
+                span_length,
+                modulus_e,
+                self.calculate_section_properties(beam_width, beam_depth_trial)[
+                    "moment_inertia_in4"
+                ],
             )
 
             # Update overall maximums
@@ -350,13 +418,13 @@ class BeamAnalyzer:
             max_deflection_overall = max(max_deflection_overall, max_deflection)
 
             results[combo_name] = {
-                'loads': loads,
-                'shear_forces': shear_forces,
-                'moments': moments,
-                'deflections': deflections,
-                'max_moment': max_moment,
-                'max_shear': max(shear_forces),
-                'max_deflection': max_deflection
+                "loads": loads,
+                "shear_forces": shear_forces,
+                "moments": moments,
+                "deflections": deflections,
+                "max_moment": max_moment,
+                "max_shear": max(shear_forces),
+                "max_deflection": max_deflection,
             }
 
         # Section properties
@@ -364,33 +432,34 @@ class BeamAnalyzer:
 
         # Stress checks
         bending_check = self.check_bending_stress(
-            max_moment_overall, section_props['section_modulus_in3'], fb_allowable
+            max_moment_overall, section_props["section_modulus_in3"], fb_allowable
         )
         shear_check = self.check_shear_stress(
-            max_shear_overall, section_props['area_sqin'], fv_allowable
+            max_shear_overall, section_props["area_sqin"], fv_allowable
         )
-        deflection_check = self.check_deflection(max_deflection_overall, span_length, deflection_total_ratio)
+        deflection_check = self.check_deflection(
+            max_deflection_overall, span_length, deflection_total_ratio
+        )
 
         return {
-            'load_combinations': results,
-            'section_properties': section_props,
-            'max_values': {
-                'moment_lbft': max_moment_overall,
-                'shear_lb': max_shear_overall,
-                'deflection_in': max_deflection_overall
+            "load_combinations": results,
+            "section_properties": section_props,
+            "max_values": {
+                "moment_lbft": max_moment_overall,
+                "shear_lb": max_shear_overall,
+                "deflection_in": max_deflection_overall,
             },
-            'stress_checks': {
-                'bending': bending_check,
-                'shear': shear_check,
-                'deflection': deflection_check
+            "stress_checks": {
+                "bending": bending_check,
+                "shear": shear_check,
+                "deflection": deflection_check,
             },
-            'overall_passes': all([
-                bending_check['passes_bending'],
-                shear_check['passes_shear'],
-                deflection_check['passes_deflection']
-            ]),
-            'beam_size': {
-                'width_in': beam_width,
-                'depth_in': beam_depth_trial
-            }
+            "overall_passes": all(
+                [
+                    bending_check["passes_bending"],
+                    shear_check["passes_shear"],
+                    deflection_check["passes_deflection"],
+                ]
+            ),
+            "beam_size": {"width_in": beam_width, "depth_in": beam_depth_trial},
         }

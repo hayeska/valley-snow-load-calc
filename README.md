@@ -7,12 +7,14 @@ A comprehensive engineering tool for calculating snow loads on valley structures
 This calculator implements the ASCE 7-22 Chapter 7 snow load provisions for valley and roof structures. It provides both a production-ready version (V1) and a modern, modular architecture version (V2) currently in development.
 
 ### Current Status
+
 - **V1 (Production Ready)**: Complete implementation with all ASCE 7-22 features, HTML reports, and material database
 - **V2 (Development)**: 70% complete with modern architecture, missing 5 critical engineering features
 
 ## Features
 
 ### Core Calculations
+
 - ASCE 7-22 snow load calculations for valley structures
 - Ground snow load determination
 - Roof snow load calculations
@@ -20,18 +22,21 @@ This calculator implements the ASCE 7-22 Chapter 7 snow load provisions for vall
 - Balanced and unbalanced load conditions
 
 ### User Interface
+
 - Modern GUI with theme support (Light/Dark/High Contrast)
 - Real-time input validation
 - Comprehensive tooltips and help system
 - Professional engineering workflow
 
 ### Reporting & Output
+
 - PDF reports with diagrams and calculations
 - HTML reports (V1 only)
 - Detailed engineering output with intermediate values
 - Material properties database integration
 
 ### Auto-Save & Crash Recovery
+
 - **Automatic backup every 2 minutes** or when data changes
 - **Crash detection** with `.crash` flag file
 - **Auto-save to `state.backup.json`** for immediate recovery
@@ -42,10 +47,12 @@ This calculator implements the ASCE 7-22 Chapter 7 snow load provisions for vall
 ## Installation
 
 ### Prerequisites
+
 - Python 3.8+
 - Git (for version control)
 
 ### Setup
+
 ```bash
 git clone <repository-url>
 cd valley_snow_load_calc
@@ -54,6 +61,7 @@ python main.py
 ```
 
 ### For Development (V2)
+
 ```bash
 cd development_v2
 pip install -r requirements-dev.txt
@@ -92,12 +100,14 @@ valley_snow_load_calc/
 This project uses a simplified Git branching model:
 
 #### `main` Branch
+
 - **Purpose**: Production-ready code only
 - **Content**: Stable releases, thoroughly tested
 - **Protection**: Requires review and CI/CD approval
 - **Merging**: Only from `release/*` branches after QA
 
 #### `feature/*` Branches
+
 - **Purpose**: All new development work
 - **Naming**: `feature/descriptive-name` (e.g., `feature/html-reports`, `feature/material-database`)
 - **Lifetime**: Created from `main`, merged back to `main` via pull request
@@ -108,6 +118,7 @@ This project uses a simplified Git branching model:
   - Update documentation as needed
 
 #### `release/*` Branches (Future Use)
+
 - **Purpose**: Release preparation and QA
 - **Content**: Feature-complete versions ready for production
 - **Process**: Created from `main` when preparing releases
@@ -115,6 +126,7 @@ This project uses a simplified Git branching model:
 ### Development Process
 
 1. **Start New Feature**
+
    ```bash
    git checkout main
    git pull
@@ -122,6 +134,7 @@ This project uses a simplified Git branching model:
    ```
 
 2. **Development Workflow**
+
    ```bash
    # Backup data before making changes (recommended)
    .\backup_data.ps1
@@ -138,6 +151,48 @@ This project uses a simplified Git branching model:
    - Run tests: `python -m pytest`
    - Check linting: `flake8`
    - Pre-commit hooks automatically backup data files
+
+### Pre-commit Hooks
+
+This project uses [pre-commit](https://pre-commit.com) for automated code quality checks. Pre-commit hooks run automatically on every commit to ensure code consistency and quality.
+
+#### Installation
+
+```bash
+# Install pre-commit (Python package)
+pip install pre-commit
+
+# Install the pre-commit hooks in this repository
+pre-commit install
+
+# Optional: Install hooks for commit-msg checks (conventional commits)
+pre-commit install --hook-type commit-msg
+```
+
+#### Available Scripts
+
+For the TypeScript version, you can also use npm scripts:
+
+```bash
+cd development_v2/typescript_version
+
+# Install pre-commit hooks
+npm run precommit:install
+
+# Run all pre-commit checks on all files
+npm run precommit:run
+```
+
+#### What the Hooks Do
+
+- **trailing-whitespace**: Removes trailing whitespace from files
+- **end-of-file-fixer**: Ensures files end with a newline
+- **black**: Auto-formats Python code
+- **ruff**: Lints and fixes Python code
+- **prettier**: Auto-formats JavaScript/TypeScript/JSON/YAML/Markdown files
+- **eslint**: Lints and fixes JavaScript/TypeScript code
+- **check-added-large-files**: Prevents committing files larger than 500KB
+- **commitizen** (optional): Validates conventional commit messages
 
 ### Commit Message Conventions
 
@@ -156,12 +211,14 @@ chore: maintenance tasks
 The Valley Snow Load Calculator includes a comprehensive auto-save system to prevent data loss:
 
 ### Automatic Features
+
 - **Real-time Auto-Save**: Saves current state every 2 minutes
 - **Change Detection**: Saves immediately when any input data changes
 - **Crash Detection**: Creates `.crash` flag file on startup, removes on normal exit
 - **Recovery System**: Automatically detects crashes and offers state restoration
 
 ### Manual Backup
+
 Run the backup script before making significant changes:
 
 ```powershell
@@ -173,17 +230,21 @@ Run the backup script before making significant changes:
 ```
 
 ### Files and Locations
+
 #### Auto-Save Files
+
 - `state.backup.json` - Current application state (auto-saved)
 - `.crash` - Crash detection flag (removed on normal exit)
 
 #### Manual Backup Files
+
 - `auto_backups/YYYY-MM-DD_HH-MM-SS/` - Timestamped backup directories
 - `user_preferences.json` - User interface preferences
 - SQLite databases (`*.db`, `*.sqlite`, `*.sqlite3`)
 - TypeScript app database (`%APPDATA%\ValleySnowLoadCalc\valley_calc.db`)
 
 ### Recovery Process
+
 1. **Crash Detection**: Application checks for `.crash` file on startup
 2. **Backup Verification**: Confirms `state.backup.json` exists and is valid
 3. **User Prompt**: Asks if user wants to restore auto-saved state
@@ -191,6 +252,7 @@ Run the backup script before making significant changes:
 5. **Cleanup**: Removes crash flag and backup file on successful recovery
 
 ### Technical Implementation
+
 - **Python Version**: Threading-based timer with Tkinter integration
 - **TypeScript Version**: Event-driven checkpoint system with file system monitoring
 - **Cross-Platform**: Works on Windows, macOS, and Linux
@@ -210,6 +272,7 @@ The project includes additional data backup protection:
 ## Testing
 
 ### Running Tests
+
 ```bash
 # V1 Tests
 python -m pytest tests/
@@ -220,6 +283,7 @@ python -m pytest valley_calculator/tests/
 ```
 
 ### Test Coverage
+
 - Unit tests for calculation modules
 - Integration tests for GUI components
 - Validation tests for ASCE 7-22 compliance
@@ -234,6 +298,7 @@ python -m pytest valley_calculator/tests/
 6. Wait for review and approval
 
 ### Code Standards
+
 - PEP 8 compliance
 - Type hints for all functions
 - Comprehensive docstrings
@@ -253,6 +318,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Support
 
 For support and questions:
+
 - Create an issue in the repository
 - Check existing documentation
 - Review the troubleshooting guide
@@ -260,12 +326,14 @@ For support and questions:
 ## Version History
 
 ### V1.0.0 (Production Ready)
+
 - Complete ASCE 7-22 implementation
 - Full HTML reporting
 - Material properties database
 - Real-time validation
 
 ### V2.0.0 (Development)
+
 - Modern modular architecture
 - Theme support
 - PDF reporting

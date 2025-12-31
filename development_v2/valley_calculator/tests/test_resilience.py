@@ -5,18 +5,18 @@ import unittest
 import tempfile
 import os
 import shutil
-from unittest.mock import Mock, patch
 import time
 
 from ..core.calculator import ValleyCalculator
 from ..core.project import ProjectManager
-from ..utils.logging.logger import get_logger, ResilienceLogger
-from ..data.persistence.database import get_database, DatabaseManager
+from ..utils.logging.logger import ResilienceLogger
+from ..data.persistence.database import DatabaseManager
 from ..core.recovery.error_handlers import (
-    resilient_operation, error_boundary, validate_input,
-    RecoveryManager, get_recovery_manager
+    resilient_operation,
+    error_boundary,
+    validate_input,
+    get_recovery_manager,
 )
-from ..core.recovery.checkpoint_system import CheckpointManager, get_checkpoint_manager
 
 
 class TestResilienceFeatures(unittest.TestCase):
@@ -28,7 +28,7 @@ class TestResilienceFeatures(unittest.TestCase):
         self.test_dir = tempfile.mkdtemp()
 
         # Mock database path
-        self.db_path = os.path.join(self.test_dir, 'test.db')
+        self.db_path = os.path.join(self.test_dir, "test.db")
 
         # Initialize components with test paths
         self.logger = ResilienceLogger(log_dir=self.test_dir)
@@ -39,7 +39,7 @@ class TestResilienceFeatures(unittest.TestCase):
     def tearDown(self):
         """Clean up test environment."""
         # Close database connections
-        if hasattr(self.db, '_connection'):
+        if hasattr(self.db, "_connection"):
             self.db._connection.close()
 
         # Remove test directory
@@ -49,9 +49,9 @@ class TestResilienceFeatures(unittest.TestCase):
         """Test basic database operations with resilience."""
         # Test project save and load
         project_data = {
-            'project_name': 'Test Project',
-            'inputs': {'test_input': 42},
-            'results': {'test_result': 84}
+            "project_name": "Test Project",
+            "inputs": {"test_input": 42},
+            "results": {"test_result": 84},
         }
 
         # Save project
@@ -61,13 +61,13 @@ class TestResilienceFeatures(unittest.TestCase):
         # Load project
         loaded_data = self.project_mgr.load_project(project_id)
         self.assertIsNotNone(loaded_data)
-        self.assertEqual(loaded_data['project_name'], 'Test Project')
-        self.assertEqual(loaded_data['inputs']['test_input'], 42)
+        self.assertEqual(loaded_data["project_name"], "Test Project")
+        self.assertEqual(loaded_data["inputs"]["test_input"], 42)
 
     def test_checkpoint_system(self):
         """Test checkpoint creation and recovery."""
         project_id = "test_checkpoint_project"
-        test_data = {'checkpoint_test': True, 'value': 123}
+        test_data = {"checkpoint_test": True, "value": 123}
 
         # Create checkpoint
         success = self.db.create_checkpoint(project_id, "test_checkpoint", test_data)
@@ -76,8 +76,8 @@ class TestResilienceFeatures(unittest.TestCase):
         # Retrieve checkpoint
         recovered_data = self.db.restore_from_checkpoint("test_checkpoint")
         self.assertIsNotNone(recovered_data)
-        self.assertEqual(recovered_data['checkpoint_test'], True)
-        self.assertEqual(recovered_data['value'], 123)
+        self.assertEqual(recovered_data["checkpoint_test"], True)
+        self.assertEqual(recovered_data["value"], 123)
 
     def test_error_boundary(self):
         """Test error boundary context manager."""
@@ -117,7 +117,13 @@ class TestResilienceFeatures(unittest.TestCase):
 
     def test_input_validation(self):
         """Test input validation decorators."""
-        @validate_input(lambda x, name: (isinstance(x, (int, float)) and x > 0, f"{name} must be positive number"))
+
+        @validate_input(
+            lambda x, name: (
+                isinstance(x, (int, float)) and x > 0,
+                f"{name} must be positive number",
+            )
+        )
         def validated_function(value):
             return value * 2
 
@@ -138,7 +144,9 @@ class TestResilienceFeatures(unittest.TestCase):
         self.assertTrue(self.db._validate_data_integrity(test_data, checksum))
 
         # Corrupted data should fail
-        self.assertFalse(self.db._validate_data_integrity(test_data + "corrupted", checksum))
+        self.assertFalse(
+            self.db._validate_data_integrity(test_data + "corrupted", checksum)
+        )
 
     def test_recovery_manager(self):
         """Test recovery manager functionality."""
@@ -152,36 +160,39 @@ class TestResilienceFeatures(unittest.TestCase):
 
         # Verify strategy is registered
         self.assertIn(ValueError, recovery_mgr.recovery_strategies)
-        self.assertEqual(recovery_mgr.recovery_strategies[ValueError], test_recovery_handler)
+        self.assertEqual(
+            recovery_mgr.recovery_strategies[ValueError], test_recovery_handler
+        )
 
     def test_performance_logging(self):
         """Test performance logging functionality."""
         start_time = time.time()
 
         # Simulate operation with performance logging
-        self.logger.log_performance("test_operation", 0.5, success=True,
-                                  metadata={'test': True})
+        self.logger.log_performance(
+            "test_operation", 0.5, success=True, metadata={"test": True}
+        )
 
         # Check that performance data was recorded
         perf_stats = self.logger.get_performance_stats("test_operation")
-        self.assertIn('count', perf_stats)
-        self.assertIn('avg_duration', perf_stats)
+        self.assertIn("count", perf_stats)
+        self.assertIn("avg_duration", perf_stats)
 
     def test_project_listing_and_deletion(self):
         """Test project listing and deletion."""
         # Create test projects
-        project1_data = {'project_name': 'Test Project 1', 'inputs': {}, 'results': {}}
-        project2_data = {'project_name': 'Test Project 2', 'inputs': {}, 'results': {}}
+        project1_data = {"project_name": "Test Project 1", "inputs": {}, "results": {}}
+        project2_data = {"project_name": "Test Project 2", "inputs": {}, "results": {}}
 
         id1 = self.project_mgr.save_project(project1_data)
         id2 = self.project_mgr.save_project(project2_data)
 
         # List projects
         projects = self.project_mgr.list_projects()
-        project_names = [p['name'] for p in projects]
+        project_names = [p["name"] for p in projects]
 
-        self.assertIn('Test Project 1', project_names)
-        self.assertIn('Test Project 2', project_names)
+        self.assertIn("Test Project 1", project_names)
+        self.assertIn("Test Project 2", project_names)
 
         # Delete project
         success = self.project_mgr.delete_project(id1)
@@ -189,22 +200,22 @@ class TestResilienceFeatures(unittest.TestCase):
 
         # Verify deletion
         projects_after = self.project_mgr.list_projects()
-        project_names_after = [p['name'] for p in projects_after]
+        project_names_after = [p["name"] for p in projects_after]
 
-        self.assertNotIn('Test Project 1', project_names_after)
-        self.assertIn('Test Project 2', project_names_after)
+        self.assertNotIn("Test Project 1", project_names_after)
+        self.assertIn("Test Project 2", project_names_after)
 
     def test_system_health_check(self):
         """Test system health check functionality."""
         health_status = self.project_mgr.get_system_health_status()
 
         # Should have basic health information
-        self.assertIn('database_status', health_status)
-        self.assertIn('total_projects', health_status)
-        self.assertIn('recovery_ready', health_status)
+        self.assertIn("database_status", health_status)
+        self.assertIn("total_projects", health_status)
+        self.assertIn("recovery_ready", health_status)
 
         # Database should be healthy for new instance
-        self.assertEqual(health_status['database_status'], 'healthy')
+        self.assertEqual(health_status["database_status"], "healthy")
 
     def test_concurrent_access(self):
         """Test concurrent database access handling."""
@@ -218,9 +229,9 @@ class TestResilienceFeatures(unittest.TestCase):
             try:
                 # Each worker tries to save a project
                 project_data = {
-                    'project_name': f'Concurrent Test {worker_id}',
-                    'inputs': {'worker_id': worker_id},
-                    'results': {}
+                    "project_name": f"Concurrent Test {worker_id}",
+                    "inputs": {"worker_id": worker_id},
+                    "results": {},
                 }
 
                 project_id = self.project_mgr.save_project(project_data)
@@ -258,5 +269,5 @@ class TestResilienceFeatures(unittest.TestCase):
         self.assertLessEqual(error_count, 2)  # Allow for some race conditions
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

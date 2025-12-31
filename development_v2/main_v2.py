@@ -22,7 +22,6 @@ Or import as module:
 """
 
 import sys
-import os
 from pathlib import Path
 
 # Add the valley_calculator package to Python path
@@ -55,6 +54,7 @@ def main():
     except Exception as e:
         print(f"Error starting application: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

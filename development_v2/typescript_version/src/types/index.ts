@@ -77,7 +77,7 @@ export interface PerformanceMetrics {
 }
 
 export interface RecoveryOptions {
-  type: 'checkpoint' | 'backup' | 'last_good_state';
+  type: "checkpoint" | "backup" | "last_good_state";
   id: string;
   timestamp: Date;
   operation?: string;
@@ -86,7 +86,7 @@ export interface RecoveryOptions {
 }
 
 export interface SystemHealth {
-  databaseStatus: 'healthy' | 'warning' | 'error';
+  databaseStatus: "healthy" | "warning" | "error";
   totalProjects: number;
   recentErrors: number;
   lastBackup?: Date;
@@ -127,11 +127,11 @@ export interface DatabaseTransaction {
 
 // Event types for checkpoint triggers
 export type CheckpointTrigger =
-  | 'manual_save'
-  | 'auto_save'
-  | 'data_change'
-  | 'operation_complete'
-  | 'error_recovery';
+  | "manual_save"
+  | "auto_save"
+  | "data_change"
+  | "operation_complete"
+  | "error_recovery";
 
 export interface CheckpointEvent {
   trigger: CheckpointTrigger;

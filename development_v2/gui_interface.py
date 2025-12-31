@@ -6,26 +6,35 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from typing import Optional
 import math
-import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 import json
 from datetime import datetime
+
 try:
     from reportlab.lib.pagesizes import letter, A4
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image
+    from reportlab.platypus import (
+        SimpleDocTemplate,
+        Paragraph,
+        Spacer,
+        Table,
+        TableStyle,
+        PageBreak,
+        Image,
+    )
     from reportlab.lib import colors
     from reportlab.lib.units import inch
+
     REPORTLAB_AVAILABLE = True
 except ImportError:
     REPORTLAB_AVAILABLE = False
     print("Warning: ReportLab not available. PDF reports will not be supported.")
 
 from slope_factors import calculate_cs
-from drift_calculator import single_gable_drift, valley_governing_drift
-from geometry import valley_horizontal_length, valley_rafter_length
+from drift_calculator import valley_governing_drift
+from geometry import valley_rafter_length
 from beam_design import ValleyBeamInputs, ValleyBeamDesigner, create_beam_summary
 from jack_rafter_module import calculate_jack_rafters
 from validation import (
@@ -35,8 +44,9 @@ from validation import (
     validate_pitch,
     validate_exposure_factor,
     validate_thermal_factor,
-    validate_importance_factor
+    validate_importance_factor,
 )
+
 
 class ValleySnowCalculator:
     def __init__(self, master: tk.Tk):
@@ -52,17 +62,25 @@ class ValleySnowCalculator:
             # File menu
             file_menu = tk.Menu(menubar, tearoff=0)
             menubar.add_cascade(label="File", menu=file_menu)
-            file_menu.add_command(label="Save Project", command=self.save_project, accelerator="Ctrl+S")
-            file_menu.add_command(label="Load Project", command=self.load_project, accelerator="Ctrl+O")
+            file_menu.add_command(
+                label="Save Project", command=self.save_project, accelerator="Ctrl+S"
+            )
+            file_menu.add_command(
+                label="Load Project", command=self.load_project, accelerator="Ctrl+O"
+            )
             file_menu.add_separator()
-            file_menu.add_command(label="Generate Report", command=self.generate_report, accelerator="Ctrl+R")
+            file_menu.add_command(
+                label="Generate Report",
+                command=self.generate_report,
+                accelerator="Ctrl+R",
+            )
             file_menu.add_separator()
             file_menu.add_command(label="Exit", command=master.quit)
 
             # Bind keyboard shortcuts
-            master.bind('<Control-s>', lambda e: self.save_project())
-            master.bind('<Control-o>', lambda e: self.load_project())
-            master.bind('<Control-r>', lambda e: self.generate_report())
+            master.bind("<Control-s>", lambda e: self.save_project())
+            master.bind("<Control-o>", lambda e: self.load_project())
+            master.bind("<Control-r>", lambda e: self.generate_report())
 
             # Force menu bar to be visible
             master.update()
@@ -74,14 +92,19 @@ class ValleySnowCalculator:
 
         # Create scrollable canvas setup
         self.canvas = tk.Canvas(master, bg="#f0f0f0")
-        self.scrollbar = ttk.Scrollbar(master, orient="vertical", command=self.canvas.yview)
+        self.scrollbar = ttk.Scrollbar(
+            master, orient="vertical", command=self.canvas.yview
+        )
         self.scrollable_frame = ttk.Frame(self.canvas)
 
         self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
 
         # Single safe bind for scroll region
-        self.scrollable_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")),
+        )
 
         # Pack canvas below menu bar
         self.canvas.pack(fill="both", expand=True)
@@ -90,7 +113,7 @@ class ValleySnowCalculator:
         # Enable mouse wheel scrolling for the entire window
         def _on_mousewheel_windows(event):
             """Handle mouse wheel scrolling on Windows."""
-            self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
         def _on_mousewheel_linux_up(event):
             """Handle mouse wheel scrolling up on Linux."""
@@ -102,21 +125,22 @@ class ValleySnowCalculator:
 
         # Bind mouse wheel events
         self.canvas.bind_all("<MouseWheel>", _on_mousewheel_windows)  # Windows
-        self.canvas.bind_all("<Button-4>", _on_mousewheel_linux_up)   # Linux scroll up
-        self.canvas.bind_all("<Button-5>", _on_mousewheel_linux_down) # Linux scroll down
+        self.canvas.bind_all("<Button-4>", _on_mousewheel_linux_up)  # Linux scroll up
+        self.canvas.bind_all(
+            "<Button-5>", _on_mousewheel_linux_down
+        )  # Linux scroll down
 
         print("Canvas and scrollable frame created")  # Debug print
-
 
         # Life-safety banner (neutral color)
         banner = tk.Label(
             self.scrollable_frame,
             text="LIFE-SAFETY CRITICAL: Service-level loads only. Verify all inputs per ASCE 7-22 & Hazard Tool.\n"
-                 "Consult licensed structural engineer.",
+            "Consult licensed structural engineer.",
             fg="black",
             bg="#f0f0f0",
             font=("Helvetica", 10),
-            pady=5
+            pady=5,
         )
         banner.pack(fill=tk.X)
 
@@ -124,7 +148,11 @@ class ValleySnowCalculator:
         self.entries = {}
 
         # Snow Load Parameters Frame
-        snow_frame = ttk.LabelFrame(self.scrollable_frame, text="Snow Load Parameters (ASCE 7-22 Chapter 7)", padding=10)
+        snow_frame = ttk.LabelFrame(
+            self.scrollable_frame,
+            text="Snow Load Parameters (ASCE 7-22 Chapter 7)",
+            padding=10,
+        )
         snow_frame.pack(pady=5, padx=20, fill=tk.X)
 
         # Configure column weights for proper expansion
@@ -132,32 +160,49 @@ class ValleySnowCalculator:
         snow_frame.columnconfigure(3, weight=1)
 
         snow_inputs = [
-            ("pg (psf; Ground snow load, Sec. 7.2: reliability-targeted from Fig. 7.2-1A–D/Hazard Tool; e.g., 50)", "50", "pg"),
-            ("W2 (0.25–0.65; Winter wind param, Fig. 7.6-1: % wind >10 mph Oct–Apr; from Hazard Tool)", "0.55", "w2"),
+            (
+                "pg (psf; Ground snow load, Sec. 7.2: reliability-targeted from Fig. 7.2-1A–D/Hazard Tool; e.g., 50)",
+                "50",
+                "pg",
+            ),
+            (
+                "W2 (0.25–0.65; Winter wind param, Fig. 7.6-1: % wind >10 mph Oct–Apr; from Hazard Tool)",
+                "0.55",
+                "w2",
+            ),
             ("Ce – Exposure factor, Table 7.3-1", "1.0", "ce"),
-            ("Ct – Thermal factor, Table 7.3-2/7.3-3", "1.2", "ct")
+            ("Ct – Thermal factor, Table 7.3-2/7.3-3", "1.2", "ct"),
         ]
 
         for i, (label_text, default, key) in enumerate(snow_inputs):
             row = i // 2
             col = (i % 2) * 2
-            ttk.Label(snow_frame, text=label_text).grid(row=row, column=col, sticky="w", pady=3, padx=5)
+            ttk.Label(snow_frame, text=label_text).grid(
+                row=row, column=col, sticky="w", pady=3, padx=5
+            )
             entry = ttk.Entry(snow_frame, width=15)
             entry.insert(0, default)
             entry.grid(row=row, column=col + 1, sticky="ew", pady=3, padx=5)
             # Add real-time validation
-            entry.bind('<KeyRelease>', lambda e, k=key: self.validate_input_realtime(e.widget.get(), k))
+            entry.bind(
+                "<KeyRelease>",
+                lambda e, k=key: self.validate_input_realtime(e.widget.get(), k),
+            )
             self.entries[key] = entry
 
         # Add Is factor Combobox
-        ttk.Label(snow_frame, text="Is – Importance factor, Table 1.5-2").grid(row=3, column=0, sticky="w", pady=3, padx=5)
+        ttk.Label(snow_frame, text="Is – Importance factor, Table 1.5-2").grid(
+            row=3, column=0, sticky="w", pady=3, padx=5
+        )
         is_options = [
             "1.0 - Risk Cat II (default)",
             "0.8 - Risk Cat I",
             "1.1 - Risk Cat III",
-            "1.2 - Risk Cat IV"
+            "1.2 - Risk Cat IV",
         ]
-        self.is_combobox = ttk.Combobox(snow_frame, values=is_options, width=40, state="readonly")
+        self.is_combobox = ttk.Combobox(
+            snow_frame, values=is_options, width=40, state="readonly"
+        )
         self.is_combobox.set(is_options[0])  # Default to Risk Category II
         self.is_combobox.grid(row=3, column=1, sticky="ew", pady=3, padx=5)
 
@@ -167,7 +212,7 @@ class ValleySnowCalculator:
                 "1.0 - Risk Cat II (default)": "Risk Category II: Standard buildings, residential; pg reliability-targeted for this category",
                 "0.8 - Risk Cat I": "Risk Category I: Low hazard to human life",
                 "1.1 - Risk Cat III": "Risk Category III: Substantial hazard, schools, large assembly",
-                "1.2 - Risk Cat IV": "Risk Category IV: Essential facilities, hospitals, emergency"
+                "1.2 - Risk Cat IV": "Risk Category IV: Essential facilities, hospitals, emergency",
             }
             current_selection = self.is_combobox.get()
             if current_selection in tooltip_text:
@@ -175,11 +220,17 @@ class ValleySnowCalculator:
                 tooltip = tk.Toplevel()
                 tooltip.wm_overrideredirect(True)
                 tooltip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
-                tk.Label(tooltip, text=tooltip_text[current_selection], bg="yellow", relief="solid", borderwidth=1).pack()
+                tk.Label(
+                    tooltip,
+                    text=tooltip_text[current_selection],
+                    bg="yellow",
+                    relief="solid",
+                    borderwidth=1,
+                ).pack()
                 self.tooltip = tooltip
 
         def hide_tooltip(event):
-            if hasattr(self, 'tooltip'):
+            if hasattr(self, "tooltip"):
                 self.tooltip.destroy()
 
         self.is_combobox.bind("<Enter>", show_tooltip)
@@ -187,7 +238,11 @@ class ValleySnowCalculator:
 
         # Add Slippery surface checkbox
         self.slippery_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(snow_frame, text="Slippery surface (non-slippery by default)", variable=self.slippery_var).grid(row=3, column=2, columnspan=2, sticky="w", pady=3, padx=5)
+        ttk.Checkbutton(
+            snow_frame,
+            text="Slippery surface (non-slippery by default)",
+            variable=self.slippery_var,
+        ).grid(row=3, column=2, columnspan=2, sticky="w", pady=3, padx=5)
 
         # Add slippery surface definition note
         slippery_note_label = ttk.Label(
@@ -195,9 +250,11 @@ class ValleySnowCalculator:
             text="Slippery surface: Membranes with a smooth surface, for example, glass, metal, or rubber. Membranes with an embedded aggregate or mineral granule surface are not considered a slippery surface. (Sec. 7.1.1)",
             foreground="darkblue",
             wraplength=600,
-            font=("Helvetica", 9, "italic")
+            font=("Helvetica", 9, "italic"),
         )
-        slippery_note_label.grid(row=4, column=0, columnspan=4, sticky="w", pady=2, padx=5)
+        slippery_note_label.grid(
+            row=4, column=0, columnspan=4, sticky="w", pady=2, padx=5
+        )
 
         # Add Cs calculation explanation note
         cs_note_label = ttk.Label(
@@ -205,7 +262,7 @@ class ValleySnowCalculator:
             text="Cs (slope factor) automatically calculated based on:\n- Ct (thermal condition: warm Ct ≤ 1.1, cold Ct ≥ 1.2, intermediate 1.1 < Ct < 1.2)\n- Slippery or non-slippery surface\nFrom ASCE 7-22 Figure 7.4-1",
             foreground="darkblue",
             wraplength=600,
-            font=("Helvetica", 10, "italic")
+            font=("Helvetica", 10, "italic"),
         )
         cs_note_label.grid(row=5, column=0, columnspan=4, sticky="w", pady=3, padx=5)
 
@@ -215,7 +272,7 @@ class ValleySnowCalculator:
             text="NOTE: Ground snow loads (pg) from ASCE Hazard Tool/Geodatabase are reliability-targeted for Risk Category II (Is=1.0 built-in).\nFor other categories, explicitly apply Is from Table 1.5-2.\n\nFREEZER BUILDINGS: Buildings in which the inside temperature is kept at or below freezing. Buildings with an air space between the roof insulation layer above and a ceiling of the freezer area below are not considered freezer buildings.\n\nCt from ASCE 7-22 Table 7.3-2 (Other Structures).\nFor Heated Unventilated Roofs (Table 7.3-3), use separate R-value input if added later.\nCt = 1.2 is conservative for most structures (cold roof, maximum snow retention).\nLower Ct reduces pf/ps (less snow accumulation).",
             foreground="darkblue",
             wraplength=700,
-            font=("Helvetica", 10, "italic")
+            font=("Helvetica", 10, "italic"),
         )
         note_label.grid(row=6, column=0, columnspan=4, sticky="w", pady=5, padx=5)
 
@@ -225,12 +282,16 @@ class ValleySnowCalculator:
             text="NOTE: Ground snow load (pg) and winter wind parameter (W2) shall be obtained from the official ASCE 7 Hazard Tool: https://asce7hazardtool.online\nThe printed maps in ASCE 7-22 are graphical representations only — site-specific values from the online tool are required for accuracy.",
             foreground="darkblue",
             wraplength=700,
-            font=("Helvetica", 10, "italic")
+            font=("Helvetica", 10, "italic"),
         )
-        hazard_tool_label.grid(row=7, column=0, columnspan=4, sticky="w", pady=5, padx=5)
+        hazard_tool_label.grid(
+            row=7, column=0, columnspan=4, sticky="w", pady=5, padx=5
+        )
 
         # Building Geometry Frame
-        geom_frame = ttk.LabelFrame(self.scrollable_frame, text="Building Geometry", padding=10)
+        geom_frame = ttk.LabelFrame(
+            self.scrollable_frame, text="Building Geometry", padding=10
+        )
         geom_frame.pack(pady=10, padx=20, fill=tk.X)
 
         # Configure column weights
@@ -240,23 +301,44 @@ class ValleySnowCalculator:
         geom_inputs = [
             ("Pitch North (X for X/12)", "10", "pitch_north"),
             ("Pitch West (X for X/12)", "10", "pitch_west"),
-            ("Distance from E-W ridge to north eave (ft) – becomes lu_north for north wind drift", "16", "north_span"),
-            ("Distance from E-W ridge to south eave (ft) – defines south span and N-S ridge length", "16", "south_span"),
-            ("E-W half-width (ft) – distance from centered N-S ridge to west or east eave (symmetric) – becomes lu_west", "42", "ew_half_width"),
-            ("Valley horizontal offset (ft) – distance from N-S ridge projection on south eave to valley low point (symmetric both sides)", "16", "valley_offset"),
+            (
+                "Distance from E-W ridge to north eave (ft) – becomes lu_north for north wind drift",
+                "16",
+                "north_span",
+            ),
+            (
+                "Distance from E-W ridge to south eave (ft) – defines south span and N-S ridge length",
+                "16",
+                "south_span",
+            ),
+            (
+                "E-W half-width (ft) – distance from centered N-S ridge to west or east eave (symmetric) – becomes lu_west",
+                "42",
+                "ew_half_width",
+            ),
+            (
+                "Valley horizontal offset (ft) – distance from N-S ridge projection on south eave to valley low point (symmetric both sides)",
+                "16",
+                "valley_offset",
+            ),
             ("Valley angle (degrees, default 90)", "90", "valley_angle"),
-            ("Jack rafter spacing (in o.c., default 24)", "24", "jack_spacing_inches")
+            ("Jack rafter spacing (in o.c., default 24)", "24", "jack_spacing_inches"),
         ]
 
         for i, (label_text, default, key) in enumerate(geom_inputs):
             row = i // 2
             col = (i % 2) * 2
-            ttk.Label(geom_frame, text=label_text).grid(row=row, column=col, sticky="w", pady=5, padx=10)
+            ttk.Label(geom_frame, text=label_text).grid(
+                row=row, column=col, sticky="w", pady=5, padx=10
+            )
             entry = ttk.Entry(geom_frame, width=15)
             entry.insert(0, default)
             entry.grid(row=row, column=col + 1, sticky="ew", pady=5, padx=10)
             # Add real-time validation
-            entry.bind('<KeyRelease>', lambda e, k=key: self.validate_input_realtime(e.widget.get(), k))
+            entry.bind(
+                "<KeyRelease>",
+                lambda e, k=key: self.validate_input_realtime(e.widget.get(), k),
+            )
             self.entries[key] = entry
 
         # Add low-slope note in Geometry section
@@ -264,7 +346,7 @@ class ValleySnowCalculator:
             geom_frame,
             text="For monoslope/hip/gable roofs with slope < 15°, minimum snow load pm applies (Sec. 7.3).",
             foreground="darkred",
-            wraplength=500
+            wraplength=500,
         )
         note_geom_label.grid(row=3, column=0, columnspan=4, sticky="w", pady=5, padx=10)
 
@@ -288,12 +370,16 @@ Always verify member spanning conditions and consult licensed engineer"""
             font=("Helvetica", 9, "bold"),
             wraplength=600,
             justify="left",
-            anchor="w"
+            anchor="w",
         )
-        asce_geom_label.grid(row=4, column=0, columnspan=4, sticky="ew", pady=10, padx=10)
+        asce_geom_label.grid(
+            row=4, column=0, columnspan=4, sticky="ew", pady=10, padx=10
+        )
 
         # Beam Design Parameters Frame
-        beam_frame = ttk.LabelFrame(self.scrollable_frame, text="Beam Design Parameters", padding=10)
+        beam_frame = ttk.LabelFrame(
+            self.scrollable_frame, text="Beam Design Parameters", padding=10
+        )
         beam_frame.pack(pady=5, padx=20, fill=tk.X, expand=False)
 
         # Configure column weights
@@ -306,14 +392,16 @@ Always verify member spanning conditions and consult licensed engineer"""
         self.modulus_e_value = 1800000
 
         # Beam material selection
-        ttk.Label(beam_frame, text="Beam Material:").grid(row=0, column=0, sticky="w", pady=3, padx=5)
+        ttk.Label(beam_frame, text="Beam Material:").grid(
+            row=0, column=0, sticky="w", pady=3, padx=5
+        )
         self.material_combobox = ttk.Combobox(beam_frame, state="readonly", width=50)
-        self.material_combobox['values'] = (
+        self.material_combobox["values"] = (
             "Douglas Fir #2 Sawn Lumber (Fb=875 psi)",
             "Glulam 24F-V4 DF (Fb=2400 psi)",
             "LVL 2.0E (Fb=2650 psi)",
             "3100Fb-2.1E (PWT) (Fb=3100 psi)",
-            "2850Fb-1.9E (Global) (Fb=2850 psi)"
+            "2850Fb-1.9E (Global) (Fb=2850 psi)",
         )
         self.material_combobox.current(1)  # default Glulam
         self.material_combobox.grid(row=0, column=1, sticky="ew", pady=5)
@@ -326,17 +414,35 @@ Always verify member spanning conditions and consult licensed engineer"""
             ("DL horizontal (psf; default 15)", "15", "dead_load_horizontal"),
             ("Beam width b (in; default 3.5)", "3.5", "beam_width"),
             ("Trial beam depth d (in; default 9.5)", "9.5", "beam_depth_trial"),
-            ("Allowable bending stress Fb (psi)", str(self.fb_allowable_value), "fb_allowable"),
-            ("Allowable shear stress Fv (psi)", str(self.fv_allowable_value), "fv_allowable"),
+            (
+                "Allowable bending stress Fb (psi)",
+                str(self.fb_allowable_value),
+                "fb_allowable",
+            ),
+            (
+                "Allowable shear stress Fv (psi)",
+                str(self.fv_allowable_value),
+                "fv_allowable",
+            ),
             ("Modulus of elasticity E (psi)", str(self.modulus_e_value), "modulus_e"),
-            ("Total deflection limit (L/n; default 240)", "240", "deflection_total_limit"),
-            ("Snow deflection limit (L/n; default 360)", "360", "deflection_snow_limit")
+            (
+                "Total deflection limit (L/n; default 240)",
+                "240",
+                "deflection_total_limit",
+            ),
+            (
+                "Snow deflection limit (L/n; default 360)",
+                "360",
+                "deflection_snow_limit",
+            ),
         ]
 
         for i, (label_text, default, key) in enumerate(beam_inputs):
             row = (i // 2) + 1  # Start from row 1 since material dropdown is in row 0
             col = (i % 2) * 2
-            ttk.Label(beam_frame, text=label_text).grid(row=row, column=col, sticky="w", pady=3, padx=5)
+            ttk.Label(beam_frame, text=label_text).grid(
+                row=row, column=col, sticky="w", pady=3, padx=5
+            )
             if isinstance(default, tk.DoubleVar):
                 entry = ttk.Entry(beam_frame, width=15, textvariable=default)
                 # Don't insert value - textvariable handles it
@@ -346,28 +452,41 @@ Always verify member spanning conditions and consult licensed engineer"""
             entry.grid(row=row, column=col + 1, sticky="ew", pady=3, padx=5)
             # Add real-time validation (skip for material properties that use DoubleVar)
             if not isinstance(default, tk.DoubleVar):
-                entry.bind('<KeyRelease>', lambda e, k=key: self.validate_input_realtime(e.widget.get(), k))
+                entry.bind(
+                    "<KeyRelease>",
+                    lambda e, k=key: self.validate_input_realtime(e.widget.get(), k),
+                )
             self.entries[key] = entry
 
         # Beam Design Summary Frame - prominent dedicated section
-        summary_frame = ttk.LabelFrame(self.scrollable_frame, text="Beam Design Summary", padding=15)
+        summary_frame = ttk.LabelFrame(
+            self.scrollable_frame, text="Beam Design Summary", padding=15
+        )
         summary_frame.pack(pady=20, padx=20, fill=tk.X)
 
-        self.summary_label = tk.Text(summary_frame, font=("Helvetica", 10), wrap="word", height=12)
+        self.summary_label = tk.Text(
+            summary_frame, font=("Helvetica", 10), wrap="word", height=12
+        )
         self.summary_label.pack(fill="both", expand=True, padx=5, pady=5)
         self.summary_label.insert(1.0, "Run calculation to see beam design summary...")
         self.summary_label.config(state="disabled")  # Make it read-only
 
         # Calculate button
-        self.calc_button = ttk.Button(self.scrollable_frame, text="CALCULATE SNOW LOADS", command=self.calculate)
+        self.calc_button = ttk.Button(
+            self.scrollable_frame, text="CALCULATE SNOW LOADS", command=self.calculate
+        )
         self.calc_button.pack(pady=20)
         print("Calculate button created")  # Debug print
 
         # Output area - results with expanded height
-        output_frame = ttk.LabelFrame(self.scrollable_frame, text=" Results ", padding=10)
+        output_frame = ttk.LabelFrame(
+            self.scrollable_frame, text=" Results ", padding=10
+        )
         output_frame.pack(pady=10, padx=20, fill=tk.BOTH, expand=True)
 
-        self.output_text = tk.Text(output_frame, height=30, wrap="word", font=("Consolas", 10))
+        self.output_text = tk.Text(
+            output_frame, height=30, wrap="word", font=("Consolas", 10)
+        )
         # Enable color support
         self.output_text.config(fg="black")
         scrollbar = ttk.Scrollbar(output_frame, command=self.output_text.yview)
@@ -376,37 +495,87 @@ Always verify member spanning conditions and consult licensed engineer"""
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         # Configure text tags
-        self.output_text.tag_configure("blue", foreground="navy", font=("Helvetica", 10, "bold"))
+        self.output_text.tag_configure(
+            "blue", foreground="navy", font=("Helvetica", 10, "bold")
+        )
         # Alternative tag for testing
-        self.output_text.tag_configure("highlight", background="yellow", foreground="red", font=("Helvetica", 12, "bold"))
+        self.output_text.tag_configure(
+            "highlight",
+            background="yellow",
+            foreground="red",
+            font=("Helvetica", 12, "bold"),
+        )
 
         # Initialize output with ASCE 7-22 Section 7.6.1 information
         self.initialize_output_text()
 
         # Plot area for shear and moment diagrams
-        plot_frame = ttk.LabelFrame(self.scrollable_frame, text="Shear & Moment Diagrams", padding=10)
+        plot_frame = ttk.LabelFrame(
+            self.scrollable_frame, text="Shear & Moment Diagrams", padding=10
+        )
         plot_frame.pack(pady=10, padx=20, fill=tk.X, expand=False)
         self.plot_frame = plot_frame
 
     def initialize_output_text(self):
         """Initialize the output text area with ASCE 7-22 Section 7.6.1 information."""
-        self.output_text.insert(tk.END, "=== ASCE 7-22 SECTION 7.6.1: UNBALANCED SNOW LOADS FOR HIP AND GABLE ROOFS ===\n", "blue")
-        self.output_text.insert(tk.END, "Unbalanced snow loads (including valley drifts derived from them) are governed by Sec. 7.6.1.\n\n", "blue")
+        self.output_text.insert(
+            tk.END,
+            "=== ASCE 7-22 SECTION 7.6.1: UNBALANCED SNOW LOADS FOR HIP AND GABLE ROOFS ===\n",
+            "blue",
+        )
+        self.output_text.insert(
+            tk.END,
+            "Unbalanced snow loads (including valley drifts derived from them) are governed by Sec. 7.6.1.\n\n",
+            "blue",
+        )
         self.output_text.insert(tk.END, "APPLICABILITY:\n", "blue")
-        self.output_text.insert(tk.END, "• Unbalanced loads are REQUIRED only for roof slopes between 0.5/12 (≈2.38°) and 7/12 (≈30.2°).\n", "blue")
-        self.output_text.insert(tk.END, "• Outside this range: Unbalanced loads and associated drifts are NOT required.\n\n", "blue")
-        self.output_text.insert(tk.END, "SPECIAL NARROW ROOF CASE (eave-to-ridge distance W ≤ 20 ft AND simply supported prismatic members):\n", "blue")
-        self.output_text.insert(tk.END, "  → Leeward side: Full ground snow load pg (windward unloaded)\n", "blue")
-        self.output_text.insert(tk.END, "  → No separate drift surcharge calculated\n\n", "blue")
-        self.output_text.insert(tk.END, "Note: Valley drifts use intersecting gable unbalanced drifts (Sec. 7.7.3).\n", "blue")
-        self.output_text.insert(tk.END, "If unbalanced loads do not apply on either plane, drift surcharge = 0.\n", "blue")
-        self.output_text.insert(tk.END, "Always verify member spanning conditions and consult a licensed engineer.\n\n", "blue")
-        self.output_text.insert(tk.END, "Click 'Calculate' to analyze your specific roof geometry and see detailed results.\n")
+        self.output_text.insert(
+            tk.END,
+            "• Unbalanced loads are REQUIRED only for roof slopes between 0.5/12 (≈2.38°) and 7/12 (≈30.2°).\n",
+            "blue",
+        )
+        self.output_text.insert(
+            tk.END,
+            "• Outside this range: Unbalanced loads and associated drifts are NOT required.\n\n",
+            "blue",
+        )
+        self.output_text.insert(
+            tk.END,
+            "SPECIAL NARROW ROOF CASE (eave-to-ridge distance W ≤ 20 ft AND simply supported prismatic members):\n",
+            "blue",
+        )
+        self.output_text.insert(
+            tk.END,
+            "  → Leeward side: Full ground snow load pg (windward unloaded)\n",
+            "blue",
+        )
+        self.output_text.insert(
+            tk.END, "  → No separate drift surcharge calculated\n\n", "blue"
+        )
+        self.output_text.insert(
+            tk.END,
+            "Note: Valley drifts use intersecting gable unbalanced drifts (Sec. 7.7.3).\n",
+            "blue",
+        )
+        self.output_text.insert(
+            tk.END,
+            "If unbalanced loads do not apply on either plane, drift surcharge = 0.\n",
+            "blue",
+        )
+        self.output_text.insert(
+            tk.END,
+            "Always verify member spanning conditions and consult a licensed engineer.\n\n",
+            "blue",
+        )
+        self.output_text.insert(
+            tk.END,
+            "Click 'Calculate' to analyze your specific roof geometry and see detailed results.\n",
+        )
 
     def draw_plan_view(self, north_span, south_span, ew_half_width, valley_offset):
         fig = plt.Figure(figsize=(8, 8))
         ax = fig.add_subplot(111)
-        ax.set_aspect('equal')
+        ax.set_aspect("equal")
 
         total_width = 2 * ew_half_width
         total_height = north_span + south_span
@@ -416,48 +585,117 @@ Always verify member spanning conditions and consult licensed engineer"""
         # South eave at y=0, north eave at y=total_height
 
         # Building outline - rotated 180 degrees (south at bottom, north at top)
-        ax.plot([0, total_width, total_width, 0, 0],
-                [total_height, total_height, 0, 0, total_height], 'k-', linewidth=2, label='Building Outline')
+        ax.plot(
+            [0, total_width, total_width, 0, 0],
+            [total_height, total_height, 0, 0, total_height],
+            "k-",
+            linewidth=2,
+            label="Building Outline",
+        )
 
         # E-W ridge (horizontal at y = south_span from south eave)
-        ax.plot([0, total_width], [south_span, south_span], 'k-', linewidth=3, label='E-W Ridge')
+        ax.plot(
+            [0, total_width],
+            [south_span, south_span],
+            "k-",
+            linewidth=3,
+            label="E-W Ridge",
+        )
 
         # N-S ridge (vertical, centered, from E-W ridge midpoint down to south eave)
-        ax.plot([center_x, center_x], [south_span, 0], 'k-', linewidth=3, label='N-S Ridge')
+        ax.plot(
+            [center_x, center_x], [south_span, 0], "k-", linewidth=3, label="N-S Ridge"
+        )
 
         # Valley lines – symmetric, using valley_offset
         # Southwest valley: from south eave corner to ridge intersection
         # Southeast valley: from south eave corner to ridge intersection
-        ax.plot([center_x - valley_offset, center_x], [0, south_span], 'r--', linewidth=2, label='Valley Lines')
-        ax.plot([center_x + valley_offset, center_x], [0, south_span], 'r--', linewidth=2)
+        ax.plot(
+            [center_x - valley_offset, center_x],
+            [0, south_span],
+            "r--",
+            linewidth=2,
+            label="Valley Lines",
+        )
+        ax.plot(
+            [center_x + valley_offset, center_x], [0, south_span], "r--", linewidth=2
+        )
 
         # Labels - repositioned for 180 degree rotation with proper spacing
-        ax.text(total_width / 2, south_span + north_span * 0.75, f'North span\n{north_span:.1f} ft\n(lu_north)', ha='center', va='center',
-                bbox=dict(facecolor='white', edgecolor='none', alpha=0.8))
-        ax.text(total_width / 2, south_span * 0.25, f'South span\n{south_span:.1f} ft', ha='center', va='center',
-                bbox=dict(facecolor='white', edgecolor='none', alpha=0.8))
-        ax.text(center_x * 0.3, -4, f'{ew_half_width:.1f} ft\n(lu_west)', ha='center', va='top')
-        ax.text(total_width - center_x * 0.3, -4, f'{ew_half_width:.1f} ft\n(lu_west)', ha='center', va='top')
-        ax.text(center_x, -8, f'Valley offset ±{valley_offset:.1f} ft → lv = {math.sqrt(south_span**2 + valley_offset**2):.1f} ft', ha='center', va='top')
+        ax.text(
+            total_width / 2,
+            south_span + north_span * 0.75,
+            f"North span\n{north_span:.1f} ft\n(lu_north)",
+            ha="center",
+            va="center",
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
+        )
+        ax.text(
+            total_width / 2,
+            south_span * 0.25,
+            f"South span\n{south_span:.1f} ft",
+            ha="center",
+            va="center",
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
+        )
+        ax.text(
+            center_x * 0.3,
+            -4,
+            f"{ew_half_width:.1f} ft\n(lu_west)",
+            ha="center",
+            va="top",
+        )
+        ax.text(
+            total_width - center_x * 0.3,
+            -4,
+            f"{ew_half_width:.1f} ft\n(lu_west)",
+            ha="center",
+            va="top",
+        )
+        ax.text(
+            center_x,
+            -8,
+            f"Valley offset ±{valley_offset:.1f} ft → lv = {math.sqrt(south_span**2 + valley_offset**2):.1f} ft",
+            ha="center",
+            va="top",
+        )
 
         # North arrow – at top center, separated from 'N' text (reduced size)
         arrow_x = total_width / 2
         arrow_y = total_height + 12
-        ax.arrow(arrow_x, arrow_y, 0, 6, head_width=3, head_length=6, fc='k', ec='k')
-        ax.text(arrow_x, arrow_y + 15, 'N', fontsize=12, ha='center', fontweight='bold', va='bottom')
+        ax.arrow(arrow_x, arrow_y, 0, 6, head_width=3, head_length=6, fc="k", ec="k")
+        ax.text(
+            arrow_x,
+            arrow_y + 15,
+            "N",
+            fontsize=12,
+            ha="center",
+            fontweight="bold",
+            va="bottom",
+        )
 
         ax.set_xlim(-15, total_width + 15)
         ax.set_ylim(-25, total_height + 40)  # North at top, south at bottom
         ax.set_axis_off()
-        ax.set_title('Roof Plan View')
-        ax.legend(loc='upper right', bbox_to_anchor=(1.0, 1.0))
+        ax.set_title("Roof Plan View")
+        ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
 
         return fig
 
-    def draw_north_drift_overlay(self, north_span, south_span, ew_half_width, valley_offset, hd_north, w_north, ps, pd_north):
+    def draw_north_drift_overlay(
+        self,
+        north_span,
+        south_span,
+        ew_half_width,
+        valley_offset,
+        hd_north,
+        w_north,
+        ps,
+        pd_north,
+    ):
         fig = plt.Figure(figsize=(8, 8))
         ax = fig.add_subplot(111)
-        ax.set_aspect('equal')
+        ax.set_aspect("equal")
 
         # Copy the exact same roof geometry as in the current draw_plan_view (do not change anything)
         total_width = 2 * ew_half_width
@@ -468,29 +706,80 @@ Always verify member spanning conditions and consult licensed engineer"""
         # South eave at y=0, north eave at y=total_height
 
         # Building outline - rotated 180 degrees (south at bottom, north at top)
-        ax.plot([0, total_width, total_width, 0, 0],
-                [total_height, total_height, 0, 0, total_height], 'k-', linewidth=2, label='Building Outline')
+        ax.plot(
+            [0, total_width, total_width, 0, 0],
+            [total_height, total_height, 0, 0, total_height],
+            "k-",
+            linewidth=2,
+            label="Building Outline",
+        )
 
         # E-W ridge (horizontal at y = south_span from south eave)
-        ax.plot([0, total_width], [south_span, south_span], 'k-', linewidth=3, label='E-W Ridge')
+        ax.plot(
+            [0, total_width],
+            [south_span, south_span],
+            "k-",
+            linewidth=3,
+            label="E-W Ridge",
+        )
 
         # N-S ridge (vertical, centered, from E-W ridge down to south eave)
-        ax.plot([center_x, center_x], [south_span, 0], 'k-', linewidth=3, label='N-S Ridge')
+        ax.plot(
+            [center_x, center_x], [south_span, 0], "k-", linewidth=3, label="N-S Ridge"
+        )
 
         # Valley lines – symmetric, using valley_offset
         # Southwest valley: from south eave corner to ridge intersection
         # Southeast valley: from south eave corner to ridge intersection
-        ax.plot([center_x - valley_offset, center_x], [0, south_span], 'r--', linewidth=2, label='Valley Lines')
-        ax.plot([center_x + valley_offset, center_x], [0, south_span], 'r--', linewidth=2)
+        ax.plot(
+            [center_x - valley_offset, center_x],
+            [0, south_span],
+            "r--",
+            linewidth=2,
+            label="Valley Lines",
+        )
+        ax.plot(
+            [center_x + valley_offset, center_x], [0, south_span], "r--", linewidth=2
+        )
 
         # Labels - repositioned for 180 degree rotation with proper spacing
-        ax.text(total_width / 2, south_span + north_span * 0.75, f'North span\n{north_span:.1f} ft\n(lu_north)', ha='center', va='center',
-                bbox=dict(facecolor='white', edgecolor='none', alpha=0.8))
-        ax.text(total_width / 2, south_span * 0.25, f'South span\n{south_span:.1f} ft', ha='center', va='center',
-                bbox=dict(facecolor='white', edgecolor='none', alpha=0.8))
-        ax.text(center_x * 0.3, -8, f'{ew_half_width:.1f} ft\n(lu_west)', ha='center', va='top')
-        ax.text(total_width - center_x * 0.3, -8, f'{ew_half_width:.1f} ft\n(lu_west)', ha='center', va='top')
-        ax.text(center_x, -8, f'Valley offset ±{valley_offset:.1f} ft → lv = {math.sqrt(south_span**2 + valley_offset**2):.1f} ft', ha='center', va='top')
+        ax.text(
+            total_width / 2,
+            south_span + north_span * 0.75,
+            f"North span\n{north_span:.1f} ft\n(lu_north)",
+            ha="center",
+            va="center",
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
+        )
+        ax.text(
+            total_width / 2,
+            south_span * 0.25,
+            f"South span\n{south_span:.1f} ft",
+            ha="center",
+            va="center",
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
+        )
+        ax.text(
+            center_x * 0.3,
+            -8,
+            f"{ew_half_width:.1f} ft\n(lu_west)",
+            ha="center",
+            va="top",
+        )
+        ax.text(
+            total_width - center_x * 0.3,
+            -8,
+            f"{ew_half_width:.1f} ft\n(lu_west)",
+            ha="center",
+            va="top",
+        )
+        ax.text(
+            center_x,
+            -8,
+            f"Valley offset ±{valley_offset:.1f} ft → lv = {math.sqrt(south_span**2 + valley_offset**2):.1f} ft",
+            ha="center",
+            va="top",
+        )
 
         # === NEW: North-wind leeward drift on south roof plane ===
         # Shaded rectangular area south of E-W ridge line, extending distance = w
@@ -501,30 +790,72 @@ Always verify member spanning conditions and consult licensed engineer"""
         # Rectangular shaded area south of E-W ridge line, extending distance = w
         # Clearly positioned south (below) of the ridge for leeward drift accumulation
         drift_bottom = south_span - effective_w  # South of ridge (lower y values)
-        ax.fill_between([center_x - ew_half_width, center_x + ew_half_width],
-                       drift_bottom, south_span,  # Fill from bottom up to ridge
-                       color='lightblue', alpha=0.7, hatch='///', edgecolor='navy', linewidth=1.5, label='North Wind Drift')
+        ax.fill_between(
+            [center_x - ew_half_width, center_x + ew_half_width],
+            drift_bottom,
+            south_span,  # Fill from bottom up to ridge
+            color="lightblue",
+            alpha=0.7,
+            hatch="///",
+            edgecolor="navy",
+            linewidth=1.5,
+            label="North Wind Drift",
+        )
 
         # Annotations for north drift - positioned to avoid overlap with south roof
-        ax.text(total_width + 10, south_span / 2,
-                f'North Wind Drift\nhd = {hd_north:.1f} ft\nw = {effective_w:.1f} ft\npd = {pd_north:.0f} psf',
-                ha='left', va='center', bbox=dict(facecolor='white', alpha=0.9, edgecolor='blue'))
+        ax.text(
+            total_width + 10,
+            south_span / 2,
+            f"North Wind Drift\nhd = {hd_north:.1f} ft\nw = {effective_w:.1f} ft\npd = {pd_north:.0f} psf",
+            ha="left",
+            va="center",
+            bbox=dict(facecolor="white", alpha=0.9, edgecolor="blue"),
+        )
 
         # North arrow – at top center, separated from 'N' text (reduced size)
         arrow_x = total_width / 2
         arrow_y = total_height + 12
-        ax.arrow(arrow_x, arrow_y, 0, 6, head_width=3, head_length=6, fc='k', ec='k')
-        ax.text(arrow_x, arrow_y + 15, 'N', fontsize=12, ha='center', fontweight='bold', va='bottom')
+        ax.arrow(arrow_x, arrow_y, 0, 6, head_width=3, head_length=6, fc="k", ec="k")
+        ax.text(
+            arrow_x,
+            arrow_y + 15,
+            "N",
+            fontsize=12,
+            ha="center",
+            fontweight="bold",
+            va="bottom",
+        )
 
         ax.set_xlim(-15, total_width + 60)  # Extended right for info box
-        ax.set_ylim(-50, total_height + 30)  # Extended further downward for moved labels
+        ax.set_ylim(
+            -50, total_height + 30
+        )  # Extended further downward for moved labels
         ax.set_axis_off()
-        ax.set_title('North Wind Leeward Gable Drift (lu_north = north_span)')
-        ax.legend(loc='upper right', bbox_to_anchor=(1.0, 1.0))
+        ax.set_title("North Wind Leeward Gable Drift (lu_north = north_span)")
+        ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
 
         return fig
 
-    def generate_diagrams(self, snow_point_loads, dead_point_loads, rafter_len, ps_balanced, gov_drift, lv_horizontal, north_span, south_span, ew_half_width, valley_offset, pitch_n, pitch_w, valley_angle, lu_north, lu_west, result_north, result_west):
+    def generate_diagrams(
+        self,
+        snow_point_loads,
+        dead_point_loads,
+        rafter_len,
+        ps_balanced,
+        gov_drift,
+        lv_horizontal,
+        north_span,
+        south_span,
+        ew_half_width,
+        valley_offset,
+        pitch_n,
+        pitch_w,
+        valley_angle,
+        lu_north,
+        lu_west,
+        result_north,
+        result_west,
+    ):
         """Generate five professional diagrams: plan view, SFD, BMD, drift profile, and sloped point loads."""
         # Clear previous plot but keep figures alive for PDF capture if needed
         for widget in self.plot_frame.winfo_children():
@@ -534,15 +865,25 @@ Always verify member spanning conditions and consult licensed engineer"""
         self._current_figures = []
 
         # ===== ROOF PLAN VIEW =====
-        fig_plan = self.draw_plan_view(north_span, south_span, ew_half_width, valley_offset)
+        fig_plan = self.draw_plan_view(
+            north_span, south_span, ew_half_width, valley_offset
+        )
         self._current_figures.append(fig_plan)
         canvas_plan = FigureCanvasTkAgg(fig_plan, master=self.plot_frame)
         canvas_plan.draw()
         canvas_plan.get_tk_widget().pack(side=tk.TOP, pady=5)
 
         # North wind drift diagram
-        fig_north_drift = self.draw_north_drift_overlay(north_span, south_span, ew_half_width, valley_offset,
-                                                       result_north['hd_ft'], result_north['drift_width_ft'], ps_balanced, result_north['pd_max_psf'])
+        fig_north_drift = self.draw_north_drift_overlay(
+            north_span,
+            south_span,
+            ew_half_width,
+            valley_offset,
+            result_north["hd_ft"],
+            result_north["drift_width_ft"],
+            ps_balanced,
+            result_north["pd_max_psf"],
+        )
         self._current_figures.append(fig_north_drift)
         canvas_north = FigureCanvasTkAgg(fig_north_drift, master=self.plot_frame)
         canvas_north.draw()
@@ -586,31 +927,55 @@ Always verify member spanning conditions and consult licensed engineer"""
                     v -= load  # Subtract loads to the left
             shear.append(v)
 
-        ax1.plot(positions, shear, 'b-', linewidth=2.5, label='Shear Force')
-        ax1.fill_between(positions, shear, alpha=0.2, color='lightblue')
-        ax1.set_ylabel('Shear Force (lb)', fontsize=11, fontweight='bold')
-        ax1.set_xlabel('Distance from Eave (ft)', fontsize=11, fontweight='bold')
-        ax1.set_title('Shear Force Diagram', fontsize=13, fontweight='bold')
-        ax1.grid(True, linestyle='--', alpha=0.6)
-        ax1.axhline(y=0, color='k', linestyle='-', alpha=0.7, linewidth=0.8)
-        ax1.legend(loc='upper right')
+        ax1.plot(positions, shear, "b-", linewidth=2.5, label="Shear Force")
+        ax1.fill_between(positions, shear, alpha=0.2, color="lightblue")
+        ax1.set_ylabel("Shear Force (lb)", fontsize=11, fontweight="bold")
+        ax1.set_xlabel("Distance from Eave (ft)", fontsize=11, fontweight="bold")
+        ax1.set_title("Shear Force Diagram", fontsize=13, fontweight="bold")
+        ax1.grid(True, linestyle="--", alpha=0.6)
+        ax1.axhline(y=0, color="k", linestyle="-", alpha=0.7, linewidth=0.8)
+        ax1.legend(loc="upper right")
 
         # Annotate net reactions at beam ends (arrow + value only)
-        ax1.annotate(f"{int(r_eave)} lb", xy=(0, r_eave), xytext=(10, 10),
-                    textcoords="offset points", ha='left', fontsize=10,
-                    arrowprops=dict(arrowstyle='->', color='black'))
-        ax1.annotate(f"{int(r_ridge)} lb", xy=(rafter_len, -r_ridge), xytext=(-10, -10),
-                    textcoords="offset points", ha='right', fontsize=10,
-                    arrowprops=dict(arrowstyle='->', color='black'))
+        ax1.annotate(
+            f"{int(r_eave)} lb",
+            xy=(0, r_eave),
+            xytext=(10, 10),
+            textcoords="offset points",
+            ha="left",
+            fontsize=10,
+            arrowprops=dict(arrowstyle="->", color="black"),
+        )
+        ax1.annotate(
+            f"{int(r_ridge)} lb",
+            xy=(rafter_len, -r_ridge),
+            xytext=(-10, -10),
+            textcoords="offset points",
+            ha="right",
+            fontsize=10,
+            arrowprops=dict(arrowstyle="->", color="black"),
+        )
 
         # Annotate max shear
         max_shear = max(abs(s) for s in shear)
-        max_shear_idx = shear.index(max(shear)) if abs(max(shear)) == max_shear else shear.index(min(shear))
+        max_shear_idx = (
+            shear.index(max(shear))
+            if abs(max(shear)) == max_shear
+            else shear.index(min(shear))
+        )
         max_shear_pos = positions[max_shear_idx]
-        ax1.annotate(f'{int(abs(shear[max_shear_idx]))} lb', xy=(max_shear_pos, shear[max_shear_idx]),
-                    xytext=(max_shear_pos + rafter_len*0.05, shear[max_shear_idx] + max_shear*0.1),
-                    fontsize=9, fontweight='bold', ha='left',
-                    arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"))
+        ax1.annotate(
+            f"{int(abs(shear[max_shear_idx]))} lb",
+            xy=(max_shear_pos, shear[max_shear_idx]),
+            xytext=(
+                max_shear_pos + rafter_len * 0.05,
+                shear[max_shear_idx] + max_shear * 0.1,
+            ),
+            fontsize=9,
+            fontweight="bold",
+            ha="left",
+            arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"),
+        )
 
         # ===== BENDING MOMENT DIAGRAM =====
         fig2, ax2 = plt.subplots(1, 1, figsize=(10, 6), dpi=100)
@@ -622,7 +987,7 @@ Always verify member spanning conditions and consult licensed engineer"""
 
         for i in range(1, len(positions)):
             # Trapezoidal integration: M(i) = M(i-1) + (V(i-1) + V(i))/2 * dx
-            m_current = moment[-1] + (shear[i-1] + shear[i]) / 2 * dx
+            m_current = moment[-1] + (shear[i - 1] + shear[i]) / 2 * dx
             moment.append(m_current)
 
         # For gravity-loaded beams, moments should be positive (sagging)
@@ -639,23 +1004,31 @@ Always verify member spanning conditions and consult licensed engineer"""
             slope = -moment[-1] / positions[-1]
             moment = [m + slope * x for m, x in zip(moment, positions)]
 
-        ax2.plot(positions, moment, 'r-', linewidth=2.5, label='Bending Moment')
-        ax2.fill_between(positions, moment, alpha=0.2, color='lightcoral')
-        ax2.set_ylabel('Bending Moment (ft-lb)', fontsize=11, fontweight='bold')
-        ax2.set_xlabel('Distance from Eave (ft)', fontsize=11, fontweight='bold')
-        ax2.set_title('Bending Moment Diagram', fontsize=13, fontweight='bold', pad=20)
-        ax2.grid(True, linestyle='--', alpha=0.6)
-        ax2.axhline(y=0, color='k', linestyle='-', alpha=0.7, linewidth=0.8)
-        ax2.legend(loc='upper right')
+        ax2.plot(positions, moment, "r-", linewidth=2.5, label="Bending Moment")
+        ax2.fill_between(positions, moment, alpha=0.2, color="lightcoral")
+        ax2.set_ylabel("Bending Moment (ft-lb)", fontsize=11, fontweight="bold")
+        ax2.set_xlabel("Distance from Eave (ft)", fontsize=11, fontweight="bold")
+        ax2.set_title("Bending Moment Diagram", fontsize=13, fontweight="bold", pad=20)
+        ax2.grid(True, linestyle="--", alpha=0.6)
+        ax2.axhline(y=0, color="k", linestyle="-", alpha=0.7, linewidth=0.8)
+        ax2.legend(loc="upper right")
 
         # Annotate max moment (moved further from top)
         max_moment = max(moment)
         max_moment_idx = moment.index(max_moment)
         max_moment_pos = positions[max_moment_idx]
-        ax2.annotate(f'{int(max_moment)} ft-lb', xy=(max_moment_pos, max_moment),
-                    xytext=(max_moment_pos + rafter_len*0.08, max_moment + abs(max_moment)*0.05),
-                    fontsize=9, fontweight='bold', ha='left',
-                    arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"))
+        ax2.annotate(
+            f"{int(max_moment)} ft-lb",
+            xy=(max_moment_pos, max_moment),
+            xytext=(
+                max_moment_pos + rafter_len * 0.08,
+                max_moment + abs(max_moment) * 0.05,
+            ),
+            fontsize=9,
+            fontweight="bold",
+            ha="left",
+            arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"),
+        )
 
         # ===== DRIFT LOAD PROFILE =====
         fig3, ax3 = plt.subplots(1, 1, figsize=(10, 6), dpi=100)
@@ -679,18 +1052,46 @@ Always verify member spanning conditions and consult licensed engineer"""
         # Total snow load envelope
         total_profile = [ps + pd for ps, pd in zip(ps_uniform, pd_profile)]
 
-        ax3.plot(x_positions, ps_uniform, 'b-', linewidth=2.5, label=f'Balanced Snow (ps = {ps_balanced} psf)')
-        ax3.plot(x_positions, pd_profile, 'r-', linewidth=2.5, label=f'Drift Surcharge (pd_max = {pd_max} psf)')
-        ax3.plot(x_positions, total_profile, 'k-', linewidth=3, label='Total Snow Load (ps + pd)')
+        ax3.plot(
+            x_positions,
+            ps_uniform,
+            "b-",
+            linewidth=2.5,
+            label=f"Balanced Snow (ps = {ps_balanced} psf)",
+        )
+        ax3.plot(
+            x_positions,
+            pd_profile,
+            "r-",
+            linewidth=2.5,
+            label=f"Drift Surcharge (pd_max = {pd_max} psf)",
+        )
+        ax3.plot(
+            x_positions,
+            total_profile,
+            "k-",
+            linewidth=3,
+            label="Total Snow Load (ps + pd)",
+        )
 
-        ax3.fill_between(x_positions, [0]*len(x_positions), pd_profile, alpha=0.3, color='lightcoral')
-        ax3.fill_between(x_positions, ps_uniform, total_profile, alpha=0.2, color='lightblue')
+        ax3.fill_between(
+            x_positions,
+            [0] * len(x_positions),
+            pd_profile,
+            alpha=0.3,
+            color="lightcoral",
+        )
+        ax3.fill_between(
+            x_positions, ps_uniform, total_profile, alpha=0.2, color="lightblue"
+        )
 
-        ax3.set_xlabel('Horizontal Distance from Ridge (ft)', fontsize=11, fontweight='bold')
-        ax3.set_ylabel('Snow Load (psf)', fontsize=11, fontweight='bold')
-        ax3.set_title('Drift Load Profile (Horizontal)', fontsize=13, fontweight='bold')
-        ax3.grid(True, linestyle='--', alpha=0.6)
-        ax3.legend(loc='upper right')
+        ax3.set_xlabel(
+            "Horizontal Distance from Ridge (ft)", fontsize=11, fontweight="bold"
+        )
+        ax3.set_ylabel("Snow Load (psf)", fontsize=11, fontweight="bold")
+        ax3.set_title("Drift Load Profile (Horizontal)", fontsize=13, fontweight="bold")
+        ax3.grid(True, linestyle="--", alpha=0.6)
+        ax3.legend(loc="upper right")
         ax3.set_ylim(bottom=0)
 
         # ===== POINT LOADS ON SLOPED BEAM =====
@@ -703,24 +1104,70 @@ Always verify member spanning conditions and consult licensed engineer"""
         beam_y = [0, lv_horizontal * math.tan(avg_pitch_rad)]  # Vertical rise
 
         # Draw sloped beam line (no fill, clean appearance)
-        ax4.plot(beam_x, beam_y, 'k-', linewidth=6, alpha=0.9, solid_capstyle='round', label='Valley Beam')
+        ax4.plot(
+            beam_x,
+            beam_y,
+            "k-",
+            linewidth=6,
+            alpha=0.9,
+            solid_capstyle="round",
+            label="Valley Beam",
+        )
 
         # Scale factors for arrow lengths (larger magnitude = longer arrow)
-        max_load = max([abs(load) for _, load in total_point_loads]) if total_point_loads else 1000
+        max_load = (
+            max([abs(load) for _, load in total_point_loads])
+            if total_point_loads
+            else 1000
+        )
         max_reaction = max(abs(r_eave), abs(r_ridge))
         load_scale = 1.5 / max_load if max_load > 0 else 1
         reaction_scale = 1.5 / max_reaction if max_reaction > 0 else 1
 
         # Add support reactions (upward green arrows at beam ends)
-        ax4.arrow(0, beam_y[0], 0, r_eave * reaction_scale, head_width=0.5,
-                 fc='darkgreen', ec='darkgreen', linewidth=2, alpha=0.9)
-        ax4.text(0, beam_y[0] + r_eave * reaction_scale + 0.8, f'R_eave = {int(r_eave)} lb',
-                ha='center', va='bottom', fontsize=10, fontweight='bold', color='darkgreen')
+        ax4.arrow(
+            0,
+            beam_y[0],
+            0,
+            r_eave * reaction_scale,
+            head_width=0.5,
+            fc="darkgreen",
+            ec="darkgreen",
+            linewidth=2,
+            alpha=0.9,
+        )
+        ax4.text(
+            0,
+            beam_y[0] + r_eave * reaction_scale + 0.8,
+            f"R_eave = {int(r_eave)} lb",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+            fontweight="bold",
+            color="darkgreen",
+        )
 
-        ax4.arrow(lv_horizontal, beam_y[1], 0, r_ridge * reaction_scale, head_width=0.5,
-                 fc='darkgreen', ec='darkgreen', linewidth=2, alpha=0.9)
-        ax4.text(lv_horizontal, beam_y[1] + r_ridge * reaction_scale + 0.8, f'R_ridge = {int(r_ridge)} lb',
-                ha='center', va='bottom', fontsize=10, fontweight='bold', color='darkgreen')
+        ax4.arrow(
+            lv_horizontal,
+            beam_y[1],
+            0,
+            r_ridge * reaction_scale,
+            head_width=0.5,
+            fc="darkgreen",
+            ec="darkgreen",
+            linewidth=2,
+            alpha=0.9,
+        )
+        ax4.text(
+            lv_horizontal,
+            beam_y[1] + r_ridge * reaction_scale + 0.8,
+            f"R_ridge = {int(r_ridge)} lb",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+            fontweight="bold",
+            color="darkgreen",
+        )
 
         # Add point loads (downward red arrows - jack rafter reactions)
         for pos, load in total_point_loads:
@@ -728,35 +1175,83 @@ Always verify member spanning conditions and consult licensed engineer"""
             beam_elev = beam_y[0] + (beam_y[1] - beam_y[0]) * (pos / lv_horizontal)
             arrow_length = -load * load_scale  # Negative for downward arrow
 
-            ax4.arrow(pos, beam_elev, 0, arrow_length, head_width=0.5,
-                     fc='darkred', ec='darkred', linewidth=2, alpha=0.9)
+            ax4.arrow(
+                pos,
+                beam_elev,
+                0,
+                arrow_length,
+                head_width=0.5,
+                fc="darkred",
+                ec="darkred",
+                linewidth=2,
+                alpha=0.9,
+            )
 
             # Position text further above the arrow (moved away from arrow)
             text_y = beam_elev + arrow_length - 0.8
-            ax4.text(pos, text_y, f'{int(load)} lb', ha='center', va='top',
-                    fontsize=9, fontweight='bold', color='darkred')
+            ax4.text(
+                pos,
+                text_y,
+                f"{int(load)} lb",
+                ha="center",
+                va="top",
+                fontsize=9,
+                fontweight="bold",
+                color="darkred",
+            )
 
-        ax4.set_xlabel('Distance from Eave (ft)', fontsize=11, fontweight='bold')
-        ax4.set_ylabel('Elevation (ft)', fontsize=11, fontweight='bold')
-        ax4.set_title('Point Load Reactions on Sloped Valley Beam', fontsize=13, fontweight='bold')
-        ax4.grid(True, linestyle='--', alpha=0.6)
-        ax4.set_xlim(-lv_horizontal*0.05, lv_horizontal*1.05)
+        ax4.set_xlabel("Distance from Eave (ft)", fontsize=11, fontweight="bold")
+        ax4.set_ylabel("Elevation (ft)", fontsize=11, fontweight="bold")
+        ax4.set_title(
+            "Point Load Reactions on Sloped Valley Beam", fontsize=13, fontweight="bold"
+        )
+        ax4.grid(True, linestyle="--", alpha=0.6)
+        ax4.set_xlim(-lv_horizontal * 0.05, lv_horizontal * 1.05)
 
         # Set y-limits to accommodate all arrows
         min_y = min(beam_y[0] - 1, beam_y[1] - 1, -max_load * load_scale - 1)
-        max_y = max(beam_y[0] + max_reaction * reaction_scale + 1,
-                   beam_y[1] + max_reaction * reaction_scale + 1)
+        max_y = max(
+            beam_y[0] + max_reaction * reaction_scale + 1,
+            beam_y[1] + max_reaction * reaction_scale + 1,
+        )
         ax4.set_ylim(bottom=min_y, top=max_y)
 
         # Custom legend on left side
         legend_elements = [
-            plt.Line2D([0], [0], color='black', linewidth=6, alpha=0.9, label='Valley Beam'),
-            plt.arrow(0, 0, 0, -1, head_width=0.5, fc='darkred', ec='darkred',
-                     linewidth=2, alpha=0.9, label='Jack Rafter Point Loads (down)'),
-            plt.arrow(0, 0, 0, 1, head_width=0.5, fc='darkgreen', ec='darkgreen',
-                     linewidth=2, alpha=0.9, label='Support Reactions (up)')
+            plt.Line2D(
+                [0], [0], color="black", linewidth=6, alpha=0.9, label="Valley Beam"
+            ),
+            plt.arrow(
+                0,
+                0,
+                0,
+                -1,
+                head_width=0.5,
+                fc="darkred",
+                ec="darkred",
+                linewidth=2,
+                alpha=0.9,
+                label="Jack Rafter Point Loads (down)",
+            ),
+            plt.arrow(
+                0,
+                0,
+                0,
+                1,
+                head_width=0.5,
+                fc="darkgreen",
+                ec="darkgreen",
+                linewidth=2,
+                alpha=0.9,
+                label="Support Reactions (up)",
+            ),
         ]
-        ax4.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(0.0, 1.0), fontsize=10)
+        ax4.legend(
+            handles=legend_elements,
+            loc="upper left",
+            bbox_to_anchor=(0.0, 1.0),
+            fontsize=10,
+        )
 
         # Create a container frame for the four remaining diagrams
         diagram_container = ttk.Frame(self.plot_frame)
@@ -767,14 +1262,16 @@ Always verify member spanning conditions and consult licensed engineer"""
             (fig1, "Shear Force"),
             (fig2, "Bending Moment"),
             (fig3, "Drift Load Profile"),
-            (fig4, "Point Load Reactions")
+            (fig4, "Point Load Reactions"),
         ]
 
         # Embed each diagram separately
         for fig, title in diagrams:
             canvas = FigureCanvasTkAgg(fig, master=diagram_container)
             canvas.draw()
-            canvas.get_tk_widget().pack(side="top", fill="both", expand=True, pady=(0, 5))
+            canvas.get_tk_widget().pack(
+                side="top", fill="both", expand=True, pady=(0, 5)
+            )
 
             toolbar = NavigationToolbar2Tk(canvas, diagram_container)
             toolbar.update()
@@ -783,7 +1280,9 @@ Always verify member spanning conditions and consult licensed engineer"""
         try:
             return float(self.entries[key].get())
         except ValueError:
-            messagebox.showerror("Input Error", f"{key.replace('_', ' ').title()} must be a number")
+            messagebox.showerror(
+                "Input Error", f"{key.replace('_', ' ').title()} must be a number"
+            )
             return None
 
     def validate_input_realtime(self, value, field_name):
@@ -812,28 +1311,36 @@ Always verify member spanning conditions and consult licensed engineer"""
                 if pg < 0:
                     errors.append("Ground snow load (pg) must be positive")
                 elif pg > 500:
-                    errors.append("Ground snow load (pg) seems unusually high (>500 psf)")
+                    errors.append(
+                        "Ground snow load (pg) seems unusually high (>500 psf)"
+                    )
         except ValueError:
             errors.append("Ground snow load (pg) must be a valid number")
 
         try:
             w2 = self.get_float("w2")
             if w2 is not None and not 0.25 <= w2 <= 0.65:
-                errors.append("Winter wind parameter (W2) should typically be between 0.25 and 0.65")
+                errors.append(
+                    "Winter wind parameter (W2) should typically be between 0.25 and 0.65"
+                )
         except ValueError:
             errors.append("Winter wind parameter (W2) must be a valid number")
 
         try:
             ce = self.get_float("ce")
             if ce is not None and not 0.7 <= ce <= 1.3:
-                errors.append("Exposure factor (Ce) should typically be between 0.7 and 1.3")
+                errors.append(
+                    "Exposure factor (Ce) should typically be between 0.7 and 1.3"
+                )
         except ValueError:
             errors.append("Exposure factor (Ce) must be a valid number")
 
         try:
             ct = self.get_float("ct")
             if ct is not None and not 1.0 <= ct <= 1.3:
-                errors.append("Thermal factor (Ct) should typically be between 1.0 and 1.3")
+                errors.append(
+                    "Thermal factor (Ct) should typically be between 1.0 and 1.3"
+                )
         except ValueError:
             errors.append("Thermal factor (Ct) must be a valid number")
 
@@ -910,7 +1417,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             filename = filedialog.asksaveasfilename(
                 defaultextension=".json",
                 filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
-                title="Save Project"
+                title="Save Project",
             )
             if not filename:
                 return
@@ -921,7 +1428,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                     "name": "ASCE 7-22 Valley Snow Load Analysis",
                     "version": "1.0",
                     "created": datetime.now().isoformat(),
-                    "description": "Valley snow load calculation with beam design analysis"
+                    "description": "Valley snow load calculation with beam design analysis",
                 },
                 "inputs": {
                     "snow_load_parameters": {
@@ -929,7 +1436,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                         "w2": self.entries["w2"].get(),
                         "ce": self.entries["ce"].get(),
                         "ct": self.entries["ct"].get(),
-                        "is_factor": self.is_combobox.get()
+                        "is_factor": self.is_combobox.get(),
                     },
                     "building_geometry": {
                         "pitch_north": self.entries["pitch_north"].get(),
@@ -939,17 +1446,19 @@ Always verify member spanning conditions and consult licensed engineer"""
                         "ew_half_width": self.entries["ew_half_width"].get(),
                         "valley_offset": self.entries["valley_offset"].get(),
                         "valley_angle": self.entries["valley_angle"].get(),
-                        "jack_spacing_inches": self.entries["jack_spacing_inches"].get()
+                        "jack_spacing_inches": self.entries[
+                            "jack_spacing_inches"
+                        ].get(),
                     },
                     "beam_design": {
                         "material": self.material_combobox.get(),
                         "beam_width": self.entries["beam_width"].get(),
-                        "beam_depth_trial": self.entries["beam_depth_trial"].get()
-                    }
-                }
+                        "beam_depth_trial": self.entries["beam_depth_trial"].get(),
+                    },
+                },
             }
 
-            with open(filename, 'w') as f:
+            with open(filename, "w") as f:
                 json.dump(project_data, f, indent=2)
 
             messagebox.showinfo("Save Successful", f"Project saved to {filename}")
@@ -962,12 +1471,12 @@ Always verify member spanning conditions and consult licensed engineer"""
         try:
             filename = filedialog.askopenfilename(
                 filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
-                title="Load Project"
+                title="Load Project",
             )
             if not filename:
                 return
 
-            with open(filename, 'r') as f:
+            with open(filename, "r") as f:
                 project_data = json.load(f)
 
             # Load inputs
@@ -983,10 +1492,16 @@ Always verify member spanning conditions and consult licensed engineer"""
             self.entries["ce"].insert(0, snow_params.get("ce", "1.0"))
             self.entries["ct"].delete(0, tk.END)
             self.entries["ct"].insert(0, snow_params.get("ct", "1.2"))
-            self.is_combobox.set(snow_params.get("is_factor", "1.0 - Risk Cat II (default)"))
+            self.is_combobox.set(
+                snow_params.get("is_factor", "1.0 - Risk Cat II (default)")
+            )
             # Handle both old and new field names for backward compatibility
-            north_span_value = snow_params.get("north_span") or snow_params.get("lu_north", "16")
-            ew_half_width_value = snow_params.get("ew_half_width") or snow_params.get("lu_west", "42")
+            north_span_value = snow_params.get("north_span") or snow_params.get(
+                "lu_north", "16"
+            )
+            ew_half_width_value = snow_params.get("ew_half_width") or snow_params.get(
+                "lu_west", "42"
+            )
             valley_offset_value = snow_params.get("valley_offset", "16")
 
             self.entries["north_span"].delete(0, tk.END)
@@ -1007,23 +1522,35 @@ Always verify member spanning conditions and consult licensed engineer"""
             self.entries["south_span"].delete(0, tk.END)
             self.entries["south_span"].insert(0, geom_params.get("south_span", "30"))
             self.entries["ew_half_width"].delete(0, tk.END)
-            self.entries["ew_half_width"].insert(0, geom_params.get("ew_half_width", "21.125"))
+            self.entries["ew_half_width"].insert(
+                0, geom_params.get("ew_half_width", "21.125")
+            )
             self.entries["valley_offset"].delete(0, tk.END)
-            self.entries["valley_offset"].insert(0, geom_params.get("valley_offset", "21.125"))
+            self.entries["valley_offset"].insert(
+                0, geom_params.get("valley_offset", "21.125")
+            )
             self.entries["valley_angle"].delete(0, tk.END)
-            self.entries["valley_angle"].insert(0, geom_params.get("valley_angle", "90"))
+            self.entries["valley_angle"].insert(
+                0, geom_params.get("valley_angle", "90")
+            )
             self.entries["jack_spacing_inches"].delete(0, tk.END)
-            self.entries["jack_spacing_inches"].insert(0, geom_params.get("jack_spacing_inches", "24"))
+            self.entries["jack_spacing_inches"].insert(
+                0, geom_params.get("jack_spacing_inches", "24")
+            )
 
             # Beam design
             beam_params = inputs.get("beam_design", {})
-            self.material_combobox.set(beam_params.get("material", "Glulam 24F-V4 DF (Fb=2400 psi)"))
+            self.material_combobox.set(
+                beam_params.get("material", "Glulam 24F-V4 DF (Fb=2400 psi)")
+            )
             # Trigger material change to update properties
             self.on_material_change(None)
             self.entries["beam_width"].delete(0, tk.END)
             self.entries["beam_width"].insert(0, beam_params.get("beam_width", "3.5"))
             self.entries["beam_depth_trial"].delete(0, tk.END)
-            self.entries["beam_depth_trial"].insert(0, beam_params.get("beam_depth_trial", "9.5"))
+            self.entries["beam_depth_trial"].insert(
+                0, beam_params.get("beam_depth_trial", "9.5")
+            )
 
             messagebox.showinfo("Load Successful", f"Project loaded from {filename}")
 
@@ -1035,6 +1562,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         try:
             # Get user documents folder or desktop as default save location
             import os
+
             try:
                 # Try to use Documents folder first
                 default_dir = os.path.expanduser("~/Documents")
@@ -1051,14 +1579,14 @@ Always verify member spanning conditions and consult licensed engineer"""
                 defaultextension=".pdf",
                 filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
                 title="Generate PDF Report",
-                initialdir=default_dir
+                initialdir=default_dir,
             )
             if not filename:
                 return
 
             if not REPORTLAB_AVAILABLE:
                 # Fallback to HTML if reportlab is not available
-                self.generate_html_report(filename.replace('.pdf', '.html'))
+                self.generate_html_report(filename.replace(".pdf", ".html"))
                 return
 
             # Run calculations if not already done (to ensure we have results and diagrams)
@@ -1082,11 +1610,11 @@ Always verify member spanning conditions and consult licensed engineer"""
                 import io
 
                 # Check if diagrams are currently displayed
-                if hasattr(self, '_current_figures') and self._current_figures:
+                if hasattr(self, "_current_figures") and self._current_figures:
                     # Use stored figures
                     for fig in self._current_figures:
                         buf = io.BytesIO()
-                        fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+                        fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
                         buf.seek(0)
                         diagram_images.append(buf)
                 else:
@@ -1094,7 +1622,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                     figures = [plt.figure(i) for i in plt.get_fignums()]
                     for fig in figures:
                         buf = io.BytesIO()
-                        fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+                        fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
                         buf.seek(0)
                         diagram_images.append(buf)
                         plt.close(fig)
@@ -1103,24 +1631,42 @@ Always verify member spanning conditions and consult licensed engineer"""
                 if not diagram_images:
                     try:
                         # Extract parameters from current entries
-                        north_span = float(self.entries['north_span'].get() or '16')
-                        south_span = float(self.entries['south_span'].get() or '16')
-                        ew_half_width = float(self.entries['ew_half_width'].get() or '42')
-                        valley_offset = float(self.entries['valley_offset'].get() or '16')
+                        north_span = float(self.entries["north_span"].get() or "16")
+                        south_span = float(self.entries["south_span"].get() or "16")
+                        ew_half_width = float(
+                            self.entries["ew_half_width"].get() or "42"
+                        )
+                        valley_offset = float(
+                            self.entries["valley_offset"].get() or "16"
+                        )
 
                         # Generate basic diagrams
-                        fig_plan = self.draw_plan_view(north_span, south_span, ew_half_width, valley_offset)
+                        fig_plan = self.draw_plan_view(
+                            north_span, south_span, ew_half_width, valley_offset
+                        )
                         buf = io.BytesIO()
-                        fig_plan.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+                        fig_plan.savefig(
+                            buf, format="png", dpi=150, bbox_inches="tight"
+                        )
                         buf.seek(0)
                         diagram_images.append(buf)
                         plt.close(fig_plan)
 
                         # Try to generate drift diagram with default values
-                        fig_drift = self.draw_north_drift_overlay(north_span, south_span, ew_half_width, valley_offset,
-                                                                5.0, 10.0, 20.0, 30.0)  # Default values
+                        fig_drift = self.draw_north_drift_overlay(
+                            north_span,
+                            south_span,
+                            ew_half_width,
+                            valley_offset,
+                            5.0,
+                            10.0,
+                            20.0,
+                            30.0,
+                        )  # Default values
                         buf = io.BytesIO()
-                        fig_drift.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+                        fig_drift.savefig(
+                            buf, format="png", dpi=150, bbox_inches="tight"
+                        )
                         buf.seek(0)
                         diagram_images.append(buf)
                         plt.close(fig_drift)
@@ -1139,146 +1685,256 @@ Always verify member spanning conditions and consult licensed engineer"""
 
             # Title
             title_style = ParagraphStyle(
-                'CustomTitle',
-                parent=styles['Heading1'],
+                "CustomTitle",
+                parent=styles["Heading1"],
                 fontSize=16,
                 spaceAfter=30,
-                alignment=1  # Center alignment
+                alignment=1,  # Center alignment
             )
-            story.append(Paragraph("ASCE 7-22 Valley Snow Load Analysis Report", title_style))
+            story.append(
+                Paragraph("ASCE 7-22 Valley Snow Load Analysis Report", title_style)
+            )
             story.append(Spacer(1, 12))
 
             # Timestamp
             timestamp_style = ParagraphStyle(
-                'Timestamp',
-                parent=styles['Normal'],
-                fontSize=10,
-                textColor=colors.gray
+                "Timestamp", parent=styles["Normal"], fontSize=10, textColor=colors.gray
             )
-            story.append(Paragraph(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", timestamp_style))
+            story.append(
+                Paragraph(
+                    f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                    timestamp_style,
+                )
+            )
             story.append(Spacer(1, 20))
 
             # Executive Summary
-            story.append(Paragraph("Executive Summary", styles['Heading2']))
+            story.append(Paragraph("Executive Summary", styles["Heading2"]))
 
             # Extract key results for summary
             summary_points = []
-            lines = calculation_results.split('\n')
+            lines = calculation_results.split("\n")
 
             for line in lines:
-                if 'Valley horizontal length' in line:
-                    summary_points.append(f"Valley Length: {line.split(':')[1].strip()}")
-                elif 'Balanced snow load' in line:
-                    summary_points.append(f"Balanced Load: {line.split(':')[1].strip()}")
-                elif 'Maximum drift load' in line:
-                    summary_points.append(f"Max Drift Load: {line.split(':')[1].strip()}")
-                elif 'Beam section' in line and 'inches' in line:
-                    summary_points.append(f"Required Beam: {line.split(':')[1].strip()}")
-                elif 'PASS' in line and 'beam' in line.lower():
+                if "Valley horizontal length" in line:
+                    summary_points.append(
+                        f"Valley Length: {line.split(':')[1].strip()}"
+                    )
+                elif "Balanced snow load" in line:
+                    summary_points.append(
+                        f"Balanced Load: {line.split(':')[1].strip()}"
+                    )
+                elif "Maximum drift load" in line:
+                    summary_points.append(
+                        f"Max Drift Load: {line.split(':')[1].strip()}"
+                    )
+                elif "Beam section" in line and "inches" in line:
+                    summary_points.append(
+                        f"Required Beam: {line.split(':')[1].strip()}"
+                    )
+                elif "PASS" in line and "beam" in line.lower():
                     summary_points.append("✓ Beam Design: PASSES all checks")
-                elif 'FAIL' in line and 'beam' in line.lower():
+                elif "FAIL" in line and "beam" in line.lower():
                     summary_points.append("✗ Beam Design: FAILS - requires redesign")
 
             if summary_points:
                 for point in summary_points:
-                    bullet_style = ParagraphStyle('BulletStyle', parent=styles['Normal'], leftIndent=20, fontSize=11)
+                    bullet_style = ParagraphStyle(
+                        "BulletStyle",
+                        parent=styles["Normal"],
+                        leftIndent=20,
+                        fontSize=11,
+                    )
                     story.append(Paragraph(f"• {point}", bullet_style))
                     story.append(Spacer(1, 3))
             else:
-                story.append(Paragraph("Run calculations to generate executive summary.", styles['Normal']))
+                story.append(
+                    Paragraph(
+                        "Run calculations to generate executive summary.",
+                        styles["Normal"],
+                    )
+                )
 
             story.append(Spacer(1, 20))
 
             # Snow Load Parameters Section
-            story.append(Paragraph("Snow Load Parameters", styles['Heading2']))
+            story.append(Paragraph("Snow Load Parameters", styles["Heading2"]))
             snow_data = [
-                ['Parameter', 'Value', 'Description'],
-                ['Ground Snow Load (pg)', f"{self.entries['pg'].get()} psf", 'Reliability-targeted ground snow load'],
-                ['Winter Wind Parameter (W2)', self.entries['w2'].get(), 'Percentage of heating season with winds >10 mph'],
-                ['Exposure Factor (Ce)', self.entries['ce'].get(), 'Exposure factor from Table 7.3-1'],
-                ['Thermal Factor (Ct)', self.entries['ct'].get(), 'Thermal factor from Table 7.3-2'],
-                ['Importance Factor (Is)', self.is_combobox.get(), 'Risk category importance factor'],
-                ['North Span (lu_north)', f"{self.entries['north_span'].get()} ft", 'Distance from E-W ridge to north eave'],
-                ['South Span', f"{self.entries['south_span'].get()} ft", 'Distance from E-W ridge to south eave'],
-                ['E-W Half-Width (lu_west)', f"{self.entries['ew_half_width'].get()} ft", 'Half-width from ridge to eave'],
-                ['Valley Offset', f"{self.entries['valley_offset'].get()} ft", 'Horizontal valley low point offset']
+                ["Parameter", "Value", "Description"],
+                [
+                    "Ground Snow Load (pg)",
+                    f"{self.entries['pg'].get()} psf",
+                    "Reliability-targeted ground snow load",
+                ],
+                [
+                    "Winter Wind Parameter (W2)",
+                    self.entries["w2"].get(),
+                    "Percentage of heating season with winds >10 mph",
+                ],
+                [
+                    "Exposure Factor (Ce)",
+                    self.entries["ce"].get(),
+                    "Exposure factor from Table 7.3-1",
+                ],
+                [
+                    "Thermal Factor (Ct)",
+                    self.entries["ct"].get(),
+                    "Thermal factor from Table 7.3-2",
+                ],
+                [
+                    "Importance Factor (Is)",
+                    self.is_combobox.get(),
+                    "Risk category importance factor",
+                ],
+                [
+                    "North Span (lu_north)",
+                    f"{self.entries['north_span'].get()} ft",
+                    "Distance from E-W ridge to north eave",
+                ],
+                [
+                    "South Span",
+                    f"{self.entries['south_span'].get()} ft",
+                    "Distance from E-W ridge to south eave",
+                ],
+                [
+                    "E-W Half-Width (lu_west)",
+                    f"{self.entries['ew_half_width'].get()} ft",
+                    "Half-width from ridge to eave",
+                ],
+                [
+                    "Valley Offset",
+                    f"{self.entries['valley_offset'].get()} ft",
+                    "Horizontal valley low point offset",
+                ],
             ]
 
-            snow_table = Table(snow_data, colWidths=[2*inch, 1*inch, 3*inch])
-            snow_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
-            ]))
+            snow_table = Table(snow_data, colWidths=[2 * inch, 1 * inch, 3 * inch])
+            snow_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
+                        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                        ("FONTSIZE", (0, 0), (-1, 0), 10),
+                        ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+                        ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+                        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                    ]
+                )
+            )
             story.append(snow_table)
             story.append(Spacer(1, 20))
 
             # Building Geometry Section
-            story.append(Paragraph("Building Geometry", styles['Heading2']))
+            story.append(Paragraph("Building Geometry", styles["Heading2"]))
             geom_data = [
-                ['Parameter', 'Value', 'Description'],
-                ['Roof Pitch North', f"{self.entries['pitch_north'].get()}°", 'North roof slope'],
-                ['Roof Pitch West', f"{self.entries['pitch_west'].get()}°", 'West roof slope'],
-                ['North Span (E-W Ridge to North Eave)', f"{self.entries['north_span'].get()} ft", 'North roof plane span'],
-                ['South Span (E-W Ridge to South Eave)', f"{self.entries['south_span'].get()} ft", 'South roof plane span'],
-                ['E-W Half-Width (N-S Ridge to Eave)', f"{self.entries['ew_half_width'].get()} ft", 'Half width of building'],
-                ['Valley Horizontal Offset', f"{self.entries['valley_offset'].get()} ft", 'Distance from N-S ridge projection to valley low point'],
-                ['Valley Angle', f"{self.entries['valley_angle'].get()}°", 'Angle between roof planes'],
-                ['Jack Rafter Spacing', f"{self.entries['jack_spacing_inches'].get()}\" o.c.", 'Spacing between jack rafters']
+                ["Parameter", "Value", "Description"],
+                [
+                    "Roof Pitch North",
+                    f"{self.entries['pitch_north'].get()}°",
+                    "North roof slope",
+                ],
+                [
+                    "Roof Pitch West",
+                    f"{self.entries['pitch_west'].get()}°",
+                    "West roof slope",
+                ],
+                [
+                    "North Span (E-W Ridge to North Eave)",
+                    f"{self.entries['north_span'].get()} ft",
+                    "North roof plane span",
+                ],
+                [
+                    "South Span (E-W Ridge to South Eave)",
+                    f"{self.entries['south_span'].get()} ft",
+                    "South roof plane span",
+                ],
+                [
+                    "E-W Half-Width (N-S Ridge to Eave)",
+                    f"{self.entries['ew_half_width'].get()} ft",
+                    "Half width of building",
+                ],
+                [
+                    "Valley Horizontal Offset",
+                    f"{self.entries['valley_offset'].get()} ft",
+                    "Distance from N-S ridge projection to valley low point",
+                ],
+                [
+                    "Valley Angle",
+                    f"{self.entries['valley_angle'].get()}°",
+                    "Angle between roof planes",
+                ],
+                [
+                    "Jack Rafter Spacing",
+                    f"{self.entries['jack_spacing_inches'].get()}\" o.c.",
+                    "Spacing between jack rafters",
+                ],
             ]
 
-            geom_table = Table(geom_data, colWidths=[2*inch, 1.2*inch, 2.8*inch])
-            geom_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
-            ]))
+            geom_table = Table(geom_data, colWidths=[2 * inch, 1.2 * inch, 2.8 * inch])
+            geom_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
+                        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                        ("FONTSIZE", (0, 0), (-1, 0), 10),
+                        ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+                        ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+                        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                    ]
+                )
+            )
             story.append(geom_table)
             story.append(Spacer(1, 20))
 
             # Beam Design Section
-            story.append(Paragraph("Beam Design", styles['Heading2']))
+            story.append(Paragraph("Beam Design", styles["Heading2"]))
             beam_data = [
-                ['Parameter', 'Value', 'Description'],
-                ['Material', self.material_combobox.get(), 'Selected beam material'],
-                ['Beam Width', f"{self.entries['beam_width'].get()}\"", 'Beam cross-section width'],
-                ['Beam Depth', f"{self.entries['beam_depth_trial'].get()}\"", 'Beam cross-section depth']
+                ["Parameter", "Value", "Description"],
+                ["Material", self.material_combobox.get(), "Selected beam material"],
+                [
+                    "Beam Width",
+                    f"{self.entries['beam_width'].get()}\"",
+                    "Beam cross-section width",
+                ],
+                [
+                    "Beam Depth",
+                    f"{self.entries['beam_depth_trial'].get()}\"",
+                    "Beam cross-section depth",
+                ],
             ]
 
-            beam_table = Table(beam_data, colWidths=[1.5*inch, 1.5*inch, 3*inch])
-            beam_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
-            ]))
+            beam_table = Table(beam_data, colWidths=[1.5 * inch, 1.5 * inch, 3 * inch])
+            beam_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
+                        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                        ("FONTSIZE", (0, 0), (-1, 0), 10),
+                        ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+                        ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+                        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                    ]
+                )
+            )
             story.append(beam_table)
             story.append(Spacer(1, 20))
 
             # Beam Design Results Summary
-            story.append(Paragraph("Beam Design Results Summary", styles['Heading2']))
+            story.append(Paragraph("Beam Design Results Summary", styles["Heading2"]))
 
             # Extract beam design results from calculation text
             beam_summary_lines = []
             in_beam_section = False
-            for line in calculation_results.split('\n'):
-                if 'BEAM DESIGN SUMMARY' in line or '=== BEAM DESIGN' in line:
+            for line in calculation_results.split("\n"):
+                if "BEAM DESIGN SUMMARY" in line or "=== BEAM DESIGN" in line:
                     in_beam_section = True
-                elif in_beam_section and ('===' in line and 'BEAM' not in line):
+                elif in_beam_section and ("===" in line and "BEAM" not in line):
                     break  # End of beam section
                 elif in_beam_section:
                     beam_summary_lines.append(line)
@@ -1286,54 +1942,89 @@ Always verify member spanning conditions and consult licensed engineer"""
             if beam_summary_lines:
                 for line in beam_summary_lines:
                     if line.strip():
-                        if 'PASS' in line:
-                            pass_style = ParagraphStyle('BeamPass', parent=styles['Normal'], textColor=colors.green, fontSize=11, spaceAfter=6)
+                        if "PASS" in line:
+                            pass_style = ParagraphStyle(
+                                "BeamPass",
+                                parent=styles["Normal"],
+                                textColor=colors.green,
+                                fontSize=11,
+                                spaceAfter=6,
+                            )
                             story.append(Paragraph(f"✓ {line}", pass_style))
-                        elif 'FAIL' in line:
-                            fail_style = ParagraphStyle('BeamFail', parent=styles['Normal'], textColor=colors.red, fontSize=11, spaceAfter=6)
+                        elif "FAIL" in line:
+                            fail_style = ParagraphStyle(
+                                "BeamFail",
+                                parent=styles["Normal"],
+                                textColor=colors.red,
+                                fontSize=11,
+                                spaceAfter=6,
+                            )
                             story.append(Paragraph(f"✗ {line}", fail_style))
                         else:
-                            story.append(Paragraph(line, styles['Normal']))
+                            story.append(Paragraph(line, styles["Normal"]))
             else:
-                story.append(Paragraph("Beam design results will appear here after running calculations.", styles['Normal']))
+                story.append(
+                    Paragraph(
+                        "Beam design results will appear here after running calculations.",
+                        styles["Normal"],
+                    )
+                )
 
             story.append(Spacer(1, 20))
 
             # Calculation Results - Include ALL sections
-            story.append(Paragraph("Complete Analysis Results", styles['Heading2']))
+            story.append(Paragraph("Complete Analysis Results", styles["Heading2"]))
 
             # Split the calculation results into manageable chunks for PDF
             if calculation_results and len(calculation_results) > 100:
                 # Break into lines and add to PDF - increase limit to include all results
-                lines = calculation_results.split('\n')
+                lines = calculation_results.split("\n")
                 for line in lines:  # Include ALL lines for complete report
                     if line.strip():
                         # Handle section headers
-                        if '===' in line:
-                            story.append(Paragraph(line, styles['Heading3']))
-                        elif '============================================================' in line:
-                            story.append(Paragraph("─" * 60, styles['Normal']))  # Separator line
-                        elif line.startswith('•') or line.startswith('-'):
-                            story.append(Paragraph(line, styles['Normal']))
-                        elif 'PASS' in line and ('GREEN' in line or '✓' in line):
+                        if "===" in line:
+                            story.append(Paragraph(line, styles["Heading3"]))
+                        elif (
+                            "============================================================"
+                            in line
+                        ):
+                            story.append(
+                                Paragraph("─" * 60, styles["Normal"])
+                            )  # Separator line
+                        elif line.startswith("•") or line.startswith("-"):
+                            story.append(Paragraph(line, styles["Normal"]))
+                        elif "PASS" in line and ("GREEN" in line or "✓" in line):
                             # Highlight passing results
-                            pass_style = ParagraphStyle('PassStyle', parent=styles['Normal'], textColor=colors.green)
+                            pass_style = ParagraphStyle(
+                                "PassStyle",
+                                parent=styles["Normal"],
+                                textColor=colors.green,
+                            )
                             story.append(Paragraph(line, pass_style))
-                        elif 'FAIL' in line and ('RED' in line or '✗' in line):
+                        elif "FAIL" in line and ("RED" in line or "✗" in line):
                             # Highlight failing results
-                            fail_style = ParagraphStyle('FailStyle', parent=styles['Normal'], textColor=colors.red)
+                            fail_style = ParagraphStyle(
+                                "FailStyle",
+                                parent=styles["Normal"],
+                                textColor=colors.red,
+                            )
                             story.append(Paragraph(line, fail_style))
                         else:
-                            story.append(Paragraph(line, styles['Normal']))
+                            story.append(Paragraph(line, styles["Normal"]))
                         story.append(Spacer(1, 2))
             else:
-                story.append(Paragraph("No calculation results available. Please run calculations first.", styles['Normal']))
+                story.append(
+                    Paragraph(
+                        "No calculation results available. Please run calculations first.",
+                        styles["Normal"],
+                    )
+                )
 
             story.append(Spacer(1, 20))
 
             # Include Diagrams
             if diagram_images:
-                story.append(Paragraph("Analysis Diagrams", styles['Heading2']))
+                story.append(Paragraph("Analysis Diagrams", styles["Heading2"]))
                 story.append(Spacer(1, 12))
 
                 diagram_names = [
@@ -1342,19 +2033,19 @@ Always verify member spanning conditions and consult licensed engineer"""
                     "Shear Force Diagram (ASD)",
                     "Bending Moment Diagram (ASD)",
                     "Drift Load Profile",
-                    "Sloped Valley Beam Point Loads"
+                    "Sloped Valley Beam Point Loads",
                 ]
 
                 for i, (buf, name) in enumerate(zip(diagram_images, diagram_names)):
                     if i < len(diagram_names):  # Ensure we don't exceed available names
                         # Add diagram title
-                        story.append(Paragraph(f"{name}", styles['Heading3']))
+                        story.append(Paragraph(f"{name}", styles["Heading3"]))
                         story.append(Spacer(1, 6))
 
                         # Add the image (resize to fit page width)
                         img = Image(buf)
                         img.drawHeight = 3 * inch  # Fixed height
-                        img.drawWidth = 6 * inch   # Fixed width to fit page
+                        img.drawWidth = 6 * inch  # Fixed width to fit page
                         story.append(img)
                         story.append(Spacer(1, 12))
 
@@ -1362,55 +2053,73 @@ Always verify member spanning conditions and consult licensed engineer"""
                         if i < len(diagram_images) - 1:
                             story.append(PageBreak())
             else:
-                story.append(Paragraph("Diagrams", styles['Heading2']))
-                story.append(Paragraph("No diagrams available. Diagrams will be generated when calculations are run.", styles['Normal']))
+                story.append(Paragraph("Diagrams", styles["Heading2"]))
+                story.append(
+                    Paragraph(
+                        "No diagrams available. Diagrams will be generated when calculations are run.",
+                        styles["Normal"],
+                    )
+                )
                 story.append(Spacer(1, 20))
 
             # Analysis Notes
-            story.append(Paragraph("Analysis Notes", styles['Heading2']))
+            story.append(Paragraph("Analysis Notes", styles["Heading2"]))
             notes = [
                 "This report was generated using ASCE 7-22 Chapter 7 snow load provisions",
                 "All calculations are based on the input parameters provided",
                 "Ground snow load (pg) and winter wind parameter (W2) should be obtained from the official ASCE 7 Hazard Tool",
-                "Results are valid for the specific site conditions and building geometry entered"
+                "Results are valid for the specific site conditions and building geometry entered",
             ]
 
             for note in notes:
-                story.append(Paragraph(f"• {note}", styles['Normal']))
+                story.append(Paragraph(f"• {note}", styles["Normal"]))
                 story.append(Spacer(1, 6))
 
             story.append(Spacer(1, 20))
 
             # Footer
             footer_style = ParagraphStyle(
-                'Footer',
-                parent=styles['Normal'],
+                "Footer",
+                parent=styles["Normal"],
                 fontSize=9,
                 textColor=colors.gray,
-                alignment=1  # Center alignment
+                alignment=1,  # Center alignment
             )
-            story.append(Paragraph("Report generated by ASCE 7-22 Valley Snow Load Calculator v1.0", footer_style))
+            story.append(
+                Paragraph(
+                    "Report generated by ASCE 7-22 Valley Snow Load Calculator v1.0",
+                    footer_style,
+                )
+            )
 
             # Build PDF
             doc.build(story)
-            messagebox.showinfo("PDF Report Generated", f"PDF report saved to {filename}")
+            messagebox.showinfo(
+                "PDF Report Generated", f"PDF report saved to {filename}"
+            )
 
         except PermissionError as e:
-            messagebox.showerror("Permission Denied",
+            messagebox.showerror(
+                "Permission Denied",
                 f"Cannot save PDF to the selected location.\n\n"
                 f"Please choose a different folder where you have write permissions, "
                 f"such as your Documents or Desktop folder.\n\n"
-                f"Error: {str(e)}")
+                f"Error: {str(e)}",
+            )
         except Exception as e:
             error_msg = str(e)
             if "Errno 13" in error_msg or "Permission denied" in error_msg.lower():
-                messagebox.showerror("Permission Denied",
+                messagebox.showerror(
+                    "Permission Denied",
                     f"Cannot save PDF to the selected location.\n\n"
                     f"Please choose a different folder where you have write permissions, "
                     f"such as your Documents or Desktop folder.\n\n"
-                    f"Error: {error_msg}")
+                    f"Error: {error_msg}",
+                )
             else:
-                messagebox.showerror("Report Error", f"Failed to generate PDF report: {error_msg}")
+                messagebox.showerror(
+                    "Report Error", f"Failed to generate PDF report: {error_msg}"
+                )
 
     def generate_html_report(self, filename):
         """Fallback HTML report generation if PDF is not available."""
@@ -1423,13 +2132,14 @@ Always verify member spanning conditions and consult licensed engineer"""
             try:
                 import base64
                 import io
+
                 # Save current matplotlib figures as base64 encoded images
                 figures = [plt.figure(i) for i in plt.get_fignums()]
                 for fig in figures:
                     buf = io.BytesIO()
-                    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+                    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
                     buf.seek(0)
-                    img_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+                    img_base64 = base64.b64encode(buf.getvalue()).decode("utf-8")
                     diagram_images_html.append(f"data:image/png;base64,{img_base64}")
                     plt.close(fig)
             except Exception as e:
@@ -1503,11 +2213,13 @@ Always verify member spanning conditions and consult licensed engineer"""
                 "Drift Load Profile",
                 "Point Load Reactions",
                 "Shear Force Diagram",
-                "Bending Moment Diagram"
+                "Bending Moment Diagram",
             ]
 
             if diagram_images_html:
-                for i, (img_data, name) in enumerate(zip(diagram_images_html, diagram_names)):
+                for i, (img_data, name) in enumerate(
+                    zip(diagram_images_html, diagram_names)
+                ):
                     if i < len(diagram_names):
                         html_content += f"""
     <h3>{name}</h3>
@@ -1520,7 +2232,7 @@ Always verify member spanning conditions and consult licensed engineer"""
     <p>No diagrams available. Diagrams will be generated when calculations are run.</p>
 """
 
-            html_content += f"""
+            html_content += """
     <h2>Analysis Notes</h2>
     <ul>
         <li>This report was generated using ASCE 7-22 Chapter 7 snow load provisions</li>
@@ -1534,33 +2246,44 @@ Always verify member spanning conditions and consult licensed engineer"""
 </html>
 """
 
-            with open(filename, 'w') as f:
+            with open(filename, "w") as f:
                 f.write(html_content)
 
-            messagebox.showinfo("HTML Report Generated", f"HTML report saved to {filename} (PDF not available)")
+            messagebox.showinfo(
+                "HTML Report Generated",
+                f"HTML report saved to {filename} (PDF not available)",
+            )
 
         except PermissionError as e:
-            messagebox.showerror("Permission Denied",
+            messagebox.showerror(
+                "Permission Denied",
                 f"Cannot save HTML report to the selected location.\n\n"
                 f"Please choose a different folder where you have write permissions, "
                 f"such as your Documents or Desktop folder.\n\n"
-                f"Error: {str(e)}")
+                f"Error: {str(e)}",
+            )
         except Exception as e:
             error_msg = str(e)
             if "Errno 13" in error_msg or "Permission denied" in error_msg.lower():
-                messagebox.showerror("Permission Denied",
+                messagebox.showerror(
+                    "Permission Denied",
                     f"Cannot save HTML report to the selected location.\n\n"
                     f"Please choose a different folder where you have write permissions, "
                     f"such as your Documents or Desktop folder.\n\n"
-                    f"Error: {error_msg}")
+                    f"Error: {error_msg}",
+                )
             else:
-                messagebox.showerror("Report Error", f"Failed to generate HTML report: {error_msg}")
+                messagebox.showerror(
+                    "Report Error", f"Failed to generate HTML report: {error_msg}"
+                )
 
     def get_is_factor(self) -> tuple[Optional[float], str]:
         """Get the numeric Is factor and description from the combobox."""
         selected = self.is_combobox.get()
         if not selected:
-            messagebox.showerror("Input Error", "Please select an Importance factor (Is)")
+            messagebox.showerror(
+                "Input Error", "Please select an Importance factor (Is)"
+            )
             return None, ""
 
         # Extract numeric value from the beginning of the string
@@ -1600,33 +2323,41 @@ Always verify member spanning conditions and consult licensed engineer"""
             self.modulus_e_value = 2000000
 
         # Update the Entry widgets with new values
-        if hasattr(self, 'entries'):
-            if 'fb_allowable' in self.entries:
-                self.entries['fb_allowable'].delete(0, tk.END)
-                self.entries['fb_allowable'].insert(0, str(self.fb_allowable_value))
-            if 'fv_allowable' in self.entries:
-                self.entries['fv_allowable'].delete(0, tk.END)
-                self.entries['fv_allowable'].insert(0, str(self.fv_allowable_value))
-            if 'modulus_e' in self.entries:
-                self.entries['modulus_e'].delete(0, tk.END)
-                self.entries['modulus_e'].insert(0, str(self.modulus_e_value))
+        if hasattr(self, "entries"):
+            if "fb_allowable" in self.entries:
+                self.entries["fb_allowable"].delete(0, tk.END)
+                self.entries["fb_allowable"].insert(0, str(self.fb_allowable_value))
+            if "fv_allowable" in self.entries:
+                self.entries["fv_allowable"].delete(0, tk.END)
+                self.entries["fv_allowable"].insert(0, str(self.fv_allowable_value))
+            if "modulus_e" in self.entries:
+                self.entries["modulus_e"].delete(0, tk.END)
+                self.entries["modulus_e"].insert(0, str(self.modulus_e_value))
 
     def compute_s_theta(self, pitch):
         if pitch <= 0:
             return 0.0, 0.0, 0.0
-        s = pitch / 12.0                  # rise/run
-        S = 12.0 / pitch                  # Correct ASCE S: run for rise of 1
+        s = pitch / 12.0  # rise/run
+        S = 12.0 / pitch  # Correct ASCE S: run for rise of 1
         theta = math.degrees(math.atan(s))
         return s, theta, S
 
     def calculate_gable_drift(self, pg, lu, W2, Ce, ct, Cs, Is, s, S):
         gamma = min(0.13 * pg + 14, 30)
         hd = 1.5 * math.sqrt(pg**0.74 * lu**0.7 * W2**1.7 / gamma)
-        pd = hd * gamma / math.sqrt(S)           # Uniform rectangular
+        pd = hd * gamma / math.sqrt(S)  # Uniform rectangular
         pd_max = pd
         w = (8 * hd * math.sqrt(S)) / 3
         ps = 0.7 * Ce * ct * Is * pg * Cs
-        return {'hd_ft': hd, 'pd_max_psf': pd_max, 'drift_width_ft': w, 'pd_max': pd_max, 'w': w, 'ps': ps, 'gamma': gamma}
+        return {
+            "hd_ft": hd,
+            "pd_max_psf": pd_max,
+            "drift_width_ft": w,
+            "pd_max": pd_max,
+            "w": w,
+            "ps": ps,
+            "gamma": gamma,
+        }
 
     def calculate(self):
         print("Calculate button clicked - starting calculation")
@@ -1634,7 +2365,9 @@ Always verify member spanning conditions and consult licensed engineer"""
         # Validate all inputs before calculation
         validation_errors = self.validate_all_inputs()
         if validation_errors:
-            error_message = "Please fix the following input errors:\n\n" + "\n".join(f"• {error}" for error in validation_errors)
+            error_message = "Please fix the following input errors:\n\n" + "\n".join(
+                f"• {error}" for error in validation_errors
+            )
             messagebox.showerror("Input Validation Errors", error_message)
             return
 
@@ -1670,7 +2403,9 @@ Always verify member spanning conditions and consult licensed engineer"""
         fv_allowable = self.get_float("fv_allowable")
         deflection_snow_limit = self.get_float("deflection_snow_limit")
         deflection_total_limit = self.get_float("deflection_total_limit")
-        beam_depth_trial = self.get_float("beam_depth_trial")  # Can be None for back-calculation
+        beam_depth_trial = self.get_float(
+            "beam_depth_trial"
+        )  # Can be None for back-calculation
         if beam_depth_trial is None:
             beam_depth_trial = 9.5  # Default value
         jack_spacing_inches = self.get_float("jack_spacing_inches")
@@ -1687,9 +2422,28 @@ Always verify member spanning conditions and consult licensed engineer"""
         if fv_allowable <= 0:
             fv_allowable = 265.0  # Default Glulam
 
-        if None in (pg, lu_north, lu_west, w2, ce, ct, is_factor, pitch_n, pitch_w, de_n, de_w, valley_angle,
-                     beam_width, modulus_e, fb_allowable, fv_allowable, deflection_snow_limit, deflection_total_limit,
-                     jack_spacing_inches, dead_load_horizontal):
+        if None in (
+            pg,
+            lu_north,
+            lu_west,
+            w2,
+            ce,
+            ct,
+            is_factor,
+            pitch_n,
+            pitch_w,
+            de_n,
+            de_w,
+            valley_angle,
+            beam_width,
+            modulus_e,
+            fb_allowable,
+            fv_allowable,
+            deflection_snow_limit,
+            deflection_total_limit,
+            jack_spacing_inches,
+            dead_load_horizontal,
+        ):
             return
 
         # Calculate slopes for unbalanced load check
@@ -1697,8 +2451,10 @@ Always verify member spanning conditions and consult licensed engineer"""
         s_w, theta_w, S_w = self.compute_s_theta(pitch_w)
 
         # ASCE 7-22 Sec. 7.6.1 Unbalanced applicability
-        unbalanced_applies_n = 0.5/12 <= s_n <= 7/12  # 0.5 on 12 to 7 on 12 (2.38° to 30.2°)
-        unbalanced_applies_w = 0.5/12 <= s_w <= 7/12
+        unbalanced_applies_n = (
+            0.5 / 12 <= s_n <= 7 / 12
+        )  # 0.5 on 12 to 7 on 12 (2.38° to 30.2°)
+        unbalanced_applies_w = 0.5 / 12 <= s_w <= 7 / 12
         narrow_roof_n = de_n <= 20
         narrow_roof_w = de_w <= 20
 
@@ -1746,35 +2502,66 @@ Always verify member spanning conditions and consult licensed engineer"""
         lv = math.sqrt(south_span**2 + valley_offset**2)  # Horizontal valley length
 
         # Compute valley angle for display (optional)
-        valley_angle_computed = math.degrees(math.atan(south_span / valley_offset)) if valley_offset > 0 else 90
+        valley_angle_computed = (
+            math.degrees(math.atan(south_span / valley_offset))
+            if valley_offset > 0
+            else 90
+        )
 
-        rafter_len = valley_rafter_length(lv, pitch_n/12.0, pitch_w/12.0, north_span, south_span)
+        rafter_len = valley_rafter_length(
+            lv, pitch_n / 12.0, pitch_w / 12.0, north_span, south_span
+        )
 
         # Individual gable drifts with unbalanced applicability checks
         if not unbalanced_applies_n:
-            result_north = {'hd_ft': 0, 'pd_max_psf': 0, 'drift_width_ft': 0, 'pd_max': 0, 'w': 0, 'ps': ps, 'gamma': 25.0}  # Default gamma
+            result_north = {
+                "hd_ft": 0,
+                "pd_max_psf": 0,
+                "drift_width_ft": 0,
+                "pd_max": 0,
+                "w": 0,
+                "ps": ps,
+                "gamma": 25.0,
+            }  # Default gamma
         else:
-            result_north = self.calculate_gable_drift(pg, lu_north, w2, ce, ct, cs_n, is_factor, s_n, S_n)
+            result_north = self.calculate_gable_drift(
+                pg, lu_north, w2, ce, ct, cs_n, is_factor, s_n, S_n
+            )
 
         if not unbalanced_applies_w:
-            result_west = {'hd_ft': 0, 'pd_max_psf': 0, 'drift_width_ft': 0, 'pd_max': 0, 'w': 0, 'ps': ps, 'gamma': 25.0}  # Default gamma
+            result_west = {
+                "hd_ft": 0,
+                "pd_max_psf": 0,
+                "drift_width_ft": 0,
+                "pd_max": 0,
+                "w": 0,
+                "ps": ps,
+                "gamma": 25.0,
+            }  # Default gamma
         else:
-            result_west = self.calculate_gable_drift(pg, lu_west, w2, ce, ct, cs_w, is_factor, s_w, S_w)
+            result_west = self.calculate_gable_drift(
+                pg, lu_west, w2, ce, ct, cs_w, is_factor, s_w, S_w
+            )
 
         # Special narrow roof case (W <= 20 ft, simply supported prismatic members assumed)
         if narrow_roof_n and unbalanced_applies_n:
-            result_north['pd_max'] = pg - ps  # Leeward = pg, windward unloaded → surcharge = pg - ps
-            result_north['w'] = de_n         # Full span
+            result_north["pd_max"] = (
+                pg - ps
+            )  # Leeward = pg, windward unloaded → surcharge = pg - ps
+            result_north["w"] = de_n  # Full span
         if narrow_roof_w and unbalanced_applies_w:
-            result_west['pd_max'] = pg - ps
-            result_west['w'] = de_w
+            result_west["pd_max"] = pg - ps
+            result_west["w"] = de_w
 
         # Governing valley drift from intersection
         gov_drift = valley_governing_drift(result_north, result_west)
 
         # Determine governing drift width (from the drift with max pd_max)
-        gov_drift_width = (result_north["drift_width_ft"] if result_north["pd_max_psf"] >= result_west["pd_max_psf"]
-                          else result_west["drift_width_ft"])
+        gov_drift_width = (
+            result_north["drift_width_ft"]
+            if result_north["pd_max_psf"] >= result_west["pd_max_psf"]
+            else result_west["drift_width_ft"]
+        )
 
         # Max total load at valley corner
         max_total_valley = ps + gov_drift["governing_pd_max_psf"]
@@ -1790,7 +2577,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             ps_psf=governing_roof_load,  # Use governing roof load
             pd_max_psf=gov_drift["governing_pd_max_psf"],
             w_drift_ft=gov_drift_width,
-            dead_load_psf_horizontal=dead_load_horizontal
+            dead_load_psf_horizontal=dead_load_horizontal,
         )
 
         # Beam design - now that we have jack rafter data
@@ -1807,7 +2594,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             deflection_snow_limit=deflection_snow_limit,
             deflection_total_limit=deflection_total_limit,
             governing_drift_width_ft=gov_drift_width,
-            jack_spacing_inches=jack_spacing_inches
+            jack_spacing_inches=jack_spacing_inches,
         )
 
         beam = ValleyBeamDesigner(beam_inputs)
@@ -1815,45 +2602,66 @@ Always verify member spanning conditions and consult licensed engineer"""
         # Extract point loads from jack rafters - separate snow and dead loads
         snow_point_loads = []
         dead_point_loads = []
-        for i, (j_n, j_w) in enumerate(zip(jacks_data['jacks']['north_side'], jacks_data['jacks']['west_side'])):
+        for i, (j_n, j_w) in enumerate(
+            zip(jacks_data["jacks"]["north_side"], jacks_data["jacks"]["west_side"])
+        ):
             # Position from eave (horizontal distance)
-            pos_horizontal_from_eave = j_n['location_from_eave_ft']
+            pos_horizontal_from_eave = j_n["location_from_eave_ft"]
             # Convert to sloped position along the beam
             pos_sloped = pos_horizontal_from_eave * (rafter_len / lv)
 
             # Snow loads (balanced + drift) - these are the reaction loads already
-            snow_load_at_pos = (j_n['total_snow_lb'] + j_w['total_snow_lb']) / 2  # Half reaction
+            snow_load_at_pos = (
+                j_n["total_snow_lb"] + j_w["total_snow_lb"]
+            ) / 2  # Half reaction
             snow_point_loads.append((pos_sloped, snow_load_at_pos))
 
             # Dead loads - these are the reaction loads already
-            dead_load_at_pos = (j_n['dead_load_lb'] + j_w['dead_load_lb']) / 2  # Half reaction
+            dead_load_at_pos = (
+                j_n["dead_load_lb"] + j_w["dead_load_lb"]
+            ) / 2  # Half reaction
             dead_point_loads.append((pos_sloped, dead_load_at_pos))
 
         # Design beam with separate snow and dead point loads
-        print(f"DEBUG: About to call beam design - snow loads: {len(snow_point_loads) if snow_point_loads else 0}, dead loads: {len(dead_point_loads) if dead_point_loads else 0}, lv: {lv}, rafter_len: {rafter_len}")
+        print(
+            f"DEBUG: About to call beam design - snow loads: {len(snow_point_loads) if snow_point_loads else 0}, dead loads: {len(dead_point_loads) if dead_point_loads else 0}, lv: {lv}, rafter_len: {rafter_len}"
+        )
 
         # Validate inputs before calling beam design
         if not snow_point_loads or not dead_point_loads:
             print("DEBUG: No point loads available - skipping beam design")
-            beam_results = {'error': 'No point loads calculated - check jack rafter configuration'}
+            beam_results = {
+                "error": "No point loads calculated - check jack rafter configuration"
+            }
         elif lv <= 0 or rafter_len <= 0:
             print(f"DEBUG: Invalid dimensions - lv: {lv}, rafter_len: {rafter_len}")
-            beam_results = {'error': f'Invalid beam dimensions: lv={lv}, rafter_len={rafter_len}'}
+            beam_results = {
+                "error": f"Invalid beam dimensions: lv={lv}, rafter_len={rafter_len}"
+            }
         else:
             try:
-                beam_results = beam.design_with_point_loads(snow_point_loads, dead_point_loads, lv, rafter_len)
-                print(f"DEBUG: beam.design_with_point_loads completed, result: {type(beam_results)}")
+                beam_results = beam.design_with_point_loads(
+                    snow_point_loads, dead_point_loads, lv, rafter_len
+                )
+                print(
+                    f"DEBUG: beam.design_with_point_loads completed, result: {type(beam_results)}"
+                )
                 if beam_results and isinstance(beam_results, dict):
                     print(f"DEBUG: beam_results keys: {list(beam_results.keys())}")
                     print(f"DEBUG: beam_results has 'error': {'error' in beam_results}")
-                    print(f"DEBUG: beam_results has 'passes': {'passes' in beam_results}")
+                    print(
+                        f"DEBUG: beam_results has 'passes': {'passes' in beam_results}"
+                    )
                 else:
-                    print(f"DEBUG: beam_results is not a dict or is None: {beam_results}")
+                    print(
+                        f"DEBUG: beam_results is not a dict or is None: {beam_results}"
+                    )
             except Exception as e:
                 print(f"DEBUG: Exception in beam.design_with_point_loads: {e}")
                 import traceback
+
                 traceback.print_exc()
-                beam_results = {'error': f'Beam calculation failed: {str(e)}'}
+                beam_results = {"error": f"Beam calculation failed: {str(e)}"}
 
         # Generate professional diagrams (using ASD loads D + 0.7S to match detailed analysis)
         # Calculate ASD point loads for diagrams
@@ -1866,28 +2674,53 @@ Always verify member spanning conditions and consult licensed engineer"""
             asd_snow_point_loads.append((pos_sloped, asd_snow_load))
             asd_dead_point_loads.append((pos_sloped, dead_load))  # Dead load unchanged
 
-        self.generate_diagrams(asd_snow_point_loads, asd_dead_point_loads, rafter_len, ps, gov_drift, lv,
-                              north_span, south_span, ew_half_width, valley_offset, pitch_n, pitch_w, valley_angle, lu_north, lu_west, result_north, result_west)
+        self.generate_diagrams(
+            asd_snow_point_loads,
+            asd_dead_point_loads,
+            rafter_len,
+            ps,
+            gov_drift,
+            lv,
+            north_span,
+            south_span,
+            ew_half_width,
+            valley_offset,
+            pitch_n,
+            pitch_w,
+            valley_angle,
+            lu_north,
+            lu_west,
+            result_north,
+            result_west,
+        )
 
         # Format beam design results
         beam_summary = "Beam design calculation in progress..."  # Initialize
 
-        if beam_results and 'error' not in beam_results:
+        if beam_results and "error" not in beam_results:
             print("DEBUG: Entering success case for beam summary")
             print(f"DEBUG: beam_results content: {beam_results}")
             # Create summary for dedicated UI box
-            overall_pass = beam_results.get('passes', False)
-            bend_ratio = beam_results.get('ratio_bending', 0)
-            shear_ratio = beam_results.get('ratio_shear', 0)
-            snow_def_ratio = beam_results.get('ratio_deflection_snow', 0)
-            total_def_ratio = beam_results.get('ratio_deflection_total', 0)
-            print(f"DEBUG: Extracted ratios - bend: {bend_ratio}, shear: {shear_ratio}, snow: {snow_def_ratio}, total: {total_def_ratio}, pass: {overall_pass}")
+            overall_pass = beam_results.get("passes", False)
+            bend_ratio = beam_results.get("ratio_bending", 0)
+            shear_ratio = beam_results.get("ratio_shear", 0)
+            snow_def_ratio = beam_results.get("ratio_deflection_snow", 0)
+            total_def_ratio = beam_results.get("ratio_deflection_total", 0)
+            print(
+                f"DEBUG: Extracted ratios - bend: {bend_ratio}, shear: {shear_ratio}, snow: {snow_def_ratio}, total: {total_def_ratio}, pass: {overall_pass}"
+            )
         else:
             print("DEBUG: Entering error case for beam summary")
             # Handle beam design error
-            error_msg = beam_results.get('error', 'Unknown beam design error') if beam_results else 'Beam design calculation failed'
+            error_msg = (
+                beam_results.get("error", "Unknown beam design error")
+                if beam_results
+                else "Beam design calculation failed"
+            )
             print(f"BEAM DESIGN ERROR: {error_msg}")
-            self.output_text.insert(tk.END, f"\n!!! BEAM DESIGN ERROR !!!\n{error_msg}\n\n")
+            self.output_text.insert(
+                tk.END, f"\n!!! BEAM DESIGN ERROR !!!\n{error_msg}\n\n"
+            )
             # Set error values for UI
             overall_pass = False
             bend_ratio = shear_ratio = snow_def_ratio = total_def_ratio = 0
@@ -1896,8 +2729,12 @@ Always verify member spanning conditions and consult licensed engineer"""
             # Update summary text widget with error
             self.summary_label.config(state="normal")
             self.summary_label.delete(1.0, tk.END)
-            self.summary_label.tag_configure("error", foreground="red", font=("Helvetica", 11, "bold"))
-            self.summary_label.insert(tk.END, f"BEAM DESIGN ERROR: {error_msg}", "error")
+            self.summary_label.tag_configure(
+                "error", foreground="red", font=("Helvetica", 11, "bold")
+            )
+            self.summary_label.insert(
+                tk.END, f"BEAM DESIGN ERROR: {error_msg}", "error"
+            )
             self.summary_label.config(state="disabled")
             print(f"SUMMARY ERROR: {error_msg[:100]}...")
             # Update canvas scroll region and scroll to summary
@@ -1908,10 +2745,10 @@ Always verify member spanning conditions and consult licensed engineer"""
         # Create beam design summary for both success and error cases
         print("DEBUG: Creating summary text")
         ratios = {
-            'Bending': bend_ratio,
-            'Shear': shear_ratio,
-            'Snow Deflection': snow_def_ratio,
-            'Total Deflection': total_def_ratio
+            "Bending": bend_ratio,
+            "Shear": shear_ratio,
+            "Snow Deflection": snow_def_ratio,
+            "Total Deflection": total_def_ratio,
         }
         governing_check = max(ratios, key=ratios.get)
         max_ratio = ratios[governing_check]
@@ -1937,10 +2774,10 @@ Always verify member spanning conditions and consult licensed engineer"""
 
         # Find governing check
         ratios = {
-            'Bending': bend_ratio,
-            'Shear': shear_ratio,
-            'Snow Deflection': snow_def_ratio,
-            'Total Deflection': total_def_ratio
+            "Bending": bend_ratio,
+            "Shear": shear_ratio,
+            "Snow Deflection": snow_def_ratio,
+            "Total Deflection": total_def_ratio,
         }
         governing_check = max(ratios, key=ratios.get)
         max_ratio = ratios[governing_check]
@@ -1958,17 +2795,19 @@ Always verify member spanning conditions and consult licensed engineer"""
         # Configure tags for colors
         self.summary_label.tag_configure("pass", foreground="green")
         self.summary_label.tag_configure("fail", foreground="red")
-        self.summary_label.tag_configure("header", foreground="black", font=("Helvetica", 11, "bold"))
+        self.summary_label.tag_configure(
+            "header", foreground="black", font=("Helvetica", 11, "bold")
+        )
 
         # Show actual vs allowable calculations
-        fb_actual = beam_results.get('fb_actual_psi', 0)
-        fb_allowable = beam_results.get('fb_allowable_psi', 1)
-        fv_actual = beam_results.get('fv_actual_psi', 0)
-        fv_allowable = beam_results.get('fv_allowable_psi', 1)
-        delta_snow_actual = beam_results.get('delta_snow_in', 0)
-        delta_snow_limit = beam_results.get('delta_limit_snow_in', 1)
-        delta_total_actual = beam_results.get('delta_total_in', 0)
-        delta_total_limit = beam_results.get('delta_limit_total_in', 1)
+        fb_actual = beam_results.get("fb_actual_psi", 0)
+        fb_allowable = beam_results.get("fb_allowable_psi", 1)
+        fv_actual = beam_results.get("fv_actual_psi", 0)
+        fv_allowable = beam_results.get("fv_allowable_psi", 1)
+        delta_snow_actual = beam_results.get("delta_snow_in", 0)
+        delta_snow_limit = beam_results.get("delta_limit_snow_in", 1)
+        delta_total_actual = beam_results.get("delta_total_in", 0)
+        delta_total_limit = beam_results.get("delta_limit_total_in", 1)
 
         # Header
         self.summary_label.insert(tk.END, "=== BEAM DESIGN SUMMARY ===\n\n", "header")
@@ -1980,32 +2819,76 @@ Always verify member spanning conditions and consult licensed engineer"""
         else:
             self.summary_label.insert(tk.END, "OVERALL STATUS: ", "")
             self.summary_label.insert(tk.END, "FAIL\n", "fail")
-            self.summary_label.insert(tk.END, f"Governing Check: {governing_check} (ratio {max_ratio:.3f})\n\n", "")
+            self.summary_label.insert(
+                tk.END,
+                f"Governing Check: {governing_check} (ratio {max_ratio:.3f})\n\n",
+                "",
+            )
 
         # Individual checks with color coding
-        self.summary_label.insert(tk.END, f"Bending: {fb_actual:.0f}/{fb_allowable:.0f} psi = {bend_ratio:.3f} (", "")
-        self.summary_label.insert(tk.END, "PASS" if bend_pass else "FAIL", "pass" if bend_pass else "fail")
+        self.summary_label.insert(
+            tk.END,
+            f"Bending: {fb_actual:.0f}/{fb_allowable:.0f} psi = {bend_ratio:.3f} (",
+            "",
+        )
+        self.summary_label.insert(
+            tk.END, "PASS" if bend_pass else "FAIL", "pass" if bend_pass else "fail"
+        )
         self.summary_label.insert(tk.END, ")\n", "")
 
-        self.summary_label.insert(tk.END, f"Shear: {fv_actual:.0f}/{fv_allowable:.0f} psi = {shear_ratio:.3f} (", "")
-        self.summary_label.insert(tk.END, "PASS" if shear_pass else "FAIL", "pass" if shear_pass else "fail")
+        self.summary_label.insert(
+            tk.END,
+            f"Shear: {fv_actual:.0f}/{fv_allowable:.0f} psi = {shear_ratio:.3f} (",
+            "",
+        )
+        self.summary_label.insert(
+            tk.END, "PASS" if shear_pass else "FAIL", "pass" if shear_pass else "fail"
+        )
         self.summary_label.insert(tk.END, ")\n", "")
 
         combined_pass = bend_pass and shear_pass
-        self.summary_label.insert(tk.END, f"Snow Load Check (D + S): {bend_ratio:.3f} bending, {shear_ratio:.3f} shear (", "")
-        self.summary_label.insert(tk.END, "PASS" if combined_pass else "FAIL", "pass" if combined_pass else "fail")
+        self.summary_label.insert(
+            tk.END,
+            f"Snow Load Check (D + S): {bend_ratio:.3f} bending, {shear_ratio:.3f} shear (",
+            "",
+        )
+        self.summary_label.insert(
+            tk.END,
+            "PASS" if combined_pass else "FAIL",
+            "pass" if combined_pass else "fail",
+        )
         self.summary_label.insert(tk.END, ")\n", "")
 
-        self.summary_label.insert(tk.END, f"Total Load Check (D + 0.7S): {bend_ratio:.3f} bending, {shear_ratio:.3f} shear (", "")
-        self.summary_label.insert(tk.END, "PASS" if combined_pass else "FAIL", "pass" if combined_pass else "fail")
+        self.summary_label.insert(
+            tk.END,
+            f"Total Load Check (D + 0.7S): {bend_ratio:.3f} bending, {shear_ratio:.3f} shear (",
+            "",
+        )
+        self.summary_label.insert(
+            tk.END,
+            "PASS" if combined_pass else "FAIL",
+            "pass" if combined_pass else "fail",
+        )
         self.summary_label.insert(tk.END, ")\n", "")
 
-        self.summary_label.insert(tk.END, f"Snow Deflection: {delta_snow_actual:.3f}\"/{delta_snow_limit:.3f}\" = {snow_def_ratio:.3f} (", "")
-        self.summary_label.insert(tk.END, "PASS" if snow_pass else "FAIL", "pass" if snow_pass else "fail")
+        self.summary_label.insert(
+            tk.END,
+            f'Snow Deflection: {delta_snow_actual:.3f}"/{delta_snow_limit:.3f}" = {snow_def_ratio:.3f} (',
+            "",
+        )
+        self.summary_label.insert(
+            tk.END, "PASS" if snow_pass else "FAIL", "pass" if snow_pass else "fail"
+        )
         self.summary_label.insert(tk.END, ")\n", "")
 
-        self.summary_label.insert(tk.END, f"Total Deflection: {delta_total_actual:.3f}\"/{delta_total_limit:.3f}\" = {total_def_ratio:.3f} (", "")
-        self.summary_label.insert(tk.END, "PASS" if total_pass else "FAIL", "pass" if total_pass else "fail")
+        self.summary_label.insert(
+            tk.END,
+            f'Total Deflection: {delta_total_actual:.3f}"/{delta_total_limit:.3f}" = {total_def_ratio:.3f} (',
+            "",
+        )
+        self.summary_label.insert(
+            tk.END, "PASS" if total_pass else "FAIL", "pass" if total_pass else "fail"
+        )
         self.summary_label.insert(tk.END, ")\n", "")
 
         if not overall_pass:
@@ -2043,11 +2926,17 @@ Always verify member spanning conditions and consult licensed engineer"""
                     next_depth = d
                     break
 
-            self.summary_label.insert(tk.END, f"\nSuggestions:", "")
+            self.summary_label.insert(tk.END, "\nSuggestions:", "")
             if next_width:
-                self.summary_label.insert(tk.END, f"\n- Increase width to {next_width:.3f}\" ({next_width_plies} plies)", "")
+                self.summary_label.insert(
+                    tk.END,
+                    f'\n- Increase width to {next_width:.3f}" ({next_width_plies} plies)',
+                    "",
+                )
             if next_depth:
-                self.summary_label.insert(tk.END, f"\n- Increase depth to {next_depth:.3f}\"", "")
+                self.summary_label.insert(
+                    tk.END, f'\n- Increase depth to {next_depth:.3f}"', ""
+                )
 
         # Make the text widget read-only again
         self.summary_label.config(state="disabled")
@@ -2071,14 +2960,25 @@ Always verify member spanning conditions and consult licensed engineer"""
         h_avg = (h_n + h_w) / 2
 
         # Get beam forces from results
-        mu_ftlb = beam_results.get('Mu_ftlb', 0) if beam_results and 'error' not in beam_results else 0
-        vu_lb = beam_results.get('Vu_lb', 0) if beam_results and 'error' not in beam_results else 0
+        mu_ftlb = (
+            beam_results.get("Mu_ftlb", 0)
+            if beam_results and "error" not in beam_results
+            else 0
+        )
+        vu_lb = (
+            beam_results.get("Vu_lb", 0)
+            if beam_results and "error" not in beam_results
+            else 0
+        )
 
         # Output
         self.output_text.delete(1.0, tk.END)
         self.output_text.insert(tk.END, "=== CALCULATION RESULTS ===\n\n")
         self.output_text.insert(tk.END, f"Ground Snow Load (pg): {pg} psf\n")
-        self.output_text.insert(tk.END, f"Applied Importance Factor Is = {is_factor} (Risk Category {risk_category})\n")
+        self.output_text.insert(
+            tk.END,
+            f"Applied Importance Factor Is = {is_factor} (Risk Category {risk_category})\n",
+        )
         self.output_text.insert(tk.END, f"Winter Wind Parameter (W2): {w2}\n")
         self.output_text.insert(tk.END, f"Flat Roof Snow Load (pf): {pf:.1f} psf\n\n")
 
@@ -2086,21 +2986,39 @@ Always verify member spanning conditions and consult licensed engineer"""
         self.output_text.insert(tk.END, "MINIMUM SNOW LOAD CHECK (Sec. 7.3)\n")
         self.output_text.insert(tk.END, f"Minimum slope = {min_slope_deg:.1f}°\n")
         if low_slope:
-            self.output_text.insert(tk.END, "Slope < 15° (monoslope/hip/gable) — pm applies\n")
+            self.output_text.insert(
+                tk.END, "Slope < 15° (monoslope/hip/gable) — pm applies\n"
+            )
             self.output_text.insert(tk.END, f"pm = {pm:.1f} psf\n")
-            self.output_text.insert(tk.END, f"Governing roof snow load = max(ps, pm) = {governing_roof_load:.1f} psf\n\n")
+            self.output_text.insert(
+                tk.END,
+                f"Governing roof snow load = max(ps, pm) = {governing_roof_load:.1f} psf\n\n",
+            )
         else:
             self.output_text.insert(tk.END, "Slope ≥ 15° — pm does not apply\n")
             self.output_text.insert(tk.END, f"pm (for reference) = {pm:.1f} psf\n")
-            self.output_text.insert(tk.END, f"Governing roof snow load = ps = {ps:.1f} psf\n\n")
-        self.output_text.insert(tk.END, f"pf = 0.7 × Ce × Ct × Is × pg   (ASCE 7-22 Equation 7.3-1)\n")
-        self.output_text.insert(tk.END, f"ps = pf × Cs   (ASCE 7-22 Equation 7.4-1)\n")
-        self.output_text.insert(tk.END, f"Cs determined from Figure 7.4-1 based on Ct and surface type   (ASCE 7-22 Section 7.4.1)\n")
-        self.output_text.insert(tk.END, f"γ = min(0.13 × pg + 14, 30) pcf   (ASCE 7-22 Equation 7.7-1)\n\n")
+            self.output_text.insert(
+                tk.END, f"Governing roof snow load = ps = {ps:.1f} psf\n\n"
+            )
+        self.output_text.insert(
+            tk.END, "pf = 0.7 × Ce × Ct × Is × pg   (ASCE 7-22 Equation 7.3-1)\n"
+        )
+        self.output_text.insert(tk.END, "ps = pf × Cs   (ASCE 7-22 Equation 7.4-1)\n")
+        self.output_text.insert(
+            tk.END,
+            "Cs determined from Figure 7.4-1 based on Ct and surface type   (ASCE 7-22 Section 7.4.1)\n",
+        )
+        self.output_text.insert(
+            tk.END, "γ = min(0.13 × pg + 14, 30) pcf   (ASCE 7-22 Equation 7.7-1)\n\n"
+        )
 
         # ASCE 7-22 Chapter 7 Calculations with Symbols
-        self.output_text.insert(tk.END, "=== CALCULATIONS WITH ASCE 7-22 SYMBOLS (Chapter 7) ===\n\n")
-        self.output_text.insert(tk.END, f"pf = 0.7 × Ce × Ct × Is × pg = {pf:.1f} psf\n")
+        self.output_text.insert(
+            tk.END, "=== CALCULATIONS WITH ASCE 7-22 SYMBOLS (Chapter 7) ===\n\n"
+        )
+        self.output_text.insert(
+            tk.END, f"pf = 0.7 × Ce × Ct × Is × pg = {pf:.1f} psf\n"
+        )
         # Determine Figure 7.4-1 part and roof classification
         if ct == 1.1:
             fig_part = "a"
@@ -2113,41 +3031,88 @@ Always verify member spanning conditions and consult licensed engineer"""
             roof_type = "cold"
 
         surface_type = "slippery" if slippery else "non-slippery"
-        self.output_text.insert(tk.END, f"Cs automatically calculated from Figure 7.4-1 based on Ct and slippery/non-slippery surface = {cs:.3f}\n")
+        self.output_text.insert(
+            tk.END,
+            f"Cs automatically calculated from Figure 7.4-1 based on Ct and slippery/non-slippery surface = {cs:.3f}\n",
+        )
         self.output_text.insert(tk.END, f"ps = pf × Cs = {ps:.1f} psf\n")
-        self.output_text.insert(tk.END, f"γ = min(0.13 × pg + 14, 30) = {gamma_pcf:.1f} pcf (Eq. 7.7-1)\n")
+        self.output_text.insert(
+            tk.END, f"γ = min(0.13 × pg + 14, 30) = {gamma_pcf:.1f} pcf (Eq. 7.7-1)\n"
+        )
         self.output_text.insert(tk.END, f"hd = drift height = {hd_governing:.2f} ft\n")
-        self.output_text.insert(tk.END, f"pd = drift surcharge = {pd_max_governing:.1f} psf\n")
+        self.output_text.insert(
+            tk.END, f"pd = drift surcharge = {pd_max_governing:.1f} psf\n"
+        )
         self.output_text.insert(tk.END, f"w = drift width = {w_governing:.1f} ft\n")
-        self.output_text.insert(tk.END, f"θ = roof slope = {min(theta_n, theta_w):.1f}°\n")
-        self.output_text.insert(tk.END, f"lv = horizontal valley length = {lv:.2f} ft\n")
-        self.output_text.insert(tk.END, f"L = sloped valley rafter length = {rafter_len:.2f} ft\n\n")
+        self.output_text.insert(
+            tk.END, f"θ = roof slope = {min(theta_n, theta_w):.1f}°\n"
+        )
+        self.output_text.insert(
+            tk.END, f"lv = horizontal valley length = {lv:.2f} ft\n"
+        )
+        self.output_text.insert(
+            tk.END, f"L = sloped valley rafter length = {rafter_len:.2f} ft\n\n"
+        )
 
         # Beam ASD formulas
-        self.output_text.insert(tk.END, f"ASD Snow Load = 0.7 × (ps + pd) per IBC/ASCE serviceability = 0.7 × ({ps:.1f} + {pd_max_governing:.1f}) = {0.7 * (ps + pd_max_governing):.1f} psf\n")
-        self.output_text.insert(tk.END, f"Mu = maximum moment (exact point loads) = {mu_ftlb:.0f} ft-lb\n")
+        self.output_text.insert(
+            tk.END,
+            f"ASD Snow Load = 0.7 × (ps + pd) per IBC/ASCE serviceability = 0.7 × ({ps:.1f} + {pd_max_governing:.1f}) = {0.7 * (ps + pd_max_governing):.1f} psf\n",
+        )
+        self.output_text.insert(
+            tk.END, f"Mu = maximum moment (exact point loads) = {mu_ftlb:.0f} ft-lb\n"
+        )
         self.output_text.insert(tk.END, f"Vu = maximum shear = {vu_lb:.0f} lb\n\n")
 
         # Symbol definitions
-        self.output_text.insert(tk.END, f"Symbols per ASCE 7-22 Sec. 7.1.2: pf (flat roof snow), ps (sloped roof snow), hd (drift height), pd (drift surcharge), w (drift width), γ (snow density), θ (roof slope), Ce, Ct, Is, pg, etc.\n\n")
-        self.output_text.insert(tk.END, f"Pitch North: {pitch_n}/12 → S_n = {S_n:.2f}, θ_n = {theta_n:.2f}°\n")
-        self.output_text.insert(tk.END, f"Pitch West: {pitch_w}/12 → S_w = {S_w:.2f}, θ_w = {theta_w:.2f}°\n")
+        self.output_text.insert(
+            tk.END,
+            "Symbols per ASCE 7-22 Sec. 7.1.2: pf (flat roof snow), ps (sloped roof snow), hd (drift height), pd (drift surcharge), w (drift width), γ (snow density), θ (roof slope), Ce, Ct, Is, pg, etc.\n\n",
+        )
+        self.output_text.insert(
+            tk.END,
+            f"Pitch North: {pitch_n}/12 → S_n = {S_n:.2f}, θ_n = {theta_n:.2f}°\n",
+        )
+        self.output_text.insert(
+            tk.END,
+            f"Pitch West: {pitch_w}/12 → S_w = {S_w:.2f}, θ_w = {theta_w:.2f}°\n",
+        )
         self.output_text.insert(tk.END, f"Slope Factor North (Cs_n): {cs_n:.3f}\n")
         self.output_text.insert(tk.END, f"Slope Factor West (Cs_w): {cs_w:.3f}\n")
 
-        self.output_text.insert(tk.END, "\n=== UNBALANCED LOAD APPLICABILITY (Sec. 7.6.1) ===\n")
+        self.output_text.insert(
+            tk.END, "\n=== UNBALANCED LOAD APPLICABILITY (Sec. 7.6.1) ===\n"
+        )
         if unbalanced_applies_n:
-            self.output_text.insert(tk.END, f"North roof plane (θ_n = {theta_n:.1f}°): Unbalanced loads APPLY\n")
+            self.output_text.insert(
+                tk.END,
+                f"North roof plane (θ_n = {theta_n:.1f}°): Unbalanced loads APPLY\n",
+            )
             if narrow_roof_n:
-                self.output_text.insert(tk.END, f"   Narrow roof (de_north ≤ 20 ft): Leeward = pg = {pg:.1f} psf (windward unloaded)\n")
+                self.output_text.insert(
+                    tk.END,
+                    f"   Narrow roof (de_north ≤ 20 ft): Leeward = pg = {pg:.1f} psf (windward unloaded)\n",
+                )
         else:
-            self.output_text.insert(tk.END, f"North roof plane (θ_n = {theta_n:.1f}°): Unbalanced loads NOT required (slope outside 2.38°–30.2°)\n")
+            self.output_text.insert(
+                tk.END,
+                f"North roof plane (θ_n = {theta_n:.1f}°): Unbalanced loads NOT required (slope outside 2.38°–30.2°)\n",
+            )
         if unbalanced_applies_w:
-            self.output_text.insert(tk.END, f"West roof plane (θ_w = {theta_w:.1f}°): Unbalanced loads APPLY\n")
+            self.output_text.insert(
+                tk.END,
+                f"West roof plane (θ_w = {theta_w:.1f}°): Unbalanced loads APPLY\n",
+            )
             if narrow_roof_w:
-                self.output_text.insert(tk.END, f"   Narrow roof (de_west ≤ 20 ft): Leeward = pg = {pg:.1f} psf (windward unloaded)\n")
+                self.output_text.insert(
+                    tk.END,
+                    f"   Narrow roof (de_west ≤ 20 ft): Leeward = pg = {pg:.1f} psf (windward unloaded)\n",
+                )
         else:
-            self.output_text.insert(tk.END, f"West roof plane (θ_w = {theta_w:.1f}°): Unbalanced loads NOT required (slope outside 2.38°–30.2°)\n")
+            self.output_text.insert(
+                tk.END,
+                f"West roof plane (θ_w = {theta_w:.1f}°): Unbalanced loads NOT required (slope outside 2.38°–30.2°)\n",
+            )
         # Determine Figure 7.4-1 part and roof classification
         if ct == 1.1:
             fig_part = "a"
@@ -2161,80 +3126,219 @@ Always verify member spanning conditions and consult licensed engineer"""
 
         surface_type = "slippery" if slippery else "non-slippery"
         surface_type = "Slippery" if slippery else "Non-slippery"
-        self.output_text.insert(tk.END, f"Surface: {surface_type} (Cs from corresponding line in Figure 7.4-1)\n")
-        self.output_text.insert(tk.END, f"Governing Slope Factor (Cs): {cs:.3f} (automatically calculated from Figure 7.4-1 based on Ct and surface)\n")
+        self.output_text.insert(
+            tk.END,
+            f"Surface: {surface_type} (Cs from corresponding line in Figure 7.4-1)\n",
+        )
+        self.output_text.insert(
+            tk.END,
+            f"Governing Slope Factor (Cs): {cs:.3f} (automatically calculated from Figure 7.4-1 based on Ct and surface)\n",
+        )
         self.output_text.insert(tk.END, f"Sloped Roof Snow Load (ps): {ps:.1f} psf\n\n")
         self.output_text.insert(tk.END, f"Valley horizontal length (lv): {lv:.2f} ft\n")
         self.output_text.insert(tk.END, f"Valley rafter length: {rafter_len:.2f} ft\n")
 
         self.output_text.insert(tk.END, "\n")
-        self.output_text.insert(tk.END, "=== ASCE 7-22 SECTION 7.6.1: UNBALANCED SNOW LOADS FOR HIP AND GABLE ROOFS ===\n", "blue")
-        self.output_text.insert(tk.END, "[LOCATION: RESULTS - AFTER GEOMETRY CALCULATIONS]\n", "blue")
-        self.output_text.insert(tk.END, "Unbalanced snow loads (including valley drifts derived from them) are governed by Sec. 7.6.1.\n\n", "blue")
+        self.output_text.insert(
+            tk.END,
+            "=== ASCE 7-22 SECTION 7.6.1: UNBALANCED SNOW LOADS FOR HIP AND GABLE ROOFS ===\n",
+            "blue",
+        )
+        self.output_text.insert(
+            tk.END, "[LOCATION: RESULTS - AFTER GEOMETRY CALCULATIONS]\n", "blue"
+        )
+        self.output_text.insert(
+            tk.END,
+            "Unbalanced snow loads (including valley drifts derived from them) are governed by Sec. 7.6.1.\n\n",
+            "blue",
+        )
         self.output_text.insert(tk.END, "APPLICABILITY:\n", "blue")
-        self.output_text.insert(tk.END, "• Unbalanced loads are REQUIRED only for roof slopes between 0.5/12 (≈2.38°) and 7/12 (≈30.2°).\n", "blue")
-        self.output_text.insert(tk.END, "• Outside this range: Unbalanced loads and associated drifts are NOT required.\n\n", "blue")
-        self.output_text.insert(tk.END, "SPECIAL NARROW ROOF CASE (eave-to-ridge distance W ≤ 20 ft AND simply supported prismatic members):\n", "blue")
-        self.output_text.insert(tk.END, "  → Leeward side: Full ground snow load pg (windward unloaded)\n", "blue")
-        self.output_text.insert(tk.END, "  → No separate drift surcharge calculated\n\n", "blue")
-        self.output_text.insert(tk.END, f"North Roof Plane (θ_n = {theta_n:.1f}°): ", "blue")
-        self.output_text.insert(tk.END, "Unbalanced APPLIES" if unbalanced_applies_n else "Unbalanced NOT required (slope outside 2.38°–30.2°)", "blue")
+        self.output_text.insert(
+            tk.END,
+            "• Unbalanced loads are REQUIRED only for roof slopes between 0.5/12 (≈2.38°) and 7/12 (≈30.2°).\n",
+            "blue",
+        )
+        self.output_text.insert(
+            tk.END,
+            "• Outside this range: Unbalanced loads and associated drifts are NOT required.\n\n",
+            "blue",
+        )
+        self.output_text.insert(
+            tk.END,
+            "SPECIAL NARROW ROOF CASE (eave-to-ridge distance W ≤ 20 ft AND simply supported prismatic members):\n",
+            "blue",
+        )
+        self.output_text.insert(
+            tk.END,
+            "  → Leeward side: Full ground snow load pg (windward unloaded)\n",
+            "blue",
+        )
+        self.output_text.insert(
+            tk.END, "  → No separate drift surcharge calculated\n\n", "blue"
+        )
+        self.output_text.insert(
+            tk.END, f"North Roof Plane (θ_n = {theta_n:.1f}°): ", "blue"
+        )
+        self.output_text.insert(
+            tk.END,
+            "Unbalanced APPLIES"
+            if unbalanced_applies_n
+            else "Unbalanced NOT required (slope outside 2.38°–30.2°)",
+            "blue",
+        )
         if narrow_roof_n and unbalanced_applies_n:
-            self.output_text.insert(tk.END, f" → Narrow roof: Leeward = pg = {pg:.1f} psf\n", "blue")
+            self.output_text.insert(
+                tk.END, f" → Narrow roof: Leeward = pg = {pg:.1f} psf\n", "blue"
+            )
         self.output_text.insert(tk.END, "\n", "blue")
-        self.output_text.insert(tk.END, f"West Roof Plane (θ_w = {theta_w:.1f}°): ", "blue")
-        self.output_text.insert(tk.END, "Unbalanced APPLIES" if unbalanced_applies_w else "Unbalanced NOT required (slope outside 2.38°–30.2°)", "blue")
+        self.output_text.insert(
+            tk.END, f"West Roof Plane (θ_w = {theta_w:.1f}°): ", "blue"
+        )
+        self.output_text.insert(
+            tk.END,
+            "Unbalanced APPLIES"
+            if unbalanced_applies_w
+            else "Unbalanced NOT required (slope outside 2.38°–30.2°)",
+            "blue",
+        )
         if narrow_roof_w and unbalanced_applies_w:
-            self.output_text.insert(tk.END, f" → Narrow roof: Leeward = pg = {pg:.1f} psf\n", "blue")
+            self.output_text.insert(
+                tk.END, f" → Narrow roof: Leeward = pg = {pg:.1f} psf\n", "blue"
+            )
         self.output_text.insert(tk.END, "\n", "blue")
-        self.output_text.insert(tk.END, "Note: Valley drifts use intersecting gable unbalanced drifts (Sec. 7.7.3).\n", "blue")
-        self.output_text.insert(tk.END, "If unbalanced loads do not apply on either plane, drift surcharge = 0.\n", "blue")
-        self.output_text.insert(tk.END, "Always verify member spanning conditions and consult a licensed engineer.\n", "blue")
+        self.output_text.insert(
+            tk.END,
+            "Note: Valley drifts use intersecting gable unbalanced drifts (Sec. 7.7.3).\n",
+            "blue",
+        )
+        self.output_text.insert(
+            tk.END,
+            "If unbalanced loads do not apply on either plane, drift surcharge = 0.\n",
+            "blue",
+        )
+        self.output_text.insert(
+            tk.END,
+            "Always verify member spanning conditions and consult a licensed engineer.\n",
+            "blue",
+        )
 
-        self.output_text.insert(tk.END, "\n=== NORTH WIND LEEWARD DRIFT (on south roof) ===\n")
-        self.output_text.insert(tk.END, f"lu_north = {lu_north:.1f} ft (north fetch distance)\n")
-        self.output_text.insert(tk.END, f"hd = {result_north['hd_ft']:.2f} ft (drift height)\n")
-        effective_w_north = min(result_north['drift_width_ft'], south_span)
-        self.output_text.insert(tk.END, f"w = {effective_w_north:.1f} ft (drift width, limited to south_span if needed)\n")
-        self.output_text.insert(tk.END, f"Max drift surcharge pd = {result_north['pd_max_psf']:.0f} psf\n")
+        self.output_text.insert(
+            tk.END, "\n=== NORTH WIND LEEWARD DRIFT (on south roof) ===\n"
+        )
+        self.output_text.insert(
+            tk.END, f"lu_north = {lu_north:.1f} ft (north fetch distance)\n"
+        )
+        self.output_text.insert(
+            tk.END, f"hd = {result_north['hd_ft']:.2f} ft (drift height)\n"
+        )
+        effective_w_north = min(result_north["drift_width_ft"], south_span)
+        self.output_text.insert(
+            tk.END,
+            f"w = {effective_w_north:.1f} ft (drift width, limited to south_span if needed)\n",
+        )
+        self.output_text.insert(
+            tk.END, f"Max drift surcharge pd = {result_north['pd_max_psf']:.0f} psf\n"
+        )
 
-        self.output_text.insert(tk.END, f"North wind drift: hd = {result_north['hd_ft']:.2f} ft, pd_max = {result_north['pd_max_psf']:.1f} psf, w = {result_north['drift_width_ft']:.1f} ft\n")
-        self.output_text.insert(tk.END, f"West wind drift: hd = {result_west['hd_ft']:.2f} ft, pd_max = {result_west['pd_max_psf']:.1f} psf, w = {result_west['drift_width_ft']:.1f} ft\n")
-        self.output_text.insert(tk.END, f"Drift height (hd) calculated per ASCE 7-22 Section 7.7.1 incorporating winter wind parameter W2 (Figure 7.6-1)\n")
-        self.output_text.insert(tk.END, f"Drift surcharge intensity pd_max = 2 × (hd × γ / √s) triangular approximation   (ASCE 7-22 Section 7.7)\n")
-        self.output_text.insert(tk.END, f"Intersecting valley drifts: larger individual drift surcharge governs in overlap region   (ASCE 7-22 Section 7.7.3)\n")
-        self.output_text.insert(tk.END, f"Valley drift methodology consistent with FEMA Roof Snowdrift Design Guide (2020)\n\n")
-        self.output_text.insert(tk.END, f"Governing valley drift surcharge: {gov_drift['governing_pd_max_psf']:.1f} psf\n")
-        self.output_text.insert(tk.END, "\n=== UNBALANCED SNOW LOAD CASES (ASCE 7-22 Sec. 7.6.1) ===\n")
+        self.output_text.insert(
+            tk.END,
+            f"North wind drift: hd = {result_north['hd_ft']:.2f} ft, pd_max = {result_north['pd_max_psf']:.1f} psf, w = {result_north['drift_width_ft']:.1f} ft\n",
+        )
+        self.output_text.insert(
+            tk.END,
+            f"West wind drift: hd = {result_west['hd_ft']:.2f} ft, pd_max = {result_west['pd_max_psf']:.1f} psf, w = {result_west['drift_width_ft']:.1f} ft\n",
+        )
+        self.output_text.insert(
+            tk.END,
+            "Drift height (hd) calculated per ASCE 7-22 Section 7.7.1 incorporating winter wind parameter W2 (Figure 7.6-1)\n",
+        )
+        self.output_text.insert(
+            tk.END,
+            "Drift surcharge intensity pd_max = 2 × (hd × γ / √s) triangular approximation   (ASCE 7-22 Section 7.7)\n",
+        )
+        self.output_text.insert(
+            tk.END,
+            "Intersecting valley drifts: larger individual drift surcharge governs in overlap region   (ASCE 7-22 Section 7.7.3)\n",
+        )
+        self.output_text.insert(
+            tk.END,
+            "Valley drift methodology consistent with FEMA Roof Snowdrift Design Guide (2020)\n\n",
+        )
+        self.output_text.insert(
+            tk.END,
+            f"Governing valley drift surcharge: {gov_drift['governing_pd_max_psf']:.1f} psf\n",
+        )
+        self.output_text.insert(
+            tk.END, "\n=== UNBALANCED SNOW LOAD CASES (ASCE 7-22 Sec. 7.6.1) ===\n"
+        )
         surface_text = "Slippery" if slippery else "Non-slippery"
         if unbalanced_applies_n:
-            self.output_text.insert(tk.END, f"North roof plane (θ_n = {theta_n:.1f}°): {surface_text} surface – Unbalanced load case APPLIES (slope between 2.38° and 30.2°). Verify Figure 7.6-1 for exact surcharge.\n")
+            self.output_text.insert(
+                tk.END,
+                f"North roof plane (θ_n = {theta_n:.1f}°): {surface_text} surface – Unbalanced load case APPLIES (slope between 2.38° and 30.2°). Verify Figure 7.6-1 for exact surcharge.\n",
+            )
         else:
-            self.output_text.insert(tk.END, f"North roof plane (θ_n = {theta_n:.1f}°): {surface_text} surface – Unbalanced load case does NOT apply (slope outside 2.38°–30.2° range).\n")
+            self.output_text.insert(
+                tk.END,
+                f"North roof plane (θ_n = {theta_n:.1f}°): {surface_text} surface – Unbalanced load case does NOT apply (slope outside 2.38°–30.2° range).\n",
+            )
         if unbalanced_applies_w:
-            self.output_text.insert(tk.END, f"West roof plane (θ_w = {theta_w:.1f}°): {surface_text} surface – Unbalanced load case APPLIES (slope between 2.38° and 30.2°). Verify Figure 7.6-1 for exact surcharge.\n")
+            self.output_text.insert(
+                tk.END,
+                f"West roof plane (θ_w = {theta_w:.1f}°): {surface_text} surface – Unbalanced load case APPLIES (slope between 2.38° and 30.2°). Verify Figure 7.6-1 for exact surcharge.\n",
+            )
         else:
-            self.output_text.insert(tk.END, f"West roof plane (θ_w = {theta_w:.1f}°): {surface_text} surface – Unbalanced load case does NOT apply (slope outside 2.38°–30.2° range).\n")
-        self.output_text.insert(tk.END, "Note: Unbalanced cases are separate from drifts and must be considered for rafter/purlin design if applicable.\n\n")
+            self.output_text.insert(
+                tk.END,
+                f"West roof plane (θ_w = {theta_w:.1f}°): {surface_text} surface – Unbalanced load case does NOT apply (slope outside 2.38°–30.2° range).\n",
+            )
+        self.output_text.insert(
+            tk.END,
+            "Note: Unbalanced cases are separate from drifts and must be considered for rafter/purlin design if applicable.\n\n",
+        )
         self.output_text.insert(tk.END, "=== REFERENCES & METHODOLOGY NOTES ===\n")
-        self.output_text.insert(tk.END, "• pg and W2 shall be obtained from the ASCE 7 Hazard Tool: https://asce7hazardtool.online\n")
-        self.output_text.insert(tk.END, "• Ground snow load pg from ASCE 7-22 Figures 7.2-1A–D or ASCE Hazard Tool\n")
+        self.output_text.insert(
+            tk.END,
+            "• pg and W2 shall be obtained from the ASCE 7 Hazard Tool: https://asce7hazardtool.online\n",
+        )
+        self.output_text.insert(
+            tk.END,
+            "• Ground snow load pg from ASCE 7-22 Figures 7.2-1A–D or ASCE Hazard Tool\n",
+        )
         self.output_text.insert(tk.END, "• Exposure factor Ce from Table 7.3-1\n")
-        self.output_text.insert(tk.END, "• Thermal factor Ct from Table 7.3-2 or 7.3-3\n")
+        self.output_text.insert(
+            tk.END, "• Thermal factor Ct from Table 7.3-2 or 7.3-3\n"
+        )
         self.output_text.insert(tk.END, "• Importance factor Is from Table 1.5-2\n")
         self.output_text.insert(tk.END, "• Slope factor Cs from Figure 7.4-1\n")
-        self.output_text.insert(tk.END, "• Winter wind parameter W2 from Figure 7.6-1 or ASCE Hazard Tool\n")
-        self.output_text.insert(tk.END, "• Unbalanced snow loads for hip/gable roofs per Section 7.6.1 and Figure 7.6-1\n")
-        self.output_text.insert(tk.END, "• All drift calculations per Chapter 7 Snow Loads, ASCE 7-22\n\n")
+        self.output_text.insert(
+            tk.END, "• Winter wind parameter W2 from Figure 7.6-1 or ASCE Hazard Tool\n"
+        )
+        self.output_text.insert(
+            tk.END,
+            "• Unbalanced snow loads for hip/gable roofs per Section 7.6.1 and Figure 7.6-1\n",
+        )
+        self.output_text.insert(
+            tk.END, "• All drift calculations per Chapter 7 Snow Loads, ASCE 7-22\n\n"
+        )
         # === VALLEY RAFTER BEAM DESIGN ANALYSIS (FULL DEAD + SNOW LOADS) ===
-        self.output_text.insert(tk.END, "\n============================================================\n")
+        self.output_text.insert(
+            tk.END, "\n============================================================\n"
+        )
         self.output_text.insert(tk.END, "VALLEY RAFTER BEAM DESIGN ANALYSIS\n")
-        self.output_text.insert(tk.END, "------------------------------------------------------------\n")
+        self.output_text.insert(
+            tk.END, "------------------------------------------------------------\n"
+        )
         self.output_text.insert(tk.END, f"Sloped Length: {rafter_len:.2f} ft\n")
-        self.output_text.insert(tk.END, f"Point Loads: {jacks_data['num_per_side']} locations (combined North + West, including full dead load + balanced snow + valley drift)\n")
+        self.output_text.insert(
+            tk.END,
+            f"Point Loads: {jacks_data['num_per_side']} locations (combined North + West, including full dead load + balanced snow + valley drift)\n",
+        )
 
         # Default roof dead load (from user input or default)
-        roof_dead_load_psf = self.dl_horizontal.get() if hasattr(self, 'dl_horizontal') else 20.0
+        roof_dead_load_psf = (
+            self.dl_horizontal.get() if hasattr(self, "dl_horizontal") else 20.0
+        )
 
         # Extract jack rafter data for detailed analysis
         spacing_along_ridge_ft = jack_spacing_inches / 12.0  # Convert to feet
@@ -2242,18 +3346,27 @@ Always verify member spanning conditions and consult licensed engineer"""
         distances_from_eave = []
 
         self.output_text.insert(tk.END, f"\nRoof Dead Load: {roof_dead_load_psf} psf\n")
-        self.output_text.insert(tk.END, "\n=== JACK RAFTER POINT LOADS (Eave → Ridge) ===\n")
-        self.output_text.insert(tk.END, f"Number of jacks per side: {jacks_data['num_per_side']}\n")
-        self.output_text.insert(tk.END, f"Spacing along ridges: {jack_spacing_inches:.1f} inches o.c.\n")
-        self.output_text.insert(tk.END, f"Spacing along valley: {jacks_data['spacing_along_valley_ft']*12:.1f} inches o.c.\n\n")
+        self.output_text.insert(
+            tk.END, "\n=== JACK RAFTER POINT LOADS (Eave → Ridge) ===\n"
+        )
+        self.output_text.insert(
+            tk.END, f"Number of jacks per side: {jacks_data['num_per_side']}\n"
+        )
+        self.output_text.insert(
+            tk.END, f"Spacing along ridges: {jack_spacing_inches:.1f} inches o.c.\n"
+        )
+        self.output_text.insert(
+            tk.END,
+            f"Spacing along valley: {jacks_data['spacing_along_valley_ft']*12:.1f} inches o.c.\n\n",
+        )
 
-        for i in range(jacks_data['num_per_side']):
-            j_n = jacks_data['jacks']['north_side'][i]
-            j_w = jacks_data['jacks']['west_side'][i]
+        for i in range(jacks_data["num_per_side"]):
+            j_n = jacks_data["jacks"]["north_side"][i]
+            j_w = jacks_data["jacks"]["west_side"][i]
 
             # Tributary area calculations
-            trib_area_n = j_n['horiz_length_ft'] * spacing_along_ridge_ft
-            trib_area_w = j_w['horiz_length_ft'] * spacing_along_ridge_ft
+            trib_area_n = j_n["horiz_length_ft"] * spacing_along_ridge_ft
+            trib_area_w = j_w["horiz_length_ft"] * spacing_along_ridge_ft
 
             # Dead loads
             dl_n = roof_dead_load_psf * trib_area_n
@@ -2261,8 +3374,8 @@ Always verify member spanning conditions and consult licensed engineer"""
             dl_combined = dl_n + dl_w
 
             # Snow loads (already calculated)
-            snow_n = j_n['total_snow_lb']
-            snow_w = j_w['total_snow_lb']
+            snow_n = j_n["total_snow_lb"]
+            snow_w = j_w["total_snow_lb"]
             snow_combined = snow_n + snow_w
 
             # Full loads and reactions
@@ -2273,16 +3386,29 @@ Always verify member spanning conditions and consult licensed engineer"""
             combined_point = reaction_n + reaction_w
 
             combined_point_loads.append(combined_point)
-            distances_from_eave.append(j_n.get('location_from_eave_ft', 0))
+            distances_from_eave.append(j_n.get("location_from_eave_ft", 0))
 
-            self.output_text.insert(tk.END, f"Jack {i+1} (from eave {j_n.get('location_from_eave_ft', 0):.2f} ft):\n")
-            self.output_text.insert(tk.END, f"  North: trib area {trib_area_n:.1f} ft², DL {dl_n:.0f} lb, snow {snow_n:.0f} lb, reaction {reaction_n:.0f} lb\n")
-            self.output_text.insert(tk.END, f"  West:  trib area {trib_area_w:.1f} ft², DL {dl_w:.0f} lb, snow {snow_w:.0f} lb, reaction {reaction_w:.0f} lb\n")
-            self.output_text.insert(tk.END, f"  Combined point load on valley: {combined_point:.0f} lb\n\n")
+            self.output_text.insert(
+                tk.END,
+                f"Jack {i+1} (from eave {j_n.get('location_from_eave_ft', 0):.2f} ft):\n",
+            )
+            self.output_text.insert(
+                tk.END,
+                f"  North: trib area {trib_area_n:.1f} ft², DL {dl_n:.0f} lb, snow {snow_n:.0f} lb, reaction {reaction_n:.0f} lb\n",
+            )
+            self.output_text.insert(
+                tk.END,
+                f"  West:  trib area {trib_area_w:.1f} ft², DL {dl_w:.0f} lb, snow {snow_w:.0f} lb, reaction {reaction_w:.0f} lb\n",
+            )
+            self.output_text.insert(
+                tk.END, f"  Combined point load on valley: {combined_point:.0f} lb\n\n"
+            )
 
         # Valley rafter equilibrium
         total_load = sum(combined_point_loads)
-        moment_about_eave = sum(load * dist for load, dist in zip(combined_point_loads, distances_from_eave))
+        moment_about_eave = sum(
+            load * dist for load, dist in zip(combined_point_loads, distances_from_eave)
+        )
         reaction_ridge = moment_about_eave / rafter_len
         reaction_eave = total_load - reaction_ridge
 
@@ -2306,27 +3432,43 @@ Always verify member spanning conditions and consult licensed engineer"""
         current_moment += current_shear * delta
         max_moment = max(max_moment, current_moment)
 
-        self.output_text.insert(tk.END, f"Valley Rafter Reactions: {reaction_eave:.0f} lb @ eave, {reaction_ridge:.0f} lb @ ridge\n")
+        self.output_text.insert(
+            tk.END,
+            f"Valley Rafter Reactions: {reaction_eave:.0f} lb @ eave, {reaction_ridge:.0f} lb @ ridge\n",
+        )
         self.output_text.insert(tk.END, f"Maximum Moment: {max_moment:.0f} ft-lb\n")
         self.output_text.insert(tk.END, f"Maximum Shear: {max_shear:.0f} lb\n")
         self.output_text.insert(tk.END, f"Total Load: {total_load:.0f} lb\n")
-        self.output_text.insert(tk.END, "Note: Loads include full dead load + full snow (balanced + valley drift). Reactions verified by equilibrium.\n\n")
+        self.output_text.insert(
+            tk.END,
+            "Note: Loads include full dead load + full snow (balanced + valley drift). Reactions verified by equilibrium.\n\n",
+        )
 
         # Add to output
         self.output_text.insert(tk.END, beam_summary)
 
         # Display jack rafter summary in results
-        self.output_text.insert(tk.END, "\n=== JACK RAFTER POINT LOADS (Eave → Ridge) ===\n")
-        self.output_text.insert(tk.END, f"Number of jacks per side: {jacks_data['num_per_side']}\n")
-        self.output_text.insert(tk.END, f"Spacing along ridges: {jack_spacing_inches} inches o.c.\n")
-        self.output_text.insert(tk.END, f"Spacing along valley: {jacks_data['spacing_along_valley_ft']*12:.1f} inches o.c.\n\n")
+        self.output_text.insert(
+            tk.END, "\n=== JACK RAFTER POINT LOADS (Eave → Ridge) ===\n"
+        )
+        self.output_text.insert(
+            tk.END, f"Number of jacks per side: {jacks_data['num_per_side']}\n"
+        )
+        self.output_text.insert(
+            tk.END, f"Spacing along ridges: {jack_spacing_inches} inches o.c.\n"
+        )
+        self.output_text.insert(
+            tk.END,
+            f"Spacing along valley: {jacks_data['spacing_along_valley_ft']*12:.1f} inches o.c.\n\n",
+        )
 
-        for i in range(jacks_data['num_per_side']):
-            j_n = jacks_data['jacks']['north_side'][i]
-            j_w = jacks_data['jacks']['west_side'][i]
-            total_p = j_n['point_load_lb'] + j_w['point_load_lb']
-            pos_from_eave = j_n.get('location_from_eave_ft', 'N/A')
-            self.output_text.insert(tk.END,
+        for i in range(jacks_data["num_per_side"]):
+            j_n = jacks_data["jacks"]["north_side"][i]
+            j_w = jacks_data["jacks"]["west_side"][i]
+            total_p = j_n["point_load_lb"] + j_w["point_load_lb"]
+            pos_from_eave = j_n.get("location_from_eave_ft", "N/A")
+            self.output_text.insert(
+                tk.END,
                 f"Jack {i+1} (from eave {pos_from_eave:.2f} ft):\n"
                 f"  North: length (sloped)={j_n['sloped_length_ft']:.2f} ft, horiz={j_n['horiz_length_ft']:.2f} ft\n"
                 f"    balanced={j_n['balanced_snow_lb']:.0f} lb, drift={j_n['drift_load_lb']:.0f} lb, total snow={j_n['total_snow_lb']:.0f} lb\n"
@@ -2334,26 +3476,40 @@ Always verify member spanning conditions and consult licensed engineer"""
                 f"  West:  length (sloped)={j_w['sloped_length_ft']:.2f} ft, horiz={j_w['horiz_length_ft']:.2f} ft\n"
                 f"    balanced={j_w['balanced_snow_lb']:.0f} lb, drift={j_w['drift_load_lb']:.0f} lb, total snow={j_w['total_snow_lb']:.0f} lb\n"
                 f"    DL={j_w['dead_load_lb']:.0f} lb, full load={j_w['full_load_on_jack_lb']:.0f} lb, reaction={j_w['point_load_lb']:.0f} lb\n"
-                f"  Combined point load at location: {total_p:.0f} lb\n\n")
+                f"  Combined point load at location: {total_p:.0f} lb\n\n",
+            )
 
-        self.output_text.insert(tk.END, "Note: Point loads are reactions (half-span) assuming simply supported jack at ridge.\n")
-        self.output_text.insert(tk.END, "Note: Drift load is higher at the ridge (higher pd intensity), but jack rafters are shorter there. Point loads may be higher at eave due to longer lengths despite lower drift. This is correct per ASCE 7-22 drift taper and framing geometry.\n\n")
+        self.output_text.insert(
+            tk.END,
+            "Note: Point loads are reactions (half-span) assuming simply supported jack at ridge.\n",
+        )
+        self.output_text.insert(
+            tk.END,
+            "Note: Drift load is higher at the ridge (higher pd intensity), but jack rafters are shorter there. Point loads may be higher at eave due to longer lengths despite lower drift. This is correct per ASCE 7-22 drift taper and framing geometry.\n\n",
+        )
 
         # === VALLEY RAFTER REACTION VERIFICATION (STATIC EQUILIBRIUM CHECK) ===
-        self.output_text.insert(tk.END, "============================================================\n")
+        self.output_text.insert(
+            tk.END, "============================================================\n"
+        )
         self.output_text.insert(tk.END, "VALLEY RAFTER END REACTION VERIFICATION\n")
-        self.output_text.insert(tk.END, "------------------------------------------------------------\n")
-        self.output_text.insert(tk.END, "Using jack rafter combined point loads and distances to independently verify reactions via equilibrium.\n\n")
+        self.output_text.insert(
+            tk.END, "------------------------------------------------------------\n"
+        )
+        self.output_text.insert(
+            tk.END,
+            "Using jack rafter combined point loads and distances to independently verify reactions via equilibrium.\n\n",
+        )
 
         # Extract data from jacks_data for verification
         distances_from_eave = []
         point_loads_combined = []
 
-        for i in range(jacks_data['num_per_side']):
-            j_n = jacks_data['jacks']['north_side'][i]
-            j_w = jacks_data['jacks']['west_side'][i]
-            pos_from_eave = j_n.get('location_from_eave_ft', 0)
-            total_p = j_n['point_load_lb'] + j_w['point_load_lb']
+        for i in range(jacks_data["num_per_side"]):
+            j_n = jacks_data["jacks"]["north_side"][i]
+            j_w = jacks_data["jacks"]["west_side"][i]
+            pos_from_eave = j_n.get("location_from_eave_ft", 0)
+            total_p = j_n["point_load_lb"] + j_w["point_load_lb"]
 
             distances_from_eave.append(pos_from_eave)
             point_loads_combined.append(total_p)
@@ -2362,69 +3518,108 @@ Always verify member spanning conditions and consult licensed engineer"""
 
         # Step 1: Total downward load
         total_downward = sum(point_loads_combined)
-        self.output_text.insert(tk.END, f"Total downward load from {len(point_loads_combined)} point loads: {total_downward} lb\n")
+        self.output_text.insert(
+            tk.END,
+            f"Total downward load from {len(point_loads_combined)} point loads: {total_downward} lb\n",
+        )
 
         # Step 2: Moment about eave end
-        moment_about_eave = sum(load * dist for load, dist in zip(point_loads_combined, distances_from_eave))
-        self.output_text.insert(tk.END, f"Moment about eave: {moment_about_eave:.0f} ft-lb\n")
+        moment_about_eave = sum(
+            load * dist for load, dist in zip(point_loads_combined, distances_from_eave)
+        )
+        self.output_text.insert(
+            tk.END, f"Moment about eave: {moment_about_eave:.0f} ft-lb\n"
+        )
 
         # Step 3: Reaction at ridge
         reaction_ridge = moment_about_eave / L_valley_sloped
-        self.output_text.insert(tk.END, f"Calculated reaction at ridge: {reaction_ridge:.0f} lb (upward)\n")
+        self.output_text.insert(
+            tk.END, f"Calculated reaction at ridge: {reaction_ridge:.0f} lb (upward)\n"
+        )
 
         # Step 4: Reaction at eave
         reaction_eave = total_downward - reaction_ridge
-        self.output_text.insert(tk.END, f"Calculated reaction at eave: {reaction_eave:.0f} lb (upward)\n")
+        self.output_text.insert(
+            tk.END, f"Calculated reaction at eave: {reaction_eave:.0f} lb (upward)\n"
+        )
 
         # Step 5: Verification check
         sum_reactions = reaction_eave + reaction_ridge
         if abs(sum_reactions - total_downward) < 10:  # tolerance for rounding
-            self.output_text.insert(tk.END, f"Verification: Reactions sum ({sum_reactions:.0f} lb) matches total load ({total_downward} lb) — EQUILIBRIUM SATISFIED\n")
+            self.output_text.insert(
+                tk.END,
+                f"Verification: Reactions sum ({sum_reactions:.0f} lb) matches total load ({total_downward} lb) — EQUILIBRIUM SATISFIED\n",
+            )
         else:
-            self.output_text.insert(tk.END, f"Verification: DISCREPANCY — Reactions sum {sum_reactions:.0f} lb vs total load {total_downward} lb\n")
+            self.output_text.insert(
+                tk.END,
+                f"Verification: DISCREPANCY — Reactions sum {sum_reactions:.0f} lb vs total load {total_downward} lb\n",
+            )
 
-        self.output_text.insert(tk.END, "Note: These reactions are independently derived for shear/moment diagram use. Max shear ≈ eave reaction.\n\n")
+        self.output_text.insert(
+            tk.END,
+            "Note: These reactions are independently derived for shear/moment diagram use. Max shear ≈ eave reaction.\n\n",
+        )
 
         # === VALLEY RAFTER ASD ANALYSIS (D + 0.7S FOR STRESS CHECKS) ===
-        self.output_text.insert(tk.END, "============================================================\n")
-        self.output_text.insert(tk.END, "VALLEY RAFTER ASD LOAD COMBINATION: DEAD + 0.7 SNOW (STRESS CHECKS)\n")
-        self.output_text.insert(tk.END, "------------------------------------------------------------\n")
-        self.output_text.insert(tk.END, "Per ASCE 7-22 Sec. 2.4.1: Ultimate snow scaled by 0.7 for ASD service-level equivalent.\n")
+        self.output_text.insert(
+            tk.END, "============================================================\n"
+        )
+        self.output_text.insert(
+            tk.END,
+            "VALLEY RAFTER ASD LOAD COMBINATION: DEAD + 0.7 SNOW (STRESS CHECKS)\n",
+        )
+        self.output_text.insert(
+            tk.END, "------------------------------------------------------------\n"
+        )
+        self.output_text.insert(
+            tk.END,
+            "Per ASCE 7-22 Sec. 2.4.1: Ultimate snow scaled by 0.7 for ASD service-level equivalent.\n",
+        )
         self.output_text.insert(tk.END, f"Sloped Beam Length: {rafter_len:.2f} ft\n")
-        self.output_text.insert(tk.END, "Jack reactions calculated as half tributary load (uniform on horizontal projection for snow).\n\n")
+        self.output_text.insert(
+            tk.END,
+            "Jack reactions calculated as half tributary load (uniform on horizontal projection for snow).\n\n",
+        )
 
         # Get dead load from user input
-        roof_dead_load_psf = self.dl_horizontal.get() if hasattr(self, 'dl_horizontal') else 20.0
+        roof_dead_load_psf = (
+            self.dl_horizontal.get() if hasattr(self, "dl_horizontal") else 20.0
+        )
 
         # Extract horizontal jack lengths (reverse order for eave to ridge)
         horiz_jack_full = []
         distances_from_eave = []
 
-        for i in range(jacks_data['num_per_side']):
-            j_n = jacks_data['jacks']['north_side'][i]
-            horiz_full = j_n['horiz_length_ft'] * 2  # Full horizontal span
+        for i in range(jacks_data["num_per_side"]):
+            j_n = jacks_data["jacks"]["north_side"][i]
+            horiz_full = j_n["horiz_length_ft"] * 2  # Full horizontal span
             horiz_jack_full.append(horiz_full)
-            distances_from_eave.append(j_n.get('location_from_eave_ft', 0))
+            distances_from_eave.append(j_n.get("location_from_eave_ft", 0))
 
         # Reverse to eave to ridge order
         horiz_jack_full.reverse()
         distances_from_eave.sort()
 
         # Spacing along ridge
-        spacing_ridge = jacks_data.get('spacing_along_ridge_ft', jack_spacing_inches / 12.0)
+        spacing_ridge = jacks_data.get(
+            "spacing_along_ridge_ft", jack_spacing_inches / 12.0
+        )
 
         # Calculate average height for sloped jack length approximation
         avg_pitch = (pitch_n + pitch_w) / 2
-        h_avg = math.tan(math.atan(avg_pitch / 12)) * (sum(horiz_jack_full) / len(horiz_jack_full))
+        h_avg = math.tan(math.atan(avg_pitch / 12)) * (
+            sum(horiz_jack_full) / len(horiz_jack_full)
+        )
 
         # Extract snow values from jacks_data
         balanced_one_side = []
         drift_one_side = []
 
-        for i in range(jacks_data['num_per_side']):
-            j_n = jacks_data['jacks']['north_side'][i]
-            balanced_one_side.append(j_n['balanced_snow_lb'])
-            drift_one_side.append(j_n['drift_load_lb'])
+        for i in range(jacks_data["num_per_side"]):
+            j_n = jacks_data["jacks"]["north_side"][i]
+            balanced_one_side.append(j_n["balanced_snow_lb"])
+            drift_one_side.append(j_n["drift_load_lb"])
 
         # Reverse to match eave to ridge order
         balanced_one_side.reverse()
@@ -2441,7 +3636,9 @@ Always verify member spanning conditions and consult licensed engineer"""
         dl_one_side = [roof_dead_load_psf * a for a in trib_area_sloped_one_side]
 
         # ASD full one side = DL + ASD snow
-        asd_full_one_side = [dl + asd_s for dl, asd_s in zip(dl_one_side, asd_snow_one_side)]
+        asd_full_one_side = [
+            dl + asd_s for dl, asd_s in zip(dl_one_side, asd_snow_one_side)
+        ]
 
         # ASD jack reaction one side = half ASD full
         asd_reaction_one_side = [f / 2 for f in asd_full_one_side]
@@ -2453,7 +3650,9 @@ Always verify member spanning conditions and consult licensed engineer"""
 
         # Equilibrium for ASD
         total_asd = sum(asd_point_loads)
-        moment_about_eave = sum(p * d for p, d in zip(asd_point_loads, distances_from_eave))
+        moment_about_eave = sum(
+            p * d for p, d in zip(asd_point_loads, distances_from_eave)
+        )
         reaction_ridge = moment_about_eave / L
         reaction_eave = total_asd - reaction_ridge
 
@@ -2488,26 +3687,56 @@ Always verify member spanning conditions and consult licensed engineer"""
 
         # Ensure final moment ~0 (rounding tolerance)
         if abs(current_moment) > 10:
-            self.output_text.insert(tk.END, "Warning: Final moment not zero — check equilibrium (rounding error possible)\n")
+            self.output_text.insert(
+                tk.END,
+                "Warning: Final moment not zero — check equilibrium (rounding error possible)\n",
+            )
 
         # Output updated max (positive)
-        self.output_text.insert(tk.END, f"Max ASD Moment (positive sagging): {max_moment:.0f} ft-lb\n")
+        self.output_text.insert(
+            tk.END, f"Max ASD Moment (positive sagging): {max_moment:.0f} ft-lb\n"
+        )
 
         # Updated text diagrams with positive moment
-        self.output_text.insert(tk.END, "\n=== ASD SHEAR FORCE DIAGRAM (Sloped Valley Beam) ===\n")
-        self.output_text.insert(tk.END, f"Eave reaction: +{reaction_eave:.0f} lb (upward) → initial shear +{reaction_eave:.0f} lb\n")
-        self.output_text.insert(tk.END, "Shear decreases with each downward ASD point load\n")
-        self.output_text.insert(tk.END, "Crosses zero mid-span, ends just left of ridge at -{reaction_ridge:.0f} lb\n")
-        self.output_text.insert(tk.END, f"Ridge reaction: +{reaction_ridge:.0f} lb (upward) → shear back to 0\n")
+        self.output_text.insert(
+            tk.END, "\n=== ASD SHEAR FORCE DIAGRAM (Sloped Valley Beam) ===\n"
+        )
+        self.output_text.insert(
+            tk.END,
+            f"Eave reaction: +{reaction_eave:.0f} lb (upward) → initial shear +{reaction_eave:.0f} lb\n",
+        )
+        self.output_text.insert(
+            tk.END, "Shear decreases with each downward ASD point load\n"
+        )
+        self.output_text.insert(
+            tk.END,
+            "Crosses zero mid-span, ends just left of ridge at -{reaction_ridge:.0f} lb\n",
+        )
+        self.output_text.insert(
+            tk.END,
+            f"Ridge reaction: +{reaction_ridge:.0f} lb (upward) → shear back to 0\n",
+        )
         self.output_text.insert(tk.END, f"Max |shear| = {max_shear:.0f} lb\n\n")
 
-        self.output_text.insert(tk.END, "=== ASD BENDING MOMENT DIAGRAM (Sloped Valley Beam) ===\n")
+        self.output_text.insert(
+            tk.END, "=== ASD BENDING MOMENT DIAGRAM (Sloped Valley Beam) ===\n"
+        )
         self.output_text.insert(tk.END, "Moment starts at 0 at eave\n")
-        self.output_text.insert(tk.END, "Increases positively (sagging) due to gravity loads\n")
-        self.output_text.insert(tk.END, f"Peaks at +{max_moment:.0f} ft-lb (positive sagging, typically 9-12 ft from eave)\n")
+        self.output_text.insert(
+            tk.END, "Increases positively (sagging) due to gravity loads\n"
+        )
+        self.output_text.insert(
+            tk.END,
+            f"Peaks at +{max_moment:.0f} ft-lb (positive sagging, typically 9-12 ft from eave)\n",
+        )
         self.output_text.insert(tk.END, "Decreases to 0 at ridge\n")
-        self.output_text.insert(tk.END, "NO NEGATIVE MOMENT for this simply supported gravity-loaded beam\n")
-        self.output_text.insert(tk.END, "Shape: Polygonal curve, convex upward (positive throughout interior)\n")
+        self.output_text.insert(
+            tk.END, "NO NEGATIVE MOMENT for this simply supported gravity-loaded beam\n"
+        )
+        self.output_text.insert(
+            tk.END,
+            "Shape: Polygonal curve, convex upward (positive throughout interior)\n",
+        )
 
         # Detailed values for verification
         self.output_text.insert(tk.END, "\nDetailed values for verification:\n")
@@ -2516,12 +3745,17 @@ Always verify member spanning conditions and consult licensed engineer"""
         shears_all = shear_values + [0]  # Final shear = 0 due to ridge reaction
 
         for i, (dist, m, v) in enumerate(zip(distances_all, moments_all, shears_all)):
-            self.output_text.insert(tk.END, f"At {dist:.2f} ft: Moment = {m:.0f} ft-lb, Shear = {v:.0f} lb\n")
+            self.output_text.insert(
+                tk.END,
+                f"At {dist:.2f} ft: Moment = {m:.0f} ft-lb, Shear = {v:.0f} lb\n",
+            )
 
         self.output_text.insert(tk.END, "\n")
 
         self.output_text.insert(tk.END, "\n")
 
         self.output_text.insert(tk.END, "Validation passed. GUI working correctly!\n")
-        self.output_text.insert(tk.END, "Complete ASCE 7-22 Valley Snow Load Calculator")
+        self.output_text.insert(
+            tk.END, "Complete ASCE 7-22 Valley Snow Load Calculator"
+        )
         print("DEBUG: Calculate method completed successfully")
