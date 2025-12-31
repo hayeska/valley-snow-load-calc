@@ -10,24 +10,6 @@ import type {
   DiagramData,
 } from "../types";
 
-export interface LoadResults {
-  uniformLoad: number;
-  driftLoad: number;
-  totalLoad: number;
-  northLoad: number;
-  westLoad: number;
-}
-
-export interface CalculationResults {
-  inputs: CalculationInputs & RoofGeometry;
-  loads: LoadResults;
-  summary: {
-    maxValleyLoad: number;
-    balancedLoad: number;
-    unbalancedLoad: number;
-  };
-}
-
 // Complete Valley Snow Load Calculator - matches original Python implementation
 export class ValleySnowCalculator {
   async performCalculations(
@@ -44,7 +26,6 @@ export class ValleySnowCalculator {
     if (beamInputs) {
       results.beamDesign = await this.calculateBeamDesign(
         geometry,
-        inputs,
         beamInputs,
         results,
       );
@@ -59,43 +40,57 @@ export class ValleySnowCalculator {
     inputs: SnowLoadInputs,
   ): Promise<CalculationResults> {
     const pg = inputs.groundSnowLoad;
-    const i = inputs.importanceFactor;
+    const is_factor = inputs.importanceFactor;
     const ce = inputs.exposureFactor;
     const ct = inputs.thermalFactor;
     const cw = inputs.winterWindParameter;
 
-    // Flat roof snow load (pf)
-    const pf = 0.7 * ce * ct * i * pg;
+    // Flat roof snow load (pf) - ASCE 7-22 Equation 7.3-1
+    const pf = 0.7 * ce * ct * is_factor * pg;
 
-    // Calculate Cs (slope factor) based on ASCE 7-22 Figure 7.4-1
+    // Slope factor calculations - ASCE 7-22 Figure 7.4-1
     const cs = this.calculateSlopeFactor(
-      geometry.roofPitchN,
-      geometry.roofPitchW,
+      geometry,
       ct,
       inputs.isSlipperySurface,
     );
 
     // Balanced snow load (ps) - for sloped roofs
-    const ps = cs * pf;
+    const ps = pf * cs;
 
-    // Unbalanced snow load (pu) - for valley analysis
-    const pu = 2 * ps; // Conservative for valley analysis
+    // Low-slope roof check per ASCE 7-22 Sec. 7.3
+    const min_slope_deg = Math.min(geometry.northPitch, geometry.westPitch);
+    const low_slope = min_slope_deg < 15.0;
+
+    // Calculate minimum snow load pm
+    const pm = is_factor * pg <= 20 ? is_factor * pg : 20 * is_factor;
+
+    // Determine governing roof snow load
+    const governing_roof_load = low_slope ? Math.max(ps, pm) : ps;
+
+    // Valley geometry - calculate horizontal valley length
+    const lv = this.calculateValleyLength(geometry);
 
     // Calculate tributary areas
-    const northArea = geometry.northSpan * geometry.ewHalfWidth;
-    const westArea = geometry.southSpan * geometry.ewHalfWidth;
+    const northArea = geometry.northSpan * geometry.ewHalfWidth * 2;
+    const westArea = geometry.southSpan * geometry.ewHalfWidth * 2;
     const totalArea = northArea + westArea;
 
     // Balanced loads on each roof section
-    const northBalancedLoad = ps * (northArea / totalArea);
-    const westBalancedLoad = ps * (westArea / totalArea);
+    const northBalancedLoad = governing_roof_load * (northArea / totalArea);
+    const westBalancedLoad = governing_roof_load * (westArea / totalArea);
 
-    // Unbalanced loads (higher load on steeper roof)
-    const northUnbalancedLoad = pu * (northArea / totalArea);
-    const westUnbalancedLoad = pu * (westArea / totalArea);
+    // Unbalanced loads (2:1 ratio for steeper vs shallower roof)
+    const northUnbalancedLoad =
+      2 * governing_roof_load * (northArea / totalArea);
+    const westUnbalancedLoad = 2 * governing_roof_load * (westArea / totalArea);
 
     // Drift loads based on ASCE 7-22 Section 7.7
-    const driftLoads = this.calculateDriftLoads(geometry, ps, cw);
+    const driftLoads = this.calculateDriftLoads(
+      geometry,
+      governing_roof_load,
+      cw,
+    );
 
     // Valley loads (governing combination)
     const valleyLoads = this.calculateValleyLoads(
@@ -117,54 +112,74 @@ export class ValleySnowCalculator {
       },
       driftLoads,
       valleyLoads,
+      pf,
+      ps,
+      cs,
+      lv,
     };
   }
 
   private calculateSlopeFactor(
-    pitchN: number,
-    pitchW: number,
+    geometry: RoofGeometry,
     ct: number,
-    isSlippery: boolean,
+    slippery: boolean = false,
+    warm_roof: boolean = false,
   ): number {
-    // ASCE 7-22 Figure 7.4-1 - Slope Factor Cs
-    const avgPitch = (pitchN + pitchW) / 2;
+    // ASCE 7-22 Figure 7.4-1 - Slope Factor Cs (exact implementation from slope_factors.py)
+    // Use average pitch for slope factor calculation
+    const avgPitch = (geometry.northPitch + geometry.westPitch) / 2;
+    const theta = Math.max(0.0, Math.min(90.0, avgPitch)); // Clamp to valid range
 
-    if (avgPitch < 15) {
-      // For roofs with slope < 15°, Cs = 1.0 (flat roof)
-      return 1.0;
-    }
-
-    // For slippery surfaces (membranes with smooth surface)
-    if (isSlippery) {
-      if (avgPitch >= 70) return 0.0;
-      if (avgPitch >= 60) return 0.083;
-      if (avgPitch >= 50) return 0.167;
-      if (avgPitch >= 40) return 0.25;
-      if (avgPitch >= 30) return 0.333;
-      if (avgPitch >= 20) return 0.5;
-      return 0.667;
-    }
-
-    // For non-slippery surfaces
-    if (ct >= 1.1) {
-      // Cold roof
-      if (avgPitch >= 70) return 0.0;
-      if (avgPitch >= 60) return 0.111;
-      if (avgPitch >= 50) return 0.222;
-      if (avgPitch >= 40) return 0.333;
-      if (avgPitch >= 30) return 0.444;
-      if (avgPitch >= 20) return 0.556;
-      return 0.667;
+    // Graph selection based on Ct and roof type (per Figure 7.4-1 notes)
+    if (ct <= 1.1 || warm_roof) {
+      // Graphs a and b: warm roofs (unventilated, higher R-value)
+      if (slippery) {
+        // Graph b – slippery warm roof
+        if (theta <= 3.58) {
+          // approx 3/12 to flat transition
+          return 1.0;
+        } else {
+          return Math.max(0.0, 1.0 - (theta - 3.58) / 66.42);
+        }
+      } else {
+        // Graph a – non-slippery warm roof
+        if (theta <= 26.57) {
+          // approx 5/12
+          return 1.0;
+        } else {
+          return Math.max(0.0, 1.0 - (theta - 26.57) / 43.43);
+        }
+      }
     } else {
-      // Warm roof (ct ≤ 1.1)
-      if (avgPitch >= 70) return 0.0;
-      if (avgPitch >= 60) return 0.143;
-      if (avgPitch >= 50) return 0.286;
-      if (avgPitch >= 40) return 0.429;
-      if (avgPitch >= 30) return 0.571;
-      if (avgPitch >= 20) return 0.714;
-      return 0.857;
+      // Graph c – cold roofs (Ct > 1.1)
+      if (slippery) {
+        if (theta <= 8.53) {
+          // approx 1.75/12
+          return 1.0;
+        } else {
+          return Math.max(0.0, 1.0 - (theta - 8.53) / 61.47);
+        }
+      } else {
+        if (theta <= 37.76) {
+          // approx 8/12
+          return 1.0;
+        } else {
+          return Math.max(0.0, 1.0 - (theta - 37.76) / 32.24);
+        }
+      }
     }
+  }
+
+  private calculateValleyLength(geometry: RoofGeometry): number {
+    // Valley geometry calculation - horizontal valley length using proper geometry
+    // From geometry.py: valley_horizontal_length function
+    const angle_rad = (geometry.valleyAngle * Math.PI) / 180;
+    const lv = Math.sqrt(
+      geometry.northSpan ** 2 +
+        geometry.southSpan ** 2 -
+        2 * geometry.northSpan * geometry.southSpan * Math.cos(angle_rad),
+    );
+    return Math.round(lv * 100) / 100; // Round to 2 decimal places
   }
 
   private calculateDriftLoads(
@@ -174,7 +189,6 @@ export class ValleySnowCalculator {
   ): { leeSide: number; windwardSide: number } {
     // ASCE 7-22 Section 7.7 - Drift loads
     const hd = geometry.valleyOffset; // Drift height
-    const wd = Math.min(hd, geometry.ewHalfWidth * 2); // Drift width limit
 
     // Drift surcharge (pd)
     const pd = 0.5 * ps * cw * Math.min(hd / 8, 1);
@@ -210,7 +224,6 @@ export class ValleySnowCalculator {
 
   private async calculateBeamDesign(
     geometry: RoofGeometry,
-    snowInputs: SnowLoadInputs,
     beamInputs: BeamDesignInputs,
     snowResults: CalculationResults,
   ): Promise<BeamDesignResults> {
@@ -295,8 +308,8 @@ export class ValleySnowCalculator {
     const roofProfile = [];
     for (let i = 0; i <= steps; i++) {
       const x = (i / steps) * valleyLength;
-      const northHeight = x * Math.tan((geometry.roofPitchN * Math.PI) / 180);
-      const westHeight = x * Math.tan((geometry.roofPitchW * Math.PI) / 180);
+      const northHeight = x * Math.tan((geometry.northPitch * Math.PI) / 180);
+      const westHeight = x * Math.tan((geometry.westPitch * Math.PI) / 180);
       roofProfile.push({ x, y: Math.max(northHeight, westHeight) });
     }
 
@@ -341,7 +354,7 @@ export class ValleySnowCalculator {
   }
 
   // Simulate project management (would use backend in real implementation)
-  async createProject(name: string): Promise<string> {
+  async createProject(_name: string): Promise<string> {
     return `project_${Date.now()}`;
   }
 

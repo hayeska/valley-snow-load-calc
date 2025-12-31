@@ -76,6 +76,11 @@ export interface CalculationResults {
     horizontalLoad: number;
     verticalLoad: number;
   };
+  // Additional calculated values to match original program output
+  pf: number; // Flat roof snow load (psf)
+  ps: number; // Balanced snow load (psf)
+  cs: number; // Slope factor
+  lv: number; // Valley length (ft)
   beamDesign?: BeamDesignResults;
   diagrams?: DiagramData;
 }

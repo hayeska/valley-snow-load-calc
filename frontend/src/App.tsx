@@ -10,7 +10,8 @@ import { Alert, AlertDescription, AlertTitle } from './components/ui/alert'
 import { Separator } from './components/ui/separator'
 import { Calculator, Snowflake, AlertTriangle, CheckCircle, Zap, Ruler, Building } from 'lucide-react'
 
-import { calculator, type RoofGeometry, type SnowLoadInputs, type BeamDesignInputs, type CalculationResults } from './services/calculator'
+import { calculator } from './services/calculator'
+import type { RoofGeometry, SnowLoadInputs, BeamDesignInputs, CalculationResults } from './types'
 
 function App() {
   const [isLoading, setIsLoading] = useState(false)
@@ -22,17 +23,17 @@ function App() {
     northPitch: 8,
     westPitch: 10,
     northSpan: 20,
-    southSpan: 18,
+    southSpan: 17,
     ewHalfWidth: 45,
     valleyOffset: 15,
     valleyAngle: 90,
   })
 
   const [snowInputs, setSnowInputs] = useState<SnowLoadInputs>({
-    groundSnowLoad: 35,
-    importanceFactor: 1.1,
+    groundSnowLoad: 50,
+    importanceFactor: 1.0,
     exposureFactor: 1.0,
-    thermalFactor: 0.9,
+    thermalFactor: 1.2,
     winterWindParameter: 0.4,
     isSlipperySurface: false,
   })
@@ -69,15 +70,15 @@ function App() {
   }
 
   const handleGeometryChange = (field: keyof RoofGeometry, value: number) => {
-    setGeometry(prev => ({ ...prev, [field]: value }))
+    setGeometry((prev: RoofGeometry) => ({ ...prev, [field]: value }))
   }
 
   const handleSnowInputChange = (field: keyof SnowLoadInputs, value: number | boolean) => {
-    setSnowInputs(prev => ({ ...prev, [field]: value }))
+    setSnowInputs((prev: SnowLoadInputs) => ({ ...prev, [field]: value }))
   }
 
   const handleBeamInputChange = (field: keyof BeamDesignInputs, value: number | string) => {
-    setBeamInputs(prev => ({ ...prev, [field]: value }))
+    setBeamInputs((prev: BeamDesignInputs) => ({ ...prev, [field]: value }))
   }
 
   return (
@@ -328,7 +329,7 @@ function App() {
                               <SelectItem value="0.8">0.8 - Freezer Buildings (≤0°F interior)</SelectItem>
                               <SelectItem value="0.9">0.9 - Continuously Heated (55°F+ interior)</SelectItem>
                               <SelectItem value="1.0">1.0 - Unheated (varies with climate)</SelectItem>
-                              <SelectItem value="1.1">1.1 - Heated with Cold Roof (Ct > 1.1)</SelectItem>
+                              <SelectItem value="1.1">1.1 - Heated with Cold Roof (Ct &gt; 1.1)</SelectItem>
                               <SelectItem value="1.2">1.2 - Cold Storage (0-55°F interior)</SelectItem>
                             </SelectContent>
                           </Select>
@@ -346,7 +347,7 @@ function App() {
                             onChange={(e) => handleSnowInputChange('winterWindParameter', parseFloat(e.target.value) || 0)}
                           />
                           <p className="text-sm text-gray-600">
-                            Percentage of time wind speed >10 mph during Oct-Apr
+                            Percentage of time wind speed &gt;10 mph during Oct-Apr
                             <br />
                             From ASCE Hazard Tool or local weather data (typically 0.25-0.65)
                           </p>
@@ -606,21 +607,21 @@ function App() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="bg-blue-50 p-4 rounded-lg">
                           <div className="text-2xl font-bold text-blue-600">
-                            {Math.max(results.balancedLoads.northRoof, results.balancedLoads.westRoof).toFixed(1)}
+                            {results.pf.toFixed(1)}
                           </div>
-                          <div className="text-sm text-blue-700">Balanced Roof Load (psf)</div>
+                          <div className="text-sm text-blue-700">Flat Roof Snow Load pf (psf)</div>
                         </div>
                         <div className="bg-green-50 p-4 rounded-lg">
                           <div className="text-2xl font-bold text-green-600">
-                            {Math.max(results.unbalancedLoads.northRoof, results.unbalancedLoads.westRoof).toFixed(1)}
+                            {results.lv.toFixed(2)}
                           </div>
-                          <div className="text-sm text-green-700">Unbalanced Roof Load (psf)</div>
+                          <div className="text-sm text-green-700">Valley Length (ft)</div>
                         </div>
                         <div className="bg-orange-50 p-4 rounded-lg">
                           <div className="text-2xl font-bold text-orange-600">
-                            {Math.max(results.driftLoads.leeSide, results.driftLoads.windwardSide).toFixed(1)}
+                            {results.cs.toFixed(3)}
                           </div>
-                          <div className="text-sm text-orange-700">Drift Load (psf)</div>
+                          <div className="text-sm text-orange-700">Slope Factor Cs</div>
                         </div>
                         <div className="bg-purple-50 p-4 rounded-lg">
                           <div className="text-2xl font-bold text-purple-600">
