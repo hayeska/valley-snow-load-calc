@@ -1,0 +1,24 @@
+{
+  "excludePatterns": [
+    "__pycache__",
+    "*.pyc",
+    ".git",
+    "node_modules",
+    "*.log",
+    "auto_backups",
+    "*.tmp",
+    ".DS_Store",
+    "Thumbs.db",
+    "dist",
+    ".next",
+    "*.zip",
+    "backup_scheduler.log"
+  ],
+  "includeDataFiles": true,
+  "cloudUpload": false,
+  "cloudProvider": "google_drive",
+  "compressionLevel": 6,
+  "googleDriveFolder": "Valley Snow Load Backups",
+  "maxLocalBackups": 24,
+  "backupSchedule": "0 * * * *"
+}

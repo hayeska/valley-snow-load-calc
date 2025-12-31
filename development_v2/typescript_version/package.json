@@ -17,7 +17,10 @@
     "test:integration": "jest --testPathPattern=integration.test.ts",
     "test:summary": "node test-summary.js",
     "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix"
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "backup": "node backup-scheduler.js",
+    "backup:test": "node backup-scheduler.js --test",
+    "backup:once": "node backup-scheduler.js --once"
   },
   "keywords": ["snow-load", "ASCE-7-22", "engineering", "resilient"],
   "author": "Valley Snow Load Calculator Team",
@@ -27,7 +30,10 @@
     "winston": "^3.11.0",
     "winston-daily-rotate-file": "^4.7.1",
     "crypto": "^1.0.1",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "archiver": "^6.0.1",
+    "node-cron": "^3.0.3",
+    "googleapis": "^126.0.1"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
@@ -39,6 +45,7 @@
     "ts-jest": "^29.1.1",
     "eslint": "@8.55.0",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
-    "@typescript-eslint/parser": "^6.13.0"
+    "@typescript-eslint/parser": "^6.13.0",
+    "@google-cloud/local-auth": "^2.1.0"
   }
 }
