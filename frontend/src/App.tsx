@@ -12,6 +12,7 @@ import { Calculator, Snowflake, AlertTriangle, CheckCircle, Zap, Ruler, Building
 
 import { calculator } from './services/calculator'
 import type { RoofGeometry, SnowLoadInputs, BeamDesignInputs, CalculationResults } from './types'
+import { Diagrams } from './components/Diagrams'
 
 function App() {
   const [isLoading, setIsLoading] = useState(false)
@@ -807,59 +808,12 @@ function App() {
                     </TabsContent>
 
                     <TabsContent value="diagrams" className="space-y-4">
-                      {results.diagrams ? (
-                        <div className="space-y-6">
-                          <Alert>
-                            <AlertTriangle className="h-4 w-4" />
-                            <AlertTitle>Diagram Preview</AlertTitle>
-                            <AlertDescription>
-                              Interactive diagrams showing load distributions and structural analysis.
-                              Full implementation would include SVG-based charts.
-                            </AlertDescription>
-                          </Alert>
-
-                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <Card>
-                              <CardHeader>
-                                <CardTitle>Roof Profile & Snow Distribution</CardTitle>
-                              </CardHeader>
-                              <CardContent>
-                                <div className="bg-gray-100 h-64 rounded-lg flex items-center justify-center">
-                                  <div className="text-center text-gray-600">
-                                    <Snowflake className="h-12 w-12 mx-auto mb-2" />
-                                    <p>Roof Profile Diagram</p>
-                                    <p className="text-sm">Shows valley geometry and snow load distribution</p>
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-
-                            <Card>
-                              <CardHeader>
-                                <CardTitle>Structural Analysis</CardTitle>
-                              </CardHeader>
-                              <CardContent>
-                                <div className="bg-gray-100 h-64 rounded-lg flex items-center justify-center">
-                                  <div className="text-center text-gray-600">
-                                    <Ruler className="h-12 w-12 mx-auto mb-2" />
-                                    <p>Shear & Moment Diagrams</p>
-                                    <p className="text-sm">Beam analysis results</p>
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          </div>
-                        </div>
-                      ) : (
-                        <Alert>
-                          <AlertTriangle className="h-4 w-4" />
-                          <AlertTitle>No Diagrams Available</AlertTitle>
-                          <AlertDescription>
-                            Diagrams are generated when beam design analysis is included.
-                            Enable "Include Beam Design Analysis" to see structural diagrams.
-                          </AlertDescription>
-                        </Alert>
-                      )}
+                      <Diagrams
+                        geometry={geometry}
+                        results={results}
+                        width={800}
+                        height={500}
+                      />
                     </TabsContent>
                   </Tabs>
                 ) : (

@@ -16,9 +16,11 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tabs": "^1.1.13",
     "class-variance-authority": "^0.7.1",
+    "konva": "^9.3.22",
     "lucide-react": "^0.562.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-konva": "^18.2.14",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
