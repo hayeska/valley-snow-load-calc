@@ -134,46 +134,60 @@ function App() {
                   <TabsContent value="geometry" className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-gray-900">Roof Pitches</h3>
+                        <h3 className="text-lg font-semibold text-gray-900">Roof Slope Angles</h3>
                         <div className="space-y-2">
-                          <Label htmlFor="northPitch">North Roof Pitch (degrees)</Label>
+                          <Label htmlFor="northPitch">North Roof Slope (degrees from horizontal)</Label>
                           <Input
                             id="northPitch"
                             type="number"
+                            step="0.1"
+                            min="0"
+                            max="90"
                             value={geometry.northPitch}
                             onChange={(e) => handleGeometryChange('northPitch', parseFloat(e.target.value) || 0)}
                           />
+                          <p className="text-sm text-gray-600">Angle from horizontal plane (rise/run)</p>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="westPitch">West Roof Pitch (degrees)</Label>
+                          <Label htmlFor="westPitch">West Roof Slope (degrees from horizontal)</Label>
                           <Input
                             id="westPitch"
                             type="number"
+                            step="0.1"
+                            min="0"
+                            max="90"
                             value={geometry.westPitch}
                             onChange={(e) => handleGeometryChange('westPitch', parseFloat(e.target.value) || 0)}
                           />
+                          <p className="text-sm text-gray-600">Angle from horizontal plane (rise/run)</p>
                         </div>
                       </div>
 
                       <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-gray-900">Roof Spans</h3>
+                        <h3 className="text-lg font-semibold text-gray-900">Horizontal Spans</h3>
                         <div className="space-y-2">
-                          <Label htmlFor="northSpan">North Span Length (ft)</Label>
+                          <Label htmlFor="northSpan">North Roof Horizontal Span (ft)</Label>
                           <Input
                             id="northSpan"
                             type="number"
+                            step="0.1"
+                            min="0"
                             value={geometry.northSpan}
                             onChange={(e) => handleGeometryChange('northSpan', parseFloat(e.target.value) || 0)}
                           />
+                          <p className="text-sm text-gray-600">Horizontal distance from eave to ridge</p>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="southSpan">South Span Length (ft)</Label>
+                          <Label htmlFor="southSpan">South Roof Horizontal Span (ft)</Label>
                           <Input
                             id="southSpan"
                             type="number"
+                            step="0.1"
+                            min="0"
                             value={geometry.southSpan}
                             onChange={(e) => handleGeometryChange('southSpan', parseFloat(e.target.value) || 0)}
                           />
+                          <p className="text-sm text-gray-600">Horizontal distance from eave to ridge</p>
                         </div>
                       </div>
                     </div>
@@ -182,42 +196,53 @@ function App() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-gray-900">Valley Geometry</h3>
+                        <h3 className="text-lg font-semibold text-gray-900">Valley Configuration</h3>
                         <div className="space-y-2">
-                          <Label htmlFor="ewHalfWidth">E-W Half Width (ft)</Label>
+                          <Label htmlFor="ewHalfWidth">East-West Half Width (ft)</Label>
                           <Input
                             id="ewHalfWidth"
                             type="number"
+                            step="0.1"
+                            min="0"
                             value={geometry.ewHalfWidth}
                             onChange={(e) => handleGeometryChange('ewHalfWidth', parseFloat(e.target.value) || 0)}
                           />
+                          <p className="text-sm text-gray-600">Distance from valley centerline to building edge</p>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="valleyOffset">Valley Offset/Projection (ft)</Label>
+                          <Label htmlFor="valleyOffset">Valley Projection/Building Width (ft)</Label>
                           <Input
                             id="valleyOffset"
                             type="number"
+                            step="0.1"
+                            min="0"
                             value={geometry.valleyOffset}
                             onChange={(e) => handleGeometryChange('valleyOffset', parseFloat(e.target.value) || 0)}
                           />
+                          <p className="text-sm text-gray-600">Horizontal distance from valley to building exterior</p>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="valleyAngle">Valley Angle (degrees)</Label>
+                          <Label htmlFor="valleyAngle">Valley Dihedral Angle (degrees)</Label>
                           <Input
                             id="valleyAngle"
                             type="number"
+                            step="0.1"
+                            min="0"
+                            max="180"
                             value={geometry.valleyAngle}
                             onChange={(e) => handleGeometryChange('valleyAngle', parseFloat(e.target.value) || 0)}
                           />
+                          <p className="text-sm text-gray-600">Angle between roof planes at valley intersection</p>
                         </div>
                       </div>
 
                       <Alert>
                         <AlertTriangle className="h-4 w-4" />
-                        <AlertTitle>Valley Analysis</AlertTitle>
+                        <AlertTitle>Critical Valley Analysis</AlertTitle>
                         <AlertDescription>
-                          The calculator performs complete valley analysis including balanced loads, unbalanced loads,
-                          and drift surcharges according to ASCE 7-22 Section 7.7.
+                          Valley calculations are critical for structural design. This calculator performs complete
+                          ASCE 7-22 Section 7.7 analysis including balanced loads, unbalanced loads, and windward
+                          drift surcharges. Results determine beam sizing and connection requirements.
                         </AlertDescription>
                       </Alert>
                     </div>
@@ -226,23 +251,30 @@ function App() {
                   <TabsContent value="loads" className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-gray-900">Ground Snow Load</h3>
+                        <h3 className="text-lg font-semibold text-gray-900">Site-Specific Snow Load</h3>
                         <div className="space-y-2">
-                          <Label htmlFor="groundSnowLoad">Ground Snow Load (psf)</Label>
+                          <Label htmlFor="groundSnowLoad">Ground Snow Load, pg (psf) - ASCE 7-22 Section 7.2</Label>
                           <Input
                             id="groundSnowLoad"
                             type="number"
+                            step="0.1"
+                            min="0"
+                            max="200"
                             value={snowInputs.groundSnowLoad}
                             onChange={(e) => handleSnowInputChange('groundSnowLoad', parseFloat(e.target.value) || 0)}
                           />
-                          <p className="text-sm text-gray-600">From ASCE Hazard Tool/Geodatabase</p>
+                          <p className="text-sm text-gray-600">
+                            Obtain from ASCE 7 Hazard Tool at: https://asce7hazardtool.online/
+                            <br />
+                            Values range from 0 psf (no snow) to 200+ psf in severe climates
+                          </p>
                         </div>
                       </div>
 
                       <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-gray-900">Load Factors</h3>
                         <div className="space-y-2">
-                          <Label htmlFor="importanceFactor">Importance Factor (Is)</Label>
+                          <Label htmlFor="importanceFactor">Importance Factor (Is) - ASCE 7-22 Table 1.5-2</Label>
                           <Select
                             value={snowInputs.importanceFactor.toString()}
                             onValueChange={(value) => handleSnowInputChange('importanceFactor', parseFloat(value))}
@@ -251,14 +283,15 @@ function App() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="1.0">1.0 (Low Importance)</SelectItem>
-                              <SelectItem value="1.1">1.1 (Standard)</SelectItem>
-                              <SelectItem value="1.2">1.2 (High Importance)</SelectItem>
+                              <SelectItem value="1.0">1.0 - Agricultural, Minor Storage, etc.</SelectItem>
+                              <SelectItem value="1.1">1.1 - Standard Buildings (Risk Category II)</SelectItem>
+                              <SelectItem value="1.2">1.2 - Essential Facilities, High Occupancy</SelectItem>
                             </SelectContent>
                           </Select>
+                          <p className="text-sm text-gray-600">Risk Category II is most common for standard buildings</p>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="exposureFactor">Exposure Factor (Ce)</Label>
+                          <Label htmlFor="exposureFactor">Exposure Factor (Ce) - ASCE 7-22 Table 7.3-1</Label>
                           <Select
                             value={snowInputs.exposureFactor.toString()}
                             onValueChange={(value) => handleSnowInputChange('exposureFactor', parseFloat(value))}
@@ -267,11 +300,12 @@ function App() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="0.9">0.9 (Sheltered)</SelectItem>
-                              <SelectItem value="1.0">1.0 (Normal)</SelectItem>
-                              <SelectItem value="1.2">1.2 (Windy)</SelectItem>
+                              <SelectItem value="0.9">0.9 - Sheltered (Terrain Category B, fully exposed)</SelectItem>
+                              <SelectItem value="1.0">1.0 - Normal (Terrain Category C, suburban)</SelectItem>
+                              <SelectItem value="1.2">1.2 - Exposed (Terrain Category D, open areas)</SelectItem>
                             </SelectContent>
                           </Select>
+                          <p className="text-sm text-gray-600">Based on upwind terrain and exposure conditions</p>
                         </div>
                       </div>
                     </div>
@@ -282,7 +316,7 @@ function App() {
                       <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-gray-900">Thermal & Wind</h3>
                         <div className="space-y-2">
-                          <Label htmlFor="thermalFactor">Thermal Factor (Ct)</Label>
+                          <Label htmlFor="thermalFactor">Thermal Factor (Ct) - ASCE 7-22 Table 7.3-2</Label>
                           <Select
                             value={snowInputs.thermalFactor.toString()}
                             onValueChange={(value) => handleSnowInputChange('thermalFactor', parseFloat(value))}
@@ -291,31 +325,38 @@ function App() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="0.8">0.8 (Cold - All Ground Snow)</SelectItem>
-                              <SelectItem value="0.9">0.9 (Normal)</SelectItem>
-                              <SelectItem value="1.0">1.0 (Warm - All Rain)</SelectItem>
-                              <SelectItem value="1.1">1.1 (Intermediate)</SelectItem>
-                              <SelectItem value="1.2">1.2 (Cold)</SelectItem>
+                              <SelectItem value="0.8">0.8 - Freezer Buildings (≤0°F interior)</SelectItem>
+                              <SelectItem value="0.9">0.9 - Continuously Heated (55°F+ interior)</SelectItem>
+                              <SelectItem value="1.0">1.0 - Unheated (varies with climate)</SelectItem>
+                              <SelectItem value="1.1">1.1 - Heated with Cold Roof (Ct > 1.1)</SelectItem>
+                              <SelectItem value="1.2">1.2 - Cold Storage (0-55°F interior)</SelectItem>
                             </SelectContent>
                           </Select>
+                          <p className="text-sm text-gray-600">Based on roof surface temperature relative to air temperature</p>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="winterWindParameter">Winter Wind Parameter (Cw)</Label>
+                          <Label htmlFor="winterWindParameter">Winter Wind Parameter, Cw - ASCE 7-22 Figure 7.6-1</Label>
                           <Input
                             id="winterWindParameter"
                             type="number"
-                            step="0.1"
+                            step="0.01"
+                            min="0.25"
+                            max="0.65"
                             value={snowInputs.winterWindParameter}
                             onChange={(e) => handleSnowInputChange('winterWindParameter', parseFloat(e.target.value) || 0)}
                           />
-                          <p className="text-sm text-gray-600">From ASCE Hazard Tool (0.25-0.65)</p>
+                          <p className="text-sm text-gray-600">
+                            Percentage of time wind speed >10 mph during Oct-Apr
+                            <br />
+                            From ASCE Hazard Tool or local weather data (typically 0.25-0.65)
+                          </p>
                         </div>
                       </div>
 
                       <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-gray-900">Surface Conditions</h3>
                         <div className="space-y-2">
-                          <Label>Slope Factor Surface Type</Label>
+                          <Label>Slope Factor Surface Type - ASCE 7-22 Figure 7.4-1</Label>
                           <Select
                             value={snowInputs.isSlipperySurface ? "slippery" : "non-slippery"}
                             onValueChange={(value) => handleSnowInputChange('isSlipperySurface', value === "slippery")}
@@ -324,12 +365,12 @@ function App() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="non-slippery">Non-Slippery (Standard)</SelectItem>
-                              <SelectItem value="slippery">Slippery Surface</SelectItem>
+                              <SelectItem value="non-slippery">Non-Slippery - Standard roof surfaces</SelectItem>
+                              <SelectItem value="slippery">Slippery - Glass, metal, membranes with aggregate</SelectItem>
                             </SelectContent>
                           </Select>
                           <p className="text-sm text-gray-600">
-                            Affects Cs calculation per ASCE 7-22 Figure 7.4-1
+                            Determines slope factor (Cs) calculation method
                           </p>
                         </div>
                       </div>
@@ -353,34 +394,40 @@ function App() {
                     {includeBeamDesign && (
                       <>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-4">
-                            <h3 className="text-lg font-semibold text-gray-900">Beam Dimensions</h3>
-                            <div className="space-y-2">
-                              <Label htmlFor="beamWidth">Beam Width (inches)</Label>
-                              <Input
-                                id="beamWidth"
-                                type="number"
-                                step="0.125"
-                                value={beamInputs.beamWidth}
-                                onChange={(e) => handleBeamInputChange('beamWidth', parseFloat(e.target.value) || 0)}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="beamDepth">Beam Depth (inches)</Label>
-                              <Input
-                                id="beamDepth"
-                                type="number"
-                                step="0.125"
-                                value={beamInputs.beamDepth}
-                                onChange={(e) => handleBeamInputChange('beamDepth', parseFloat(e.target.value) || 0)}
-                              />
-                            </div>
+                        <div className="space-y-4">
+                          <h3 className="text-lg font-semibold text-gray-900">Beam Cross-Section</h3>
+                          <div className="space-y-2">
+                            <Label htmlFor="beamWidth">Beam Width (in) - Face dimension</Label>
+                            <Input
+                              id="beamWidth"
+                              type="number"
+                              step="0.125"
+                              min="1"
+                              max="24"
+                              value={beamInputs.beamWidth}
+                              onChange={(e) => handleBeamInputChange('beamWidth', parseFloat(e.target.value) || 0)}
+                            />
+                            <p className="text-sm text-gray-600">Width of beam face (load-bearing dimension)</p>
                           </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="beamDepth">Beam Depth (in) - Height dimension</Label>
+                            <Input
+                              id="beamDepth"
+                              type="number"
+                              step="0.125"
+                              min="1"
+                              max="48"
+                              value={beamInputs.beamDepth}
+                              onChange={(e) => handleBeamInputChange('beamDepth', parseFloat(e.target.value) || 0)}
+                            />
+                            <p className="text-sm text-gray-600">Height of beam (strong axis bending)</p>
+                          </div>
+                        </div>
 
                           <div className="space-y-4">
                             <h3 className="text-lg font-semibold text-gray-900">Material Properties</h3>
                             <div className="space-y-2">
-                              <Label htmlFor="materialType">Wood Species</Label>
+                              <Label htmlFor="materialType">Wood Species - NDS 2018 Allowable Stresses</Label>
                               <Select
                                 value={beamInputs.materialType}
                                 onValueChange={(value) => handleBeamInputChange('materialType', value)}
@@ -389,14 +436,15 @@ function App() {
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="Douglas Fir">Douglas Fir</SelectItem>
-                                  <SelectItem value="Southern Pine">Southern Pine</SelectItem>
-                                  <SelectItem value="Spruce-Pine-Fir">Spruce-Pine-Fir</SelectItem>
-                                  <SelectItem value="Hem-Fir">Hem-Fir</SelectItem>
-                                  <SelectItem value="Redwood">Redwood</SelectItem>
-                                  <SelectItem value="Cedar">Cedar</SelectItem>
+                                  <SelectItem value="Douglas Fir">Douglas Fir - High strength, Fb=2400 psi</SelectItem>
+                                  <SelectItem value="Southern Pine">Southern Pine - Strong, Fb=2000-2400 psi</SelectItem>
+                                  <SelectItem value="Spruce-Pine-Fir">Spruce-Pine-Fir - Versatile, Fb=1500-1900 psi</SelectItem>
+                                  <SelectItem value="Hem-Fir">Hem-Fir - Good strength/cost ratio</SelectItem>
+                                  <SelectItem value="Redwood">Redwood - Naturally decay resistant</SelectItem>
+                                  <SelectItem value="Cedar">Cedar - Light weight, naturally decay resistant</SelectItem>
                                 </SelectContent>
                               </Select>
+                              <p className="text-sm text-gray-600">Affects allowable bending stress (Fb) and shear stress (Fv)</p>
                             </div>
                             <div className="space-y-2">
                               <Label htmlFor="allowableFb">Allowable Bending Stress (psi)</Label>
@@ -413,58 +461,86 @@ function App() {
                         <Separator />
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-4">
-                            <h3 className="text-lg font-semibold text-gray-900">Design Criteria</h3>
-                            <div className="space-y-2">
-                              <Label htmlFor="allowableFv">Allowable Shear Stress (psi)</Label>
-                              <Input
-                                id="allowableFv"
-                                type="number"
-                                value={beamInputs.allowableFv}
-                                onChange={(e) => handleBeamInputChange('allowableFv', parseFloat(e.target.value) || 0)}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="modulusE">Modulus of Elasticity (psi)</Label>
-                              <Input
-                                id="modulusE"
-                                type="number"
-                                value={beamInputs.modulusE}
-                                onChange={(e) => handleBeamInputChange('modulusE', parseFloat(e.target.value) || 0)}
-                              />
-                            </div>
+                        <div className="space-y-4">
+                          <h3 className="text-lg font-semibold text-gray-900">Material Properties</h3>
+                          <div className="space-y-2">
+                            <Label htmlFor="allowableFb">Allowable Bending Stress, Fb (psi) - NDS 2018</Label>
+                            <Input
+                              id="allowableFb"
+                              type="number"
+                              min="1000"
+                              max="3000"
+                              value={beamInputs.allowableFb}
+                              onChange={(e) => handleBeamInputChange('allowableFb', parseFloat(e.target.value) || 0)}
+                            />
+                            <p className="text-sm text-gray-600">Bending stress capacity (depends on species & grade)</p>
                           </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="allowableFv">Allowable Shear Stress, Fv (psi) - NDS 2018</Label>
+                            <Input
+                              id="allowableFv"
+                              type="number"
+                              min="100"
+                              max="300"
+                              value={beamInputs.allowableFv}
+                              onChange={(e) => handleBeamInputChange('allowableFv', parseFloat(e.target.value) || 0)}
+                            />
+                            <p className="text-sm text-gray-600">Shear stress capacity parallel to grain</p>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="modulusE">Modulus of Elasticity, E (psi) - NDS 2018</Label>
+                            <Input
+                              id="modulusE"
+                              type="number"
+                              min="1000000"
+                              max="2000000"
+                              value={beamInputs.modulusE}
+                              onChange={(e) => handleBeamInputChange('modulusE', parseFloat(e.target.value) || 0)}
+                            />
+                            <p className="text-sm text-gray-600">Stiffness for deflection calculations</p>
+                          </div>
+                        </div>
 
-                          <div className="space-y-4">
-                            <h3 className="text-lg font-semibold text-gray-900">Deflection Limits</h3>
-                            <div className="space-y-2">
-                              <Label htmlFor="deflectionLimitSnow">Snow Load Deflection (L/n)</Label>
-                              <Input
-                                id="deflectionLimitSnow"
-                                type="number"
-                                value={beamInputs.deflectionLimitSnow}
-                                onChange={(e) => handleBeamInputChange('deflectionLimitSnow', parseFloat(e.target.value) || 0)}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="deflectionLimitTotal">Total Load Deflection (L/n)</Label>
-                              <Input
-                                id="deflectionLimitTotal"
-                                type="number"
-                                value={beamInputs.deflectionLimitTotal}
-                                onChange={(e) => handleBeamInputChange('deflectionLimitTotal', parseFloat(e.target.value) || 0)}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="roofDeadLoad">Roof Dead Load (psf)</Label>
-                              <Input
-                                id="roofDeadLoad"
-                                type="number"
-                                value={beamInputs.roofDeadLoad}
-                                onChange={(e) => handleBeamInputChange('roofDeadLoad', parseFloat(e.target.value) || 0)}
-                              />
-                            </div>
+                        <div className="space-y-4">
+                          <h3 className="text-lg font-semibold text-gray-900">Serviceability Criteria</h3>
+                          <div className="space-y-2">
+                            <Label htmlFor="deflectionLimitSnow">Snow Load Deflection Limit (L/n)</Label>
+                            <Input
+                              id="deflectionLimitSnow"
+                              type="number"
+                              min="180"
+                              max="360"
+                              value={beamInputs.deflectionLimitSnow}
+                              onChange={(e) => handleBeamInputChange('deflectionLimitSnow', parseFloat(e.target.value) || 0)}
+                            />
+                            <p className="text-sm text-gray-600">Typical: L/240 (snow) = 0.00417 × span</p>
                           </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="deflectionLimitTotal">Total Load Deflection Limit (L/n)</Label>
+                            <Input
+                              id="deflectionLimitTotal"
+                              type="number"
+                              min="240"
+                              max="480"
+                              value={beamInputs.deflectionLimitTotal}
+                              onChange={(e) => handleBeamInputChange('deflectionLimitTotal', parseFloat(e.target.value) || 0)}
+                            />
+                            <p className="text-sm text-gray-600">Typical: L/360 (total) = 0.00278 × span</p>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="roofDeadLoad">Roof Dead Load (psf)</Label>
+                            <Input
+                              id="roofDeadLoad"
+                              type="number"
+                              step="0.5"
+                              min="5"
+                              max="50"
+                              value={beamInputs.roofDeadLoad}
+                              onChange={(e) => handleBeamInputChange('roofDeadLoad', parseFloat(e.target.value) || 0)}
+                            />
+                            <p className="text-sm text-gray-600">Self-weight of roof system (typically 15-25 psf)</p>
+                          </div>
+                        </div>
                         </div>
                       </>
                     )}
