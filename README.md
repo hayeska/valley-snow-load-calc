@@ -31,6 +31,14 @@ This calculator implements the ASCE 7-22 Chapter 7 snow load provisions for vall
 - Detailed engineering output with intermediate values
 - Material properties database integration
 
+### Auto-Save & Crash Recovery
+- **Automatic backup every 2 minutes** or when data changes
+- **Crash detection** with `.crash` flag file
+- **Auto-save to `state.backup.json`** for immediate recovery
+- **Startup recovery** - automatically detects crashes and offers restoration
+- **Data preservation** - never lose work due to application crashes
+- **Multi-platform support** - works on Python GUI and TypeScript versions
+
 ## Installation
 
 ### Prerequisites
@@ -143,16 +151,15 @@ test: add tests
 chore: maintenance tasks
 ```
 
-## Data Backup System
+## Auto-Save Protocol
 
-The project includes automatic data backup protection:
+The Valley Snow Load Calculator includes a comprehensive auto-save system to prevent data loss:
 
-- **Pre-commit Hook**: Automatically backs up data files before each commit
-- **Backup Location**: `auto_backups/YYYY-MM-DD_HH-MM-SS/`
-- **Backed Up Files**:
-  - User preferences (`user_preferences.json`)
-  - SQLite databases (`*.db`, `*.sqlite`, `*.sqlite3`)
-  - Application data files
+### Automatic Features
+- **Real-time Auto-Save**: Saves current state every 2 minutes
+- **Change Detection**: Saves immediately when any input data changes
+- **Crash Detection**: Creates `.crash` flag file on startup, removes on normal exit
+- **Recovery System**: Automatically detects crashes and offers state restoration
 
 ### Manual Backup
 Run the backup script before making significant changes:
@@ -165,16 +172,40 @@ Run the backup script before making significant changes:
 .\backup_data.ps1 -BackupDir "my_backups"
 ```
 
-The script will:
-- Create timestamped backup folders in `auto_backups/`
-- Backup `user_preferences.json` and database files
-- Clean up old backups (keeps last 10)
-- Show progress and backup locations
+### Files and Locations
+#### Auto-Save Files
+- `state.backup.json` - Current application state (auto-saved)
+- `.crash` - Crash detection flag (removed on normal exit)
 
-### What Gets Backed Up
-- User preferences (`user_preferences.json`)
+#### Manual Backup Files
+- `auto_backups/YYYY-MM-DD_HH-MM-SS/` - Timestamped backup directories
+- `user_preferences.json` - User interface preferences
 - SQLite databases (`*.db`, `*.sqlite`, `*.sqlite3`)
 - TypeScript app database (`%APPDATA%\ValleySnowLoadCalc\valley_calc.db`)
+
+### Recovery Process
+1. **Crash Detection**: Application checks for `.crash` file on startup
+2. **Backup Verification**: Confirms `state.backup.json` exists and is valid
+3. **User Prompt**: Asks if user wants to restore auto-saved state
+4. **State Restoration**: Reloads all inputs, calculations, and results
+5. **Cleanup**: Removes crash flag and backup file on successful recovery
+
+### Technical Implementation
+- **Python Version**: Threading-based timer with Tkinter integration
+- **TypeScript Version**: Event-driven checkpoint system with file system monitoring
+- **Cross-Platform**: Works on Windows, macOS, and Linux
+- **Data Integrity**: JSON format with timestamp validation
+
+## Data Backup System
+
+The project includes additional data backup protection:
+
+- **Pre-commit Hook**: Automatically backs up data files before each commit
+- **Backup Location**: `auto_backups/YYYY-MM-DD_HH-MM-SS/`
+- **Backed Up Files**:
+  - User preferences (`user_preferences.json`)
+  - SQLite databases (`*.db`, `*.sqlite`, `*.sqlite3`)
+  - Application data files
 
 ## Testing
 

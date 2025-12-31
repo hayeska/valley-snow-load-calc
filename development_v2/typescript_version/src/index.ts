@@ -3,7 +3,7 @@
 import { ValleySnowLoadCalculator, createCalculator } from './core/calculator';
 import { getLogger } from './utils/logger';
 import { getDatabase } from './data/database';
-import { getCheckpointManager, shutdownCheckpointSystem } from './core/checkpointSystem';
+import { getCheckpointManager, shutdownCheckpointSystem, restoreFromBackupFile } from './core/checkpointSystem';
 import { ProjectData, RoofGeometry, SnowLoadInputs } from './types';
 
 const logger = getLogger();
@@ -11,6 +11,22 @@ const logger = getLogger();
 async function demonstrateResilientArchitecture(): Promise<void> {
   console.log('🚀 Starting Valley Snow Load Calculator - Comprehensive Error Handling Demo');
   console.log('=' .repeat(80));
+
+  // Demonstrate crash recovery
+  console.log('🔍 Checking for crash recovery...');
+  try {
+    const recoveredData = await restoreFromBackupFile();
+    if (recoveredData) {
+      console.log('✅ Crash recovery data found!');
+      console.log(`   Recovered project: ${recoveredData.name}`);
+      console.log(`   Last updated: ${recoveredData.updatedAt.toLocaleString()}`);
+      console.log('   💡 In a real application, you would be prompted to restore this data\n');
+    } else {
+      console.log('✅ No crash recovery needed - clean startup\n');
+    }
+  } catch (error) {
+    console.log('⚠️  Crash recovery check failed, continuing with normal startup\n');
+  }
 
   let calculator: ValleySnowLoadCalculator;
   let db: any;
@@ -360,7 +376,9 @@ async function demonstrateResilientArchitecture(): Promise<void> {
     console.log('Key Features Demonstrated:');
     console.log('• ✅ SQLite persistent storage with ACID transactions');
     console.log('• ✅ Winston logging with error tracking and performance monitoring');
-    console.log('• ✅ Automatic checkpoints every 5 minutes');
+    console.log('• ✅ Automatic checkpoints every 2 minutes');
+    console.log('• ✅ Crash detection with .crash flag file');
+    console.log('• ✅ Auto-save to state.backup.json on changes');
     console.log('• ✅ Data integrity verification with SHA256 checksums');
     console.log('• ✅ Idempotent operations with retry logic');
     console.log('• ✅ Graceful error handling and recovery');

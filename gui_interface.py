@@ -11,6 +11,9 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 import json
+import os
+import threading
+import time
 from datetime import datetime
 try:
     from reportlab.lib.pagesizes import letter, A4
@@ -387,6 +390,247 @@ Always verify member spanning conditions and consult licensed engineer"""
         plot_frame = ttk.LabelFrame(self.scrollable_frame, text="Shear & Moment Diagrams", padding=10)
         plot_frame.pack(pady=10, padx=20, fill=tk.X, expand=False)
         self.plot_frame = plot_frame
+
+        # Auto-save system initialization
+        self.auto_save_file = "state.backup.json"
+        self.crash_flag_file = ".crash"
+        self.auto_save_interval = 120000  # 2 minutes in milliseconds
+        self.last_save_time = datetime.now()
+        self.data_changed = False
+        self.auto_save_timer = None
+
+        # Check for crash recovery on startup
+        self.check_crash_recovery()
+
+        # Create crash flag to detect if app crashes
+        self.create_crash_flag()
+
+        # Start auto-save timer
+        self.start_auto_save_timer()
+
+        # Bind data change events to input fields
+        self.bind_data_change_events()
+
+        # Bind cleanup on window close
+        master.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+    def create_crash_flag(self):
+        """Create crash flag file to detect if application crashes."""
+        try:
+            with open(self.crash_flag_file, 'w') as f:
+                f.write(datetime.now().isoformat())
+        except Exception as e:
+            print(f"Warning: Could not create crash flag: {e}")
+
+    def remove_crash_flag(self):
+        """Remove crash flag file when application closes normally."""
+        try:
+            if os.path.exists(self.crash_flag_file):
+                os.remove(self.crash_flag_file)
+        except Exception as e:
+            print(f"Warning: Could not remove crash flag: {e}")
+
+    def check_crash_recovery(self):
+        """Check for crash flag and attempt recovery on startup."""
+        if os.path.exists(self.crash_flag_file) and os.path.exists(self.auto_save_file):
+            try:
+                # Read crash timestamp
+                with open(self.crash_flag_file, 'r') as f:
+                    crash_time = f.read().strip()
+
+                # Ask user if they want to recover
+                result = messagebox.askyesno(
+                    "Crash Detected",
+                    f"The application appears to have crashed on {crash_time}.\n"
+                    "Would you like to restore the auto-saved state?"
+                )
+
+                if result:
+                    self.restore_from_backup()
+                    messagebox.showinfo("Recovery Complete", "Application state has been restored from backup.")
+                else:
+                    # Remove backup file if user declines
+                    try:
+                        os.remove(self.auto_save_file)
+                    except:
+                        pass
+
+            except Exception as e:
+                print(f"Error during crash recovery: {e}")
+
+            # Remove crash flag after recovery attempt
+            self.remove_crash_flag()
+
+    def start_auto_save_timer(self):
+        """Start the auto-save timer."""
+        def auto_save_loop():
+            while True:
+                time.sleep(120)  # 2 minutes
+                # Use Tkinter's after method to run in main thread
+                if hasattr(self, 'master') and self.master:
+                    self.master.after(0, self.perform_auto_save)
+
+        # Start timer in background thread
+        timer_thread = threading.Thread(target=auto_save_loop, daemon=True)
+        timer_thread.start()
+
+    def perform_auto_save(self):
+        """Perform automatic save of current state."""
+        try:
+            if self.data_changed:
+                self.save_current_state()
+                self.data_changed = False
+                self.last_save_time = datetime.now()
+                print(f"Auto-saved at {self.last_save_time.strftime('%H:%M:%S')}")
+        except Exception as e:
+            print(f"Auto-save error: {e}")
+
+    def save_current_state(self):
+        """Save current application state to backup file."""
+        try:
+            # Gather all current input values (same as save_project but without file dialog)
+            project_data = {
+                "project_info": {
+                    "name": "ASCE 7-22 Valley Snow Load Analysis",
+                    "version": "1.0",
+                    "auto_saved": datetime.now().isoformat(),
+                    "description": "Auto-saved valley snow load calculation state"
+                },
+                "inputs": {
+                    "snow_load_parameters": {
+                        "pg": self.entries["pg"].get(),
+                        "w2": self.entries["w2"].get(),
+                        "ce": self.entries["ce"].get(),
+                        "ct": self.entries["ct"].get(),
+                        "is_factor": self.is_combobox.get()
+                    },
+                    "building_geometry": {
+                        "pitch_north": self.entries["pitch_north"].get(),
+                        "pitch_west": self.entries["pitch_west"].get(),
+                        "north_span": self.entries["north_span"].get(),
+                        "south_span": self.entries["south_span"].get(),
+                        "ew_half_width": self.entries["ew_half_width"].get(),
+                        "valley_offset": self.entries["valley_offset"].get(),
+                        "valley_angle": self.entries["valley_angle"].get(),
+                        "jack_spacing_inches": self.entries["jack_spacing_inches"].get()
+                    },
+                    "beam_design": {
+                        "material": self.material_combobox.get(),
+                        "beam_width": self.entries["beam_width"].get(),
+                        "beam_depth_trial": self.entries["beam_depth_trial"].get()
+                    }
+                },
+                "results": {
+                    "output_text": self.output_text.get(1.0, tk.END) if hasattr(self, 'output_text') else "",
+                    "summary_text": self.summary_label.get(1.0, tk.END) if hasattr(self, 'summary_label') else ""
+                }
+            }
+
+            with open(self.auto_save_file, 'w') as f:
+                json.dump(project_data, f, indent=2)
+
+        except Exception as e:
+            print(f"Error saving state: {e}")
+
+    def restore_from_backup(self):
+        """Restore application state from backup file."""
+        try:
+            if not os.path.exists(self.auto_save_file):
+                return
+
+            with open(self.auto_save_file, 'r') as f:
+                backup_data = json.load(f)
+
+            # Restore inputs (same logic as load_project)
+            inputs = backup_data.get("inputs", {})
+
+            # Snow load parameters
+            snow_params = inputs.get("snow_load_parameters", {})
+            self.entries["pg"].delete(0, tk.END)
+            self.entries["pg"].insert(0, snow_params.get("pg", "50"))
+            self.entries["w2"].delete(0, tk.END)
+            self.entries["w2"].insert(0, snow_params.get("w2", "0.55"))
+            self.entries["ce"].delete(0, tk.END)
+            self.entries["ce"].insert(0, snow_params.get("ce", "1.0"))
+            self.entries["ct"].delete(0, tk.END)
+            self.entries["ct"].insert(0, snow_params.get("ct", "1.2"))
+            self.is_combobox.set(snow_params.get("is_factor", "1.0 - Risk Cat II (default)"))
+
+            # Building geometry
+            geom_params = inputs.get("building_geometry", {})
+            self.entries["pitch_north"].delete(0, tk.END)
+            self.entries["pitch_north"].insert(0, geom_params.get("pitch_north", "8"))
+            self.entries["pitch_west"].delete(0, tk.END)
+            self.entries["pitch_west"].insert(0, geom_params.get("pitch_west", "8"))
+            self.entries["north_span"].delete(0, tk.END)
+            self.entries["north_span"].insert(0, geom_params.get("north_span", "16"))
+            self.entries["south_span"].delete(0, tk.END)
+            self.entries["south_span"].insert(0, geom_params.get("south_span", "16"))
+            self.entries["ew_half_width"].delete(0, tk.END)
+            self.entries["ew_half_width"].insert(0, geom_params.get("ew_half_width", "42"))
+            self.entries["valley_offset"].delete(0, tk.END)
+            self.entries["valley_offset"].insert(0, geom_params.get("valley_offset", "16"))
+            self.entries["valley_angle"].delete(0, tk.END)
+            self.entries["valley_angle"].insert(0, geom_params.get("valley_angle", "90"))
+            self.entries["jack_spacing_inches"].delete(0, tk.END)
+            self.entries["jack_spacing_inches"].insert(0, geom_params.get("jack_spacing_inches", "24"))
+
+            # Beam design
+            beam_params = inputs.get("beam_design", {})
+            self.material_combobox.set(beam_params.get("material", "Southern Pine No. 2"))
+            self.entries["beam_width"].delete(0, tk.END)
+            self.entries["beam_width"].insert(0, beam_params.get("beam_width", "1.5"))
+            self.entries["beam_depth_trial"].delete(0, tk.END)
+            self.entries["beam_depth_trial"].insert(0, beam_params.get("beam_depth_trial", "9.25"))
+
+            # Restore results if available
+            results = backup_data.get("results", {})
+            if results.get("output_text") and hasattr(self, 'output_text'):
+                self.output_text.delete(1.0, tk.END)
+                self.output_text.insert(1.0, results["output_text"])
+            if results.get("summary_text") and hasattr(self, 'summary_label'):
+                self.summary_label.config(state="normal")
+                self.summary_label.delete(1.0, tk.END)
+                self.summary_label.insert(1.0, results["summary_text"])
+                self.summary_label.config(state="disabled")
+
+            # Mark as unchanged after restore
+            self.data_changed = False
+
+        except Exception as e:
+            messagebox.showerror("Restore Error", f"Failed to restore from backup: {str(e)}")
+
+    def bind_data_change_events(self):
+        """Bind events to detect data changes in input fields."""
+        # Bind to entry fields
+        for key, entry in self.entries.items():
+            entry.bind('<KeyRelease>', self.on_data_changed)
+            entry.bind('<FocusOut>', self.on_data_changed)
+
+        # Bind to comboboxes
+        if hasattr(self, 'is_combobox'):
+            self.is_combobox.bind('<<ComboboxSelected>>', self.on_data_changed)
+        if hasattr(self, 'material_combobox'):
+            self.material_combobox.bind('<<ComboboxSelected>>', self.on_data_changed)
+
+    def on_data_changed(self, event=None):
+        """Called when any input data changes."""
+        self.data_changed = True
+
+    def on_closing(self):
+        """Handle application closing - cleanup auto-save files."""
+        # Remove crash flag since we're closing normally
+        self.remove_crash_flag()
+
+        # Remove auto-save file on normal exit
+        try:
+            if os.path.exists(self.auto_save_file):
+                os.remove(self.auto_save_file)
+        except Exception as e:
+            print(f"Warning: Could not remove auto-save file: {e}")
+
+        # Close the application
+        self.master.quit()
 
     def initialize_output_text(self):
         """Initialize the output text area with ASCE 7-22 Section 7.6.1 information."""
