@@ -23,10 +23,10 @@ function App() {
   const [geometry, setGeometry] = useState<RoofGeometry>({
     northPitch: 8,
     westPitch: 10,
-    northSpan: 20,
-    southSpan: 17,
-    ewHalfWidth: 45,
-    valleyOffset: 15,
+    northSpan: 16.0,
+    southSpan: 16.0,
+    ewHalfWidth: 42.2,
+    valleyOffset: 16.0,
     valleyAngle: 90,
   })
 
