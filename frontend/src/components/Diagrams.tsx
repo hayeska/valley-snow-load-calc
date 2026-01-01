@@ -29,26 +29,6 @@ export const Diagrams: React.FC<DiagramsProps> = ({
   const [selectedDiagram, setSelectedDiagram] = useState<'roof' | 'loads' | 'beam'>('roof');
   const stageRef = useRef<any>(null);
 
-  // Geometry calculation methods (ported from development_v2)
-  const calculateValleyGeometry = (geometry: RoofGeometry): any => {
-    const lv = Math.sqrt(geometry.southSpan**2 + geometry.valleyOffset**2);
-    const valleyAngle = geometry.valleyOffset > 0
-      ? (Math.atan(geometry.southSpan / geometry.valleyOffset) * 180) / Math.PI
-      : 90.0;
-    const buildingWidth = 2 * geometry.ewHalfWidth;
-    const buildingLength = geometry.northSpan + geometry.southSpan;
-
-    return {
-      valleyLengthHorizontal: lv,
-      valleyAngleDegrees: valleyAngle,
-      buildingWidth,
-      buildingLength,
-      northSpan: geometry.northSpan,
-      southSpan: geometry.southSpan,
-      ewHalfWidth: geometry.ewHalfWidth,
-      valleyOffset: geometry.valleyOffset,
-    };
-  };
 
   const handleWheel = (e: any) => {
     e.evt.preventDefault();
@@ -82,12 +62,7 @@ export const Diagrams: React.FC<DiagramsProps> = ({
     const nsRidgeX = centerX; // Vertical N-S ridge through center
 
     // Valley geometry using proper calculations
-    const valleyGeometry = calculateValleyGeometry(geometry);
     const valleyOffset = geometry.valleyOffset * scale;
-
-    // Valley low point - offset from N-S ridge
-    const valleyLowX = nsRidgeX + valleyOffset;
-    const valleyLowY = ewRidgeY + (buildingBottom - ewRidgeY) * 0.6;
 
     return (
       <Group>
@@ -126,33 +101,39 @@ export const Diagrams: React.FC<DiagramsProps> = ({
           strokeWidth={2}
         />
 
-        {/* Valley Lines (converging to valley low point offset from N-S ridge) */}
-        {/* Southeast valley line (from ridge intersection to valley low point) */}
+        {/* Valley Lines (from ridge intersection to southern eave, spanning valley offset × 2) */}
+        {/* Right valley line (to right valley low point at southern eave) */}
         <Line
           points={[
             nsRidgeX, ewRidgeY,
-            valleyLowX, valleyLowY
+            nsRidgeX + geometry.valleyOffset * scale, buildingBottom
           ]}
           stroke="#ef4444"
           strokeWidth={2}
           dash={[8, 4]}
         />
 
-        {/* Southwest valley line (from ridge intersection to valley low point) */}
+        {/* Left valley line (to left valley low point at southern eave) */}
         <Line
           points={[
             nsRidgeX, ewRidgeY,
-            nsRidgeX - (valleyLowX - nsRidgeX), valleyLowY
+            nsRidgeX - geometry.valleyOffset * scale, buildingBottom
           ]}
           stroke="#ef4444"
           strokeWidth={2}
           dash={[8, 4]}
         />
 
-        {/* Valley low point marker */}
+        {/* Valley low point markers at southern eave */}
         <Circle
-          x={valleyLowX}
-          y={valleyLowY}
+          x={nsRidgeX + geometry.valleyOffset * scale}
+          y={buildingBottom}
+          radius={4}
+          fill="#ef4444"
+        />
+        <Circle
+          x={nsRidgeX - geometry.valleyOffset * scale}
+          y={buildingBottom}
           radius={4}
           fill="#ef4444"
         />
@@ -218,11 +199,11 @@ export const Diagrams: React.FC<DiagramsProps> = ({
           fill="#000000"
         />
 
-        {/* lv = valley length along valley line - positioned near valley low point */}
+        {/* lv = valley span (valley offset × 2) - positioned near right valley low point */}
         <Text
-          x={valleyLowX + 10}
-          y={valleyLowY + 5}
-          text={`lv = ${valleyGeometry.valleyLengthHorizontal.toFixed(1)} ft`}
+          x={nsRidgeX + geometry.valleyOffset * scale + 10}
+          y={buildingBottom + 5}
+          text={`lv = ${(geometry.valleyOffset * 2).toFixed(1)} ft`}
           fontSize={11}
           fill="#ef4444"
           fontStyle="bold"
