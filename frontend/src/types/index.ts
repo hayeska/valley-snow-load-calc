@@ -124,6 +124,26 @@ export interface CalculationResults {
     westTributaryAreaSqft: number;
     totalTributaryAreaSqft: number;
   }>;
+  comprehensiveDrifts?: {
+    northDrift: {
+      hd_ft: number;
+      pd_max_psf: number;
+      drift_width_ft: number;
+      gamma: number;
+    };
+    westDrift: {
+      hd_ft: number;
+      pd_max_psf: number;
+      drift_width_ft: number;
+      gamma: number;
+    };
+    valleyDrift: {
+      hd_ft: number;
+      pd_max_psf: number;
+      leeSide: number;
+      windwardSide: number;
+    };
+  };
 
   // Beam design and diagrams
   beamDesign?: BeamDesignResults;

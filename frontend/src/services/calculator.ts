@@ -43,7 +43,6 @@ export class ValleySnowCalculator {
     const is_factor = inputs.importanceFactor;
     const ce = inputs.exposureFactor;
     const ct = inputs.thermalFactor;
-    const cw = inputs.winterWindParameter;
 
     // Flat roof snow load (pf) - ASCE 7-22 Equation 7.3-1
     const pf = 0.7 * ce * ct * is_factor * pg;
@@ -100,12 +99,23 @@ export class ValleySnowCalculator {
       2 * governing_roof_load * (northArea / totalArea);
     const westUnbalancedLoad = 2 * governing_roof_load * (westArea / totalArea);
 
-    // Drift loads based on ASCE 7-22 Section 7.7
-    const driftLoads = this.calculateDriftLoads(
+    // Comprehensive drift loads with all factors
+    const comprehensiveDrifts = this.calculateComprehensiveDriftLoads(
+      inputs,
       geometry,
-      governing_roof_load,
-      cw,
+      slopeParams,
+      unbalancedCheck,
     );
+
+    // Simplified drift loads for backward compatibility
+    const driftLoads = {
+      leeSide: Math.max(
+        comprehensiveDrifts.northDrift.pd_max_psf,
+        comprehensiveDrifts.westDrift.pd_max_psf,
+        comprehensiveDrifts.valleyDrift.leeSide,
+      ),
+      windwardSide: 0,
+    };
 
     // Valley loads (governing combination)
     const valleyLoads = this.calculateValleyLoads(
@@ -143,6 +153,7 @@ export class ValleySnowCalculator {
       valleyGeometry,
       jackRafters: jackPositions,
       tributaryAreas,
+      comprehensiveDrifts,
 
       // Metadata
       status: "analysis_complete",
@@ -349,20 +360,132 @@ export class ValleySnowCalculator {
     return tributaryData;
   }
 
-  private calculateDriftLoads(
+  private calculateComprehensiveDriftLoads(
+    inputs: SnowLoadInputs,
     geometry: RoofGeometry,
-    ps: number,
-    cw: number,
-  ): { leeSide: number; windwardSide: number } {
-    // ASCE 7-22 Section 7.7 - Drift loads
-    const hd = geometry.valleyOffset; // Drift height
+    slopeParams: any,
+    unbalancedCheck: any,
+  ): {
+    northDrift: any;
+    westDrift: any;
+    valleyDrift: any;
+  } {
+    // Comprehensive drift calculations from development_v2
+    const pg = inputs.groundSnowLoad;
+    const ce = inputs.exposureFactor;
+    const ct = inputs.thermalFactor;
+    const is_factor = inputs.importanceFactor;
+    const cw = inputs.winterWindParameter;
 
-    // Drift surcharge (pd)
-    const pd = 0.5 * ps * cw * Math.min(hd / 8, 1);
+    // Calculate slope factors
+    const cs_n = this.calculateSlopeFactor(geometry, ct, false, false); // North roof
+    const cs_w = this.calculateSlopeFactor(geometry, ct, false, false); // West roof (simplified)
+
+    // Flat roof snow load
+    const pf = 0.7 * ce * ct * is_factor * pg;
+
+    // Balanced loads
+    const ps_n = pf * cs_n;
+    const ps_w = pf * cs_w;
+
+    // Check narrow roof conditions
+    const narrowRoofN = geometry.northSpan <= 20.0;
+    const narrowRoofW = geometry.ewHalfWidth * 2 <= 20.0;
+
+    // Initialize results
+    let resultNorth = { hd_ft: 0, drift_width_ft: 0, pd_max_psf: 0, gamma: 0 };
+    let resultWest = { hd_ft: 0, drift_width_ft: 0, pd_max_psf: 0, gamma: 0 };
+
+    // Calculate north roof gable drift if applicable
+    if (unbalancedCheck.northUnbalanced && !narrowRoofN) {
+      resultNorth = this.calculateGableDrift(
+        pg,
+        geometry.northSpan,
+        cw,
+        ce,
+        ct,
+        cs_n,
+        is_factor,
+        slopeParams.slopeRatioN,
+        slopeParams.runPerRiseN,
+      );
+    }
+
+    // Calculate west roof gable drift if applicable
+    if (unbalancedCheck.westUnbalanced && !narrowRoofW) {
+      resultWest = this.calculateGableDrift(
+        pg,
+        geometry.ewHalfWidth * 2,
+        cw,
+        ce,
+        ct,
+        cs_w,
+        is_factor,
+        slopeParams.slopeRatioW,
+        slopeParams.runPerRiseW,
+      );
+    }
+
+    // Valley drift (simplified - intersecting roofs)
+    const valleyDrift = this.calculateValleyDrift(
+      pg,
+      ps_n,
+      ps_w,
+      geometry.valleyOffset,
+    );
 
     return {
+      northDrift: resultNorth,
+      westDrift: resultWest,
+      valleyDrift,
+    };
+  }
+
+  private calculateGableDrift(
+    pg: number,
+    lu: number,
+    w2: number,
+    _ce: number,
+    _ct: number,
+    _cs: number,
+    _is_factor: number,
+    _s: number,
+    S: number,
+  ): any {
+    // Gable drift calculation from development_v2/snow_loads.py
+    // Parameters prefixed with _ are for API compatibility but not used in simplified calc
+    const gamma = Math.min(0.13 * pg + 14, 30);
+    const hd =
+      1.5 *
+      Math.sqrt(
+        (Math.pow(pg, 0.74) * Math.pow(lu, 0.7) * Math.pow(w2, 1.7)) / gamma,
+      );
+    const pd = (hd * gamma) / Math.sqrt(S);
+    const w = (8 * hd * Math.sqrt(S)) / 3;
+
+    return {
+      hd_ft: hd,
+      pd_max_psf: pd,
+      drift_width_ft: w,
+      gamma: gamma,
+    };
+  }
+
+  private calculateValleyDrift(
+    _pg: number,
+    ps_n: number,
+    ps_w: number,
+    valleyOffset: number,
+  ): any {
+    // Valley drift for intersecting roofs (simplified from original)
+    const hd = valleyOffset;
+    const pd = 0.5 * Math.max(ps_n, ps_w) * Math.min(hd / 8, 1);
+
+    return {
+      hd_ft: hd,
+      pd_max_psf: pd,
       leeSide: pd,
-      windwardSide: 0, // Windward side typically has no drift surcharge
+      windwardSide: 0,
     };
   }
 
