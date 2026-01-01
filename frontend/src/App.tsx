@@ -614,7 +614,8 @@ function App() {
                       <TabsTrigger value="diagrams">Diagrams</TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="summary" className="space-y-4">
+                    <TabsContent value="summary" className="space-y-6">
+                      {/* Primary Results */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="bg-blue-50 p-4 rounded-lg">
                           <div className="text-2xl font-bold text-blue-600">
@@ -624,9 +625,9 @@ function App() {
                         </div>
                         <div className="bg-green-50 p-4 rounded-lg">
                           <div className="text-2xl font-bold text-green-600">
-                            {results.lv.toFixed(2)}
+                            {results.ps.toFixed(1)}
                           </div>
-                          <div className="text-sm text-green-700">Valley Length (ft)</div>
+                          <div className="text-sm text-green-700">Sloped Roof Snow Load ps (psf)</div>
                         </div>
                         <div className="bg-orange-50 p-4 rounded-lg">
                           <div className="text-2xl font-bold text-orange-600">
@@ -636,9 +637,79 @@ function App() {
                         </div>
                         <div className="bg-purple-50 p-4 rounded-lg">
                           <div className="text-2xl font-bold text-purple-600">
-                            {results.valleyLoads.verticalLoad.toFixed(1)}
+                            {results.lv.toFixed(2)}
                           </div>
-                          <div className="text-sm text-purple-700">Valley Load (psf)</div>
+                          <div className="text-sm text-purple-700">Valley Length (ft)</div>
+                        </div>
+                      </div>
+
+                      {/* Load Analysis Summary */}
+                      <div className="bg-gray-50 p-6 rounded-lg">
+                        <h3 className="text-lg font-semibold mb-4 text-gray-900">Load Analysis Summary</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <div className="bg-white p-3 rounded border">
+                            <div className="text-lg font-semibold text-gray-900">
+                              {results.balancedLoads.northRoof.toFixed(1)} / {results.balancedLoads.westRoof.toFixed(1)}
+                            </div>
+                            <div className="text-xs text-gray-600">Balanced Loads (psf) N/W</div>
+                          </div>
+                          <div className="bg-white p-3 rounded border">
+                            <div className="text-lg font-semibold text-gray-900">
+                              {results.unbalancedLoads.northRoof.toFixed(1)} / {results.unbalancedLoads.westRoof.toFixed(1)}
+                            </div>
+                            <div className="text-xs text-gray-600">Unbalanced Loads (psf) N/W</div>
+                          </div>
+                          <div className="bg-white p-3 rounded border">
+                            <div className="text-lg font-semibold text-gray-900">
+                              {results.driftLoads.leeSide.toFixed(1)} / {results.driftLoads.windwardSide.toFixed(1)}
+                            </div>
+                            <div className="text-xs text-gray-600">Drift Loads (psf) Lee/Wind</div>
+                          </div>
+                          <div className="bg-white p-3 rounded border">
+                            <div className="text-lg font-semibold text-red-600">
+                              {results.valleyLoads.verticalLoad.toFixed(1)}
+                            </div>
+                            <div className="text-xs text-gray-600">Valley Load (psf)</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Geometry Summary */}
+                      <div className="bg-blue-50 p-6 rounded-lg">
+                        <h3 className="text-lg font-semibold mb-4 text-blue-900">Roof Geometry Summary</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="bg-white p-3 rounded border">
+                            <div className="text-lg font-semibold text-gray-900">
+                              {geometry.northSpan}' × {geometry.southSpan}'
+                            </div>
+                            <div className="text-xs text-gray-600">Roof Spans (North × South)</div>
+                          </div>
+                          <div className="bg-white p-3 rounded border">
+                            <div className="text-lg font-semibold text-gray-900">
+                              {geometry.ewHalfWidth * 2}'
+                            </div>
+                            <div className="text-xs text-gray-600">Building Width</div>
+                          </div>
+                          <div className="bg-white p-3 rounded border">
+                            <div className="text-lg font-semibold text-gray-900">
+                              ±{geometry.valleyOffset}'
+                            </div>
+                            <div className="text-xs text-gray-600">Valley Offset</div>
+                          </div>
+                        </div>
+                        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="bg-white p-3 rounded border">
+                            <div className="text-sm font-semibold text-gray-900">
+                              North: {geometry.northPitch}° | West: {geometry.westPitch}°
+                            </div>
+                            <div className="text-xs text-gray-600">Roof Pitches</div>
+                          </div>
+                          <div className="bg-white p-3 rounded border">
+                            <div className="text-sm font-semibold text-gray-900">
+                              Total Area: {((geometry.northSpan + geometry.southSpan) * geometry.ewHalfWidth * 2).toFixed(0)} ft²
+                            </div>
+                            <div className="text-xs text-gray-600">Roof Plan Area</div>
+                          </div>
                         </div>
                       </div>
                       <Alert>
