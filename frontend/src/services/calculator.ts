@@ -68,8 +68,9 @@ export class ValleySnowCalculator {
     // Determine governing roof snow load
     const governing_roof_load = low_slope ? Math.max(ps, pm) : ps;
 
-    // Valley geometry - calculate horizontal valley length
-    const lv = this.calculateValleyLength(geometry);
+    // Valley geometry - calculate complete geometry parameters
+    const valleyGeometry = this.calculateValleyGeometry(geometry);
+    const lv = valleyGeometry.valleyLengthHorizontal;
 
     // Calculate tributary areas
     const northArea = geometry.northSpan * geometry.ewHalfWidth * 2;
@@ -170,16 +171,31 @@ export class ValleySnowCalculator {
     }
   }
 
-  private calculateValleyLength(geometry: RoofGeometry): number {
-    // Valley geometry calculation - horizontal valley length using proper geometry
-    // From geometry.py: valley_horizontal_length function
-    const angle_rad = (geometry.valleyAngle * Math.PI) / 180;
-    const lv = Math.sqrt(
-      geometry.northSpan ** 2 +
-        geometry.southSpan ** 2 -
-        2 * geometry.northSpan * geometry.southSpan * Math.cos(angle_rad),
-    );
-    return Math.round(lv * 100) / 100; // Round to 2 decimal places
+  private calculateValleyGeometry(geometry: RoofGeometry): any {
+    // Complete valley geometry calculation from development_v2 implementation
+    const lv = Math.sqrt(geometry.southSpan ** 2 + geometry.valleyOffset ** 2);
+
+    // Calculate valley angle from horizontal (convert radians to degrees)
+    const valleyAngle =
+      geometry.valleyOffset > 0
+        ? (Math.atan(geometry.southSpan / geometry.valleyOffset) * 180) /
+          Math.PI
+        : 90.0;
+
+    // Calculate building dimensions
+    const buildingWidth = 2 * geometry.ewHalfWidth;
+    const buildingLength = geometry.northSpan + geometry.southSpan;
+
+    return {
+      valleyLengthHorizontal: lv,
+      valleyAngleDegrees: valleyAngle,
+      buildingWidth,
+      buildingLength,
+      northSpan: geometry.northSpan,
+      southSpan: geometry.southSpan,
+      ewHalfWidth: geometry.ewHalfWidth,
+      valleyOffset: geometry.valleyOffset,
+    };
   }
 
   private calculateDriftLoads(

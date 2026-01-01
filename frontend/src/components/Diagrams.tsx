@@ -29,6 +29,27 @@ export const Diagrams: React.FC<DiagramsProps> = ({
   const [selectedDiagram, setSelectedDiagram] = useState<'roof' | 'loads' | 'beam'>('roof');
   const stageRef = useRef<any>(null);
 
+  // Geometry calculation methods (ported from development_v2)
+  const calculateValleyGeometry = (geometry: RoofGeometry): any => {
+    const lv = Math.sqrt(geometry.southSpan**2 + geometry.valleyOffset**2);
+    const valleyAngle = geometry.valleyOffset > 0
+      ? (Math.atan(geometry.southSpan / geometry.valleyOffset) * 180) / Math.PI
+      : 90.0;
+    const buildingWidth = 2 * geometry.ewHalfWidth;
+    const buildingLength = geometry.northSpan + geometry.southSpan;
+
+    return {
+      valleyLengthHorizontal: lv,
+      valleyAngleDegrees: valleyAngle,
+      buildingWidth,
+      buildingLength,
+      northSpan: geometry.northSpan,
+      southSpan: geometry.southSpan,
+      ewHalfWidth: geometry.ewHalfWidth,
+      valleyOffset: geometry.valleyOffset,
+    };
+  };
+
   const handleWheel = (e: any) => {
     e.evt.preventDefault();
     const scaleBy = 1.1;
@@ -60,8 +81,8 @@ export const Diagrams: React.FC<DiagramsProps> = ({
     const ewRidgeY = centerY; // Horizontal E-W ridge through center
     const nsRidgeX = centerX; // Vertical N-S ridge through center
 
-    // Valley lines - converging to low point
-    // Valley offset creates the convergence point
+    // Valley geometry using proper calculations
+    const valleyGeometry = calculateValleyGeometry(geometry);
     const valleyOffset = geometry.valleyOffset * scale;
     const valleyLowX = centerX + valleyOffset;
     const valleyLowY = centerY;
@@ -198,11 +219,11 @@ export const Diagrams: React.FC<DiagramsProps> = ({
           fill="#000000"
         />
 
-        {/* lv = 22.6 ft along valley line */}
+        {/* lv = valley length along valley line */}
         <Text
           x={valleyLowX + 10}
           y={valleyLowY + 5}
-          text={`lv = ${results.lv.toFixed(1)} ft`}
+          text={`lv = ${valleyGeometry.valleyLengthHorizontal.toFixed(1)} ft`}
           fontSize={11}
           fill="#ef4444"
           fontStyle="bold"
