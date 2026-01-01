@@ -277,36 +277,40 @@ function App() {
                         <h3 className="text-lg font-semibold text-gray-900">Load Factors</h3>
                         <div className="space-y-2">
                           <Label htmlFor="importanceFactor">Importance Factor (Is) - ASCE 7-22 Table 1.5-2</Label>
-                          <Select
-                            value={snowInputs.importanceFactor.toString()}
-                            onValueChange={(value) => handleSnowInputChange('importanceFactor', parseFloat(value))}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="1.0">1.0 - Agricultural, Minor Storage, etc.</SelectItem>
-                              <SelectItem value="1.1">1.1 - Standard Buildings (Risk Category II)</SelectItem>
-                              <SelectItem value="1.2">1.2 - Essential Facilities, High Occupancy</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="w-full max-w-md">
+                            <Select
+                              value={snowInputs.importanceFactor.toString()}
+                              onValueChange={(value) => handleSnowInputChange('importanceFactor', parseFloat(value))}
+                            >
+                              <SelectTrigger className="w-full justify-between">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="1.0">1.0 - Agricultural, Minor Storage, etc.</SelectItem>
+                                <SelectItem value="1.1">1.1 - Standard Buildings (Risk Category II)</SelectItem>
+                                <SelectItem value="1.2">1.2 - Essential Facilities, High Occupancy</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                           <p className="text-sm text-gray-600">Risk Category II is most common for standard buildings</p>
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="exposureFactor">Exposure Factor (Ce) - ASCE 7-22 Table 7.3-1</Label>
-                          <Select
-                            value={snowInputs.exposureFactor.toString()}
-                            onValueChange={(value) => handleSnowInputChange('exposureFactor', parseFloat(value))}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="0.9">0.9 - Sheltered (Terrain Category B, fully exposed)</SelectItem>
-                              <SelectItem value="1.0">1.0 - Normal (Terrain Category C, suburban)</SelectItem>
-                              <SelectItem value="1.2">1.2 - Exposed (Terrain Category D, open areas)</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="w-full max-w-md">
+                            <Select
+                              value={snowInputs.exposureFactor.toString()}
+                              onValueChange={(value) => handleSnowInputChange('exposureFactor', parseFloat(value))}
+                            >
+                              <SelectTrigger className="w-full justify-between">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="0.9">0.9 - Sheltered (Terrain Category B, fully exposed)</SelectItem>
+                                <SelectItem value="1.0">1.0 - Normal (Terrain Category C, suburban)</SelectItem>
+                                <SelectItem value="1.2">1.2 - Exposed (Terrain Category D, open areas)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                           <p className="text-sm text-gray-600">Based on upwind terrain and exposure conditions</p>
                         </div>
                       </div>
@@ -319,21 +323,23 @@ function App() {
                         <h3 className="text-lg font-semibold text-gray-900">Thermal & Wind</h3>
                         <div className="space-y-2">
                           <Label htmlFor="thermalFactor">Thermal Factor (Ct) - ASCE 7-22 Table 7.3-2</Label>
-                          <Select
-                            value={snowInputs.thermalFactor.toString()}
-                            onValueChange={(value) => handleSnowInputChange('thermalFactor', parseFloat(value))}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="0.8">0.8 - Freezer Buildings (≤0°F interior)</SelectItem>
-                              <SelectItem value="0.9">0.9 - Continuously Heated (55°F+ interior)</SelectItem>
-                              <SelectItem value="1.0">1.0 - Unheated (varies with climate)</SelectItem>
-                              <SelectItem value="1.1">1.1 - Heated with Cold Roof (Ct &gt; 1.1)</SelectItem>
-                              <SelectItem value="1.2">1.2 - Cold Storage (0-55°F interior)</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="w-full max-w-md">
+                            <Select
+                              value={snowInputs.thermalFactor.toString()}
+                              onValueChange={(value) => handleSnowInputChange('thermalFactor', parseFloat(value))}
+                            >
+                              <SelectTrigger className="w-full justify-between">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="0.8">0.8 - Freezer Buildings (≤0°F interior)</SelectItem>
+                                <SelectItem value="0.9">0.9 - Continuously Heated (55°F+ interior)</SelectItem>
+                                <SelectItem value="1.0">1.0 - Unheated (varies with climate)</SelectItem>
+                                <SelectItem value="1.1">1.1 - Heated with Cold Roof (Ct &gt; 1.1)</SelectItem>
+                                <SelectItem value="1.2">1.2 - Cold Storage (0-55°F interior)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                           <p className="text-sm text-gray-600">Based on roof surface temperature relative to air temperature</p>
                         </div>
                         <div className="space-y-2">
@@ -359,18 +365,20 @@ function App() {
                         <h3 className="text-lg font-semibold text-gray-900">Surface Conditions</h3>
                         <div className="space-y-2">
                           <Label>Slope Factor Surface Type - ASCE 7-22 Figure 7.4-1</Label>
-                          <Select
-                            value={snowInputs.isSlipperySurface ? "slippery" : "non-slippery"}
-                            onValueChange={(value) => handleSnowInputChange('isSlipperySurface', value === "slippery")}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="non-slippery">Non-Slippery - Standard roof surfaces</SelectItem>
-                              <SelectItem value="slippery">Slippery - Glass, metal, membranes with aggregate</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="w-full max-w-md">
+                            <Select
+                              value={snowInputs.isSlipperySurface ? "slippery" : "non-slippery"}
+                              onValueChange={(value) => handleSnowInputChange('isSlipperySurface', value === "slippery")}
+                            >
+                              <SelectTrigger className="w-full justify-between">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="non-slippery">Non-Slippery - Standard roof surfaces</SelectItem>
+                                <SelectItem value="slippery">Slippery - Glass, metal, membranes with aggregate</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                           <p className="text-sm text-gray-600">
                             Determines slope factor (Cs) calculation method
                           </p>
@@ -430,22 +438,24 @@ function App() {
                             <h3 className="text-lg font-semibold text-gray-900">Material Properties</h3>
                             <div className="space-y-2">
                               <Label htmlFor="materialType">Wood Species - NDS 2018 Allowable Stresses</Label>
-                              <Select
-                                value={beamInputs.materialType}
-                                onValueChange={(value) => handleBeamInputChange('materialType', value)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="Douglas Fir">Douglas Fir - High strength, Fb=2400 psi</SelectItem>
-                                  <SelectItem value="Southern Pine">Southern Pine - Strong, Fb=2000-2400 psi</SelectItem>
-                                  <SelectItem value="Spruce-Pine-Fir">Spruce-Pine-Fir - Versatile, Fb=1500-1900 psi</SelectItem>
-                                  <SelectItem value="Hem-Fir">Hem-Fir - Good strength/cost ratio</SelectItem>
-                                  <SelectItem value="Redwood">Redwood - Naturally decay resistant</SelectItem>
-                                  <SelectItem value="Cedar">Cedar - Light weight, naturally decay resistant</SelectItem>
-                                </SelectContent>
-                              </Select>
+                              <div className="w-full max-w-md">
+                                <Select
+                                  value={beamInputs.materialType}
+                                  onValueChange={(value) => handleBeamInputChange('materialType', value)}
+                                >
+                                  <SelectTrigger className="w-full justify-between">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="Douglas Fir">Douglas Fir - High strength, Fb=2400 psi</SelectItem>
+                                    <SelectItem value="Southern Pine">Southern Pine - Strong, Fb=2000-2400 psi</SelectItem>
+                                    <SelectItem value="Spruce-Pine-Fir">Spruce-Pine-Fir - Versatile, Fb=1500-1900 psi</SelectItem>
+                                    <SelectItem value="Hem-Fir">Hem-Fir - Good strength/cost ratio</SelectItem>
+                                    <SelectItem value="Redwood">Redwood - Naturally decay resistant</SelectItem>
+                                    <SelectItem value="Cedar">Cedar - Light weight, naturally decay resistant</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
                               <p className="text-sm text-gray-600">Affects allowable bending stress (Fb) and shear stress (Fv)</p>
                             </div>
                             <div className="space-y-2">
