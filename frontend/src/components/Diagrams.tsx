@@ -199,11 +199,11 @@ export const Diagrams: React.FC<DiagramsProps> = ({
           fill="#000000"
         />
 
-        {/* lv = valley span (valley offset × 2) - positioned near right valley low point */}
+        {/* lv = horizontal valley length using Pythagorean theorem */}
         <Text
           x={nsRidgeX + geometry.valleyOffset * scale + 10}
           y={buildingBottom + 5}
-          text={`lv = ${(geometry.valleyOffset * 2).toFixed(1)} ft`}
+          text={`lv = ${Math.sqrt(geometry.southSpan**2 + geometry.valleyOffset**2).toFixed(1)} ft`}
           fontSize={11}
           fill="#ef4444"
           fontStyle="bold"
