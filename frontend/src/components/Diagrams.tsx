@@ -42,25 +42,32 @@ export const Diagrams: React.FC<DiagramsProps> = ({
   };
 
   const RoofCrossSectionDiagram: React.FC = () => {
-    const scale = 4; // pixels per foot
+    const scale = 3; // pixels per foot - adjusted for plan view
     const centerX = width / 2;
     const centerY = height / 2;
 
-    // Calculate roof geometry points
-    const ridgeX = centerX;
-    const valleyX = centerX + geometry.valleyOffset * scale;
-    const ridgeY = centerY - 50;
+    // Building dimensions based on geometry
+    const buildingWidth = geometry.ewHalfWidth * 2 * scale; // Total width
+    const buildingHeight = geometry.northSpan * scale * 2; // Total height
 
-    // North roof points
-    const northEaveX = ridgeX - geometry.northSpan * scale;
-    const northEaveY = ridgeY + (geometry.northSpan * scale) * Math.tan((geometry.northPitch * Math.PI) / 180);
+    // Building outline coordinates (centered)
+    const buildingLeft = centerX - buildingWidth / 2;
+    const buildingRight = centerX + buildingWidth / 2;
+    const buildingTop = centerY - buildingHeight / 2;
+    const buildingBottom = centerY + buildingHeight / 2;
 
-    // West roof points
-    const westEaveX = valleyX + geometry.southSpan * scale;
-    const westEaveY = ridgeY + (geometry.southSpan * scale) * Math.tan((geometry.westPitch * Math.PI) / 180);
+    // Ridge lines
+    const ewRidgeY = centerY; // Horizontal E-W ridge through center
+    const nsRidgeX = centerX; // Vertical N-S ridge through center
 
-    // Valley point (intersection)
-    const valleyY = Math.max(northEaveY, westEaveY);
+    // Valley lines - converging to low point
+    // Valley offset creates the convergence point
+    const valleyOffset = geometry.valleyOffset * scale;
+    const valleyLowX = centerX + valleyOffset;
+    const valleyLowY = centerY;
+
+    // Valley lines extend from ridge intersection to building edges
+    const valleyLineLength = Math.max(buildingWidth, buildingHeight) * 0.8;
 
     return (
       <Group>
@@ -68,133 +75,165 @@ export const Diagrams: React.FC<DiagramsProps> = ({
         <Text
           x={20}
           y={20}
-          text="Roof Cross-Section & Valley Geometry"
+          text="Roof Plan View with Valley Geometry"
           fontSize={16}
           fontStyle="bold"
           fill="#1f2937"
         />
 
-        {/* Grid lines */}
-        <Line
-          points={[0, ridgeY, width, ridgeY]}
-          stroke="#e5e7eb"
-          strokeWidth={1}
-          dash={[5, 5]}
+        {/* Building Outline - Rectangular */}
+        <Rect
+          x={buildingLeft}
+          y={buildingTop}
+          width={buildingWidth}
+          height={buildingHeight}
+          stroke="#000000"
+          strokeWidth={2}
+          fill="transparent"
         />
 
-        {/* North Roof Plane */}
+        {/* E-W Ridge (horizontal solid line across center) */}
         <Line
-          points={[northEaveX, northEaveY, ridgeX, ridgeY]}
-          stroke="#3b82f6"
-          strokeWidth={3}
-        />
-        <Text
-          x={northEaveX - 60}
-          y={northEaveY + 10}
-          text={`North Roof (${geometry.northPitch}°)`}
-          fontSize={12}
-          fill="#3b82f6"
+          points={[buildingLeft, ewRidgeY, buildingRight, ewRidgeY]}
+          stroke="#000000"
+          strokeWidth={2}
         />
 
-        {/* West Roof Plane */}
+        {/* N-S Ridge (vertical solid line through center) */}
         <Line
-          points={[ridgeX, ridgeY, westEaveX, westEaveY]}
-          stroke="#10b981"
-          strokeWidth={3}
-        />
-        <Text
-          x={westEaveX + 10}
-          y={westEaveY - 20}
-          text={`West Roof (${geometry.westPitch}°)`}
-          fontSize={12}
-          fill="#10b981"
+          points={[nsRidgeX, buildingTop, nsRidgeX, buildingBottom]}
+          stroke="#000000"
+          strokeWidth={2}
         />
 
-        {/* Valley line (perpendicular to ridge) */}
+        {/* Valley Lines (two dashed red lines converging to low point) */}
+        {/* First valley line */}
         <Line
-          points={[ridgeX, ridgeY, valleyX, valleyY]}
+          points={[
+            valleyLowX - valleyLineLength * 0.7, valleyLowY - valleyLineLength * 0.7,
+            valleyLowX, valleyLowY
+          ]}
           stroke="#ef4444"
           strokeWidth={2}
-          dash={[10, 5]}
+          dash={[8, 4]}
         />
 
-        {/* Valley point */}
+        {/* Second valley line */}
+        <Line
+          points={[
+            valleyLowX + valleyLineLength * 0.7, valleyLowY - valleyLineLength * 0.7,
+            valleyLowX, valleyLowY
+          ]}
+          stroke="#ef4444"
+          strokeWidth={2}
+          dash={[8, 4]}
+        />
+
+        {/* Valley low point marker */}
         <Circle
-          x={valleyX}
-          y={valleyY}
-          radius={6}
-          fill="#ef4444"
-        />
-        <Text
-          x={valleyX + 10}
-          y={valleyY - 25}
-          text="Valley"
-          fontSize={12}
-          fontStyle="bold"
+          x={valleyLowX}
+          y={valleyLowY}
+          radius={4}
           fill="#ef4444"
         />
 
-        {/* Dimensions */}
-        {/* North span */}
-        <Arrow
-          points={[northEaveX, northEaveY + 30, ridgeX, northEaveY + 30]}
-          pointerLength={10}
-          pointerWidth={10}
-          fill="#6b7280"
-          stroke="#6b7280"
-          strokeWidth={2}
-        />
+        {/* Labels and Dimensions */}
+
+        {/* North span 16.0 ft above top */}
         <Text
-          x={(northEaveX + ridgeX) / 2 - 20}
-          y={northEaveY + 35}
-          text={`${geometry.northSpan}'`}
+          x={centerX - 30}
+          y={buildingTop - 25}
+          text={`North span ${geometry.northSpan.toFixed(1)} ft`}
           fontSize={11}
-          fill="#6b7280"
+          fill="#000000"
         />
 
-        {/* West span */}
-        <Arrow
-          points={[ridgeX, ridgeY - 30, westEaveX, ridgeY - 30]}
-          pointerLength={10}
-          pointerWidth={10}
-          fill="#6b7280"
-          stroke="#6b7280"
-          strokeWidth={2}
-        />
+        {/* South span 16.0 ft below bottom */}
         <Text
-          x={(ridgeX + westEaveX) / 2 - 15}
-          y={ridgeY - 45}
-          text={`${geometry.southSpan}'`}
+          x={centerX - 30}
+          y={buildingBottom + 10}
+          text={`South span ${geometry.southSpan.toFixed(1)} ft`}
           fontSize={11}
-          fill="#6b7280"
+          fill="#000000"
         />
 
-        {/* Valley offset */}
-        <Arrow
-          points={[ridgeX, ridgeY + 20, valleyX, ridgeY + 20]}
-          pointerLength={10}
-          pointerWidth={10}
-          fill="#6b7280"
-          stroke="#6b7280"
-          strokeWidth={2}
+        {/* lu_west 42.2 ft on left and right */}
+        <Text
+          x={buildingLeft - 50}
+          y={centerY - 10}
+          text={`lu_west ${geometry.ewHalfWidth.toFixed(1)} ft`}
+          fontSize={11}
+          fill="#000000"
         />
         <Text
-          x={(ridgeX + valleyX) / 2 - 20}
-          y={ridgeY + 25}
-          text={`${geometry.valleyOffset}' offset`}
+          x={buildingRight + 10}
+          y={centerY - 10}
+          text={`lu_west ${geometry.ewHalfWidth.toFixed(1)} ft`}
           fontSize={11}
-          fill="#6b7280"
+          fill="#000000"
         />
 
-        {/* Valley length */}
+        {/* Valley offset ±16.0 ft with bidirectional arrow */}
+        <Arrow
+          points={[centerX - valleyOffset, ewRidgeY + 30, centerX + valleyOffset, ewRidgeY + 30]}
+          pointerLength={8}
+          pointerWidth={8}
+          fill="#000000"
+          stroke="#000000"
+          strokeWidth={1}
+        />
+        <Arrow
+          points={[centerX + valleyOffset, ewRidgeY + 30, centerX - valleyOffset, ewRidgeY + 30]}
+          pointerLength={8}
+          pointerWidth={8}
+          fill="#000000"
+          stroke="#000000"
+          strokeWidth={1}
+        />
         <Text
-          x={valleyX - 30}
-          y={valleyY + 20}
-          text={`Valley Length: ${results.lv.toFixed(2)}'`}
-          fontSize={12}
+          x={centerX - 25}
+          y={ewRidgeY + 35}
+          text={`Valley offset ±${geometry.valleyOffset.toFixed(1)} ft`}
+          fontSize={11}
+          fill="#000000"
+        />
+
+        {/* lv = 22.6 ft along valley line */}
+        <Text
+          x={valleyLowX + 10}
+          y={valleyLowY + 5}
+          text={`lv = ${results.lv.toFixed(1)} ft`}
+          fontSize={11}
+          fill="#ef4444"
           fontStyle="bold"
-          fill="#1f2937"
         />
+
+        {/* Compass "N ↑" in top-right */}
+        <Text
+          x={width - 60}
+          y={40}
+          text="N ↑"
+          fontSize={14}
+          fill="#000000"
+          fontStyle="bold"
+        />
+
+        {/* Legend in corner */}
+        <Group x={20} y={height - 120}>
+          <Text x={0} y={0} text="Legend:" fontSize={12} fontStyle="bold" fill="#000000" />
+
+          <Line x={0} y={15} points={[0, 0, 20, 0]} stroke="#000000" strokeWidth={2} />
+          <Text x={25} y={10} text="Building Outline (black solid)" fontSize={10} fill="#000000" />
+
+          <Line x={0} y={30} points={[0, 0, 20, 0]} stroke="#000000" strokeWidth={2} />
+          <Text x={25} y={25} text="E-W Ridge (black solid)" fontSize={10} fill="#000000" />
+
+          <Line x={0} y={45} points={[0, 0, 20, 0]} stroke="#000000" strokeWidth={2} />
+          <Text x={25} y={40} text="N-S Ridge (black solid)" fontSize={10} fill="#000000" />
+
+          <Line x={0} y={60} points={[0, 0, 20, 0]} stroke="#ef4444" strokeWidth={2} dash={[4, 2]} />
+          <Text x={25} y={55} text="Valley Lines (red dashed)" fontSize={10} fill="#000000" />
+        </Group>
       </Group>
     );
   };
