@@ -104,12 +104,23 @@ export const Diagrams: React.FC<DiagramsProps> = ({
           strokeWidth={2}
         />
 
-        {/* Valley Lines (dashed red lines along valley direction) */}
-        {/* Valley line extending from ridge intersection */}
+        {/* Valley Lines (symmetric dashed red lines about N-S ridge) */}
+        {/* Left valley line */}
         <Line
           points={[
             valleyLowX, ewRidgeY,
             valleyLowX, buildingBottom
+          ]}
+          stroke="#ef4444"
+          strokeWidth={2}
+          dash={[8, 4]}
+        />
+
+        {/* Right valley line (symmetric about N-S ridge) */}
+        <Line
+          points={[
+            centerX - (valleyLowX - centerX), ewRidgeY,
+            centerX - (valleyLowX - centerX), buildingBottom
           ]}
           stroke="#ef4444"
           strokeWidth={2}
@@ -219,7 +230,7 @@ export const Diagrams: React.FC<DiagramsProps> = ({
           <Text x={25} y={40} text="N-S Ridge (black solid)" fontSize={10} fill="#000000" />
 
           <Line x={0} y={60} points={[0, 0, 20, 0]} stroke="#ef4444" strokeWidth={2} dash={[4, 2]} />
-          <Text x={25} y={55} text="Valley Line (red dashed)" fontSize={10} fill="#000000" />
+          <Text x={25} y={55} text="Valley Lines (red dashed)" fontSize={10} fill="#000000" />
         </Group>
       </Group>
     );
