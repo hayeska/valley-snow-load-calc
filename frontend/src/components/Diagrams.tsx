@@ -142,8 +142,8 @@ export const Diagrams: React.FC<DiagramsProps> = ({
 
         {/* North span 16.0 ft above top */}
         <Text
-          x={centerX - 30}
-          y={buildingTop - 25}
+          x={centerX - 40}
+          y={buildingTop - 35}
           text={`North span ${geometry.northSpan.toFixed(1)} ft`}
           fontSize={11}
           fill="#000000"
@@ -151,32 +151,32 @@ export const Diagrams: React.FC<DiagramsProps> = ({
 
         {/* South span 16.0 ft below bottom */}
         <Text
-          x={centerX - 30}
-          y={buildingBottom + 10}
+          x={centerX - 40}
+          y={buildingBottom + 20}
           text={`South span ${geometry.southSpan.toFixed(1)} ft`}
           fontSize={11}
           fill="#000000"
         />
 
-        {/* lu_west 42.2 ft on left and right - moved away from ridge */}
+        {/* lu_west 42.2 ft on left and right - moved further from center */}
         <Text
-          x={buildingLeft - 50}
-          y={centerY - 25}
+          x={buildingLeft - 60}
+          y={centerY - 40}
           text={`lu_west ${geometry.ewHalfWidth.toFixed(1)} ft`}
           fontSize={11}
           fill="#000000"
         />
         <Text
-          x={buildingRight + 10}
-          y={centerY - 25}
+          x={buildingRight + 15}
+          y={centerY - 40}
           text={`lu_west ${geometry.ewHalfWidth.toFixed(1)} ft`}
           fontSize={11}
           fill="#000000"
         />
 
-        {/* Valley offset ±16.0 ft with bidirectional arrow - moved down */}
+        {/* Valley offset ±16.0 ft with bidirectional arrow - moved further down */}
         <Arrow
-          points={[centerX - valleyOffset, ewRidgeY + 60, centerX + valleyOffset, ewRidgeY + 60]}
+          points={[centerX - valleyOffset, ewRidgeY + 80, centerX + valleyOffset, ewRidgeY + 80]}
           pointerLength={8}
           pointerWidth={8}
           fill="#000000"
@@ -184,7 +184,7 @@ export const Diagrams: React.FC<DiagramsProps> = ({
           strokeWidth={1}
         />
         <Arrow
-          points={[centerX + valleyOffset, ewRidgeY + 60, centerX - valleyOffset, ewRidgeY + 60]}
+          points={[centerX + valleyOffset, ewRidgeY + 80, centerX - valleyOffset, ewRidgeY + 80]}
           pointerLength={8}
           pointerWidth={8}
           fill="#000000"
@@ -192,35 +192,35 @@ export const Diagrams: React.FC<DiagramsProps> = ({
           strokeWidth={1}
         />
         <Text
-          x={centerX - 25}
-          y={ewRidgeY + 65}
+          x={centerX - 30}
+          y={ewRidgeY + 85}
           text={`Valley offset ±${geometry.valleyOffset.toFixed(1)} ft`}
           fontSize={11}
           fill="#000000"
         />
 
-        {/* lv = horizontal valley length using Pythagorean theorem */}
+        {/* lv = horizontal valley length using Pythagorean theorem - moved further right */}
         <Text
-          x={nsRidgeX + geometry.valleyOffset * scale + 10}
-          y={buildingBottom + 5}
+          x={nsRidgeX + geometry.valleyOffset * scale + 25}
+          y={buildingBottom + 15}
           text={`lv = ${Math.sqrt(geometry.southSpan**2 + geometry.valleyOffset**2).toFixed(1)} ft`}
           fontSize={11}
           fill="#ef4444"
           fontStyle="bold"
         />
 
-        {/* Compass "N ↑" in top-right */}
+        {/* Compass "N ↑" in top-right - moved slightly */}
         <Text
-          x={width - 60}
-          y={40}
+          x={width - 70}
+          y={50}
           text="N ↑"
           fontSize={14}
           fill="#000000"
           fontStyle="bold"
         />
 
-        {/* Legend in corner */}
-        <Group x={20} y={height - 120}>
+        {/* Legend in corner - moved up to avoid overlap */}
+        <Group x={20} y={height - 140}>
           <Text x={0} y={0} text="Legend:" fontSize={12} fontStyle="bold" fill="#000000" />
 
           <Line x={0} y={15} points={[0, 0, 20, 0]} stroke="#000000" strokeWidth={2} />
