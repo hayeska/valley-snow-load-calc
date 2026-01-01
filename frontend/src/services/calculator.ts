@@ -587,7 +587,7 @@ export class ValleySnowCalculator {
       governingCombination: governing.key,
       governingLoad: governing.total,
       designApproach: "ASD (Allowable Stress Design)",
-      codeReference: "ASCE 7-05 Section 2.4",
+      codeReference: "ASCE 7-05/16",
     };
   }
 
@@ -758,7 +758,7 @@ export class ValleySnowCalculator {
     snowLoadPsf: number,
     spanLength: number,
   ): any {
-    // ASD Load combinations for beam design per original development_v2/beam_analysis.py
+    // Load combinations per ASCE 7-05/16
     const tributaryWidth = 8; // ft - typical tributary width for valley beam analysis
 
     // Convert to line loads (lb/ft)
@@ -1089,7 +1089,7 @@ export class ValleySnowCalculator {
 
     // Load combinations
     if (results.loadCombinations) {
-      lines.push("LOAD COMBINATIONS (ASCE 7-05 ASD):");
+      lines.push("LOAD COMBINATIONS (ASCE 7-05/16 ASD):");
       lines.push("-".repeat(40));
       lines.push(
         `Governing Combination: ${results.loadCombinations.governingCombination}`,
