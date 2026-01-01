@@ -84,8 +84,6 @@ export const Diagrams: React.FC<DiagramsProps> = ({
     // Valley geometry using proper calculations
     const valleyGeometry = calculateValleyGeometry(geometry);
     const valleyOffset = geometry.valleyOffset * scale;
-    const valleyLowX = centerX + valleyOffset;
-    const valleyLowY = centerY;
 
     // Valley line length for 45-degree lines
     const valleyLineLengthSouth = (buildingBottom - ewRidgeY) * 0.8;
@@ -150,10 +148,10 @@ export const Diagrams: React.FC<DiagramsProps> = ({
           dash={[8, 4]}
         />
 
-        {/* Valley low point marker */}
+        {/* Valley low point marker - positioned at end of southeast valley line */}
         <Circle
-          x={valleyLowX}
-          y={valleyLowY}
+          x={nsRidgeX + valleyLineLengthSouth * Math.sin(Math.PI/4)}
+          y={ewRidgeY + valleyLineLengthSouth * Math.cos(Math.PI/4)}
           radius={4}
           fill="#ef4444"
         />
@@ -194,9 +192,9 @@ export const Diagrams: React.FC<DiagramsProps> = ({
           fill="#000000"
         />
 
-        {/* Valley offset ±16.0 ft with bidirectional arrow */}
+        {/* Valley offset ±16.0 ft with bidirectional arrow - moved down */}
         <Arrow
-          points={[centerX - valleyOffset, ewRidgeY + 30, centerX + valleyOffset, ewRidgeY + 30]}
+          points={[centerX - valleyOffset, ewRidgeY + 60, centerX + valleyOffset, ewRidgeY + 60]}
           pointerLength={8}
           pointerWidth={8}
           fill="#000000"
@@ -204,7 +202,7 @@ export const Diagrams: React.FC<DiagramsProps> = ({
           strokeWidth={1}
         />
         <Arrow
-          points={[centerX + valleyOffset, ewRidgeY + 30, centerX - valleyOffset, ewRidgeY + 30]}
+          points={[centerX + valleyOffset, ewRidgeY + 60, centerX - valleyOffset, ewRidgeY + 60]}
           pointerLength={8}
           pointerWidth={8}
           fill="#000000"
@@ -213,16 +211,16 @@ export const Diagrams: React.FC<DiagramsProps> = ({
         />
         <Text
           x={centerX - 25}
-          y={ewRidgeY + 35}
+          y={ewRidgeY + 65}
           text={`Valley offset ±${geometry.valleyOffset.toFixed(1)} ft`}
           fontSize={11}
           fill="#000000"
         />
 
-        {/* lv = valley length along valley line */}
+        {/* lv = valley length along valley line - positioned near valley low point */}
         <Text
-          x={valleyLowX + 10}
-          y={valleyLowY + 5}
+          x={nsRidgeX + valleyLineLengthSouth * Math.sin(Math.PI/4) + 10}
+          y={ewRidgeY + valleyLineLengthSouth * Math.cos(Math.PI/4) + 5}
           text={`lv = ${valleyGeometry.valleyLengthHorizontal.toFixed(1)} ft`}
           fontSize={11}
           fill="#ef4444"
