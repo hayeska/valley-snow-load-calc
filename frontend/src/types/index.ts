@@ -174,10 +174,8 @@ export interface CalculationResults {
       [key: string]: {
         name: string;
         dead: number;
-        live: number;
         snow: number;
-        wind: number;
-        seismic: number;
+        drift: number;
         total: number;
         governing: string;
       };

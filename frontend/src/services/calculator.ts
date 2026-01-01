@@ -138,15 +138,17 @@ export class ValleySnowCalculator {
       driftLoads,
     );
 
-    // Load combinations analysis for structural design
+    // Load combinations analysis for structural design (ASD per original)
     const roofDeadLoad = 15; // psf - typical roof dead load
-    const liveLoad = 20; // psf - typical roof live load for access
-    const windLoad = 20; // psf - simplified wind load
+    const valleyDriftLoad = Math.max(
+      comprehensiveDrifts.northDrift.pd_max_psf,
+      comprehensiveDrifts.westDrift.pd_max_psf,
+      comprehensiveDrifts.valleyDrift.leeSide,
+    ); // psf - governing drift load
     const loadCombinations = this.calculateLoadCombinations(
       roofDeadLoad,
-      liveLoad,
       governing_roof_load,
-      windLoad,
+      valleyDriftLoad,
     );
 
     return {
@@ -524,104 +526,53 @@ export class ValleySnowCalculator {
 
   private calculateLoadCombinations(
     deadLoad: number,
-    liveLoad: number,
     snowLoad: number,
-    windLoad: number,
-    seismicLoad: number = 0,
+    valleyDriftLoad: number = 0,
   ): any {
-    // ASCE 7-22 Load Combinations for Allowable Stress Design
-    // Using Load and Resistance Factor Design (LRFD) approach from ASCE 7-22 Section 2.3
+    // ASD Load Combinations per ASCE 7-05 Section 2.4 (from original development_v2)
+    // Allowable Stress Design methodology - matches original implementation
 
-    const combinations = {
-      // Basic load combinations
-      "1.4D": {
+    const combinations: Record<string, any> = {
+      // Basic ASD combinations per original code
+      D: {
         name: "Dead Load Only",
-        dead: 1.4 * deadLoad,
-        live: 0,
+        dead: deadLoad,
         snow: 0,
-        wind: 0,
-        seismic: 0,
-        total: 1.4 * deadLoad,
-        governing: "Storage, non-habitable structures",
+        drift: 0,
+        total: deadLoad,
+        governing: "Dead load analysis",
       },
 
-      "1.2D + 1.6L": {
-        name: "Dead + Live",
-        dead: 1.2 * deadLoad,
-        live: 1.6 * liveLoad,
-        snow: 0,
-        wind: 0,
-        seismic: 0,
-        total: 1.2 * deadLoad + 1.6 * liveLoad,
-        governing: "Typical building with live load",
-      },
-
-      "1.2D + 1.6S": {
+      "D+S": {
         name: "Dead + Snow",
-        dead: 1.2 * deadLoad,
-        live: 0,
-        snow: 1.6 * snowLoad,
-        wind: 0,
-        seismic: 0,
-        total: 1.2 * deadLoad + 1.6 * snowLoad,
-        governing: "Snow load design - most critical for valley beams",
+        dead: deadLoad,
+        snow: snowLoad,
+        drift: 0,
+        total: deadLoad + snowLoad,
+        governing: "Primary snow load case",
       },
 
-      "1.2D + 1.6L + 0.5S": {
-        name: "Dead + Live + Snow",
-        dead: 1.2 * deadLoad,
-        live: 1.6 * liveLoad,
-        snow: 0.5 * snowLoad,
-        wind: 0,
-        seismic: 0,
-        total: 1.2 * deadLoad + 1.6 * liveLoad + 0.5 * snowLoad,
-        governing: "Combined live and snow loads",
-      },
-
-      "1.2D + 1.0W": {
-        name: "Dead + Wind",
-        dead: 1.2 * deadLoad,
-        live: 0,
-        snow: 0,
-        wind: 1.0 * windLoad,
-        seismic: 0,
-        total: 1.2 * deadLoad + 1.0 * windLoad,
-        governing: "Wind load design",
-      },
-
-      "0.9D + 1.6W": {
-        name: "Reduced Dead + Wind",
-        dead: 0.9 * deadLoad,
-        live: 0,
-        snow: 0,
-        wind: 1.6 * windLoad,
-        seismic: 0,
-        total: 0.9 * deadLoad + 1.6 * windLoad,
-        governing: "Wind uplift conditions",
-      },
-
-      "1.2D + 1.6S + 0.5W": {
-        name: "Dead + Snow + Wind",
-        dead: 1.2 * deadLoad,
-        live: 0,
-        snow: 1.6 * snowLoad,
-        wind: 0.5 * windLoad,
-        seismic: 0,
-        total: 1.2 * deadLoad + 1.6 * snowLoad + 0.5 * windLoad,
-        governing: "Combined snow and wind",
-      },
-
-      "1.2D + 1.0E + 0.2S": {
-        name: "Dead + Seismic + Snow",
-        dead: 1.2 * deadLoad,
-        live: 0,
-        snow: 0.2 * snowLoad,
-        wind: 0,
-        seismic: 1.0 * seismicLoad,
-        total: 1.2 * deadLoad + 1.0 * seismicLoad + 0.2 * snowLoad,
-        governing: "Seismic design with reduced snow",
+      "D+0.7S": {
+        name: "Dead + 0.7 Snow",
+        dead: deadLoad,
+        snow: 0.7 * snowLoad,
+        drift: 0,
+        total: deadLoad + 0.7 * snowLoad,
+        governing: "Combined loading case",
       },
     };
+
+    // Add valley drift combination if drift load exists (from original code)
+    if (valleyDriftLoad > 0) {
+      combinations["D+S+Drift"] = {
+        name: "Dead + Snow + Valley Drift",
+        dead: deadLoad,
+        snow: snowLoad,
+        drift: valleyDriftLoad,
+        total: deadLoad + snowLoad + valleyDriftLoad,
+        governing: "Valley drift surcharge case",
+      };
+    }
 
     // Find governing combination (highest total load)
     const governing = Object.entries(combinations).reduce(
@@ -635,8 +586,8 @@ export class ValleySnowCalculator {
       combinations,
       governingCombination: governing.key,
       governingLoad: governing.total,
-      designApproach: "LRFD (Load and Resistance Factor Design)",
-      codeReference: "ASCE 7-22 Section 2.3",
+      designApproach: "ASD (Allowable Stress Design)",
+      codeReference: "ASCE 7-05 Section 2.4",
     };
   }
 
@@ -679,11 +630,11 @@ export class ValleySnowCalculator {
     // Material properties based on species
     const materialProps = this.getMaterialProperties(beamInputs.materialType);
 
-    // Load combinations for beam design
-    const loadCombos = this.calculateBeamLoadCombinations(
+    // Load combinations for beam design (ASD per original development_v2)
+    const loadCombos = this.calculateBeamLoadCombinationsASD(
       beamInputs.roofDeadLoad,
-      snowResults,
-      geometry,
+      snowResults.valleyLoads.verticalLoad,
+      geometry.valleyOffset,
     );
 
     // Bending analysis
@@ -802,28 +753,27 @@ export class ValleySnowCalculator {
     return materials[materialType] || materials["Douglas Fir"];
   }
 
-  private calculateBeamLoadCombinations(
+  private calculateBeamLoadCombinationsASD(
     deadLoadPsf: number,
-    snowResults: CalculationResults,
-    geometry: RoofGeometry,
+    snowLoadPsf: number,
+    spanLength: number,
   ): any {
-    // Load combinations for beam design per ASCE 7-05/16
-    const tributaryWidth = geometry.ewHalfWidth * 2; // ft
-    const spanLength = geometry.valleyOffset; // ft
+    // ASD Load combinations for beam design per original development_v2/beam_analysis.py
+    const tributaryWidth = 8; // ft - typical tributary width for valley beam analysis
 
     // Convert to line loads (lb/ft)
     const deadLoad = deadLoadPsf * tributaryWidth;
-    const snowLoad = snowResults.valleyLoads.verticalLoad * tributaryWidth;
+    const snowLoad = snowLoadPsf * tributaryWidth;
 
-    // ASCE 7 load combinations for beam design
+    // ASD combinations per original code (D, D+S, D+0.7S)
     const combinations = {
       D: { dead: deadLoad, snow: 0, total: deadLoad },
       "D+S": { dead: deadLoad, snow: snowLoad, total: deadLoad + snowLoad },
-      "D+L+S": {
+      "D+0.7S": {
         dead: deadLoad,
-        snow: snowLoad * 0.75,
-        total: deadLoad + snowLoad * 0.75,
-      }, // Reduced snow with live
+        snow: 0.7 * snowLoad,
+        total: deadLoad + 0.7 * snowLoad,
+      },
     };
 
     // Find governing combination
@@ -1139,7 +1089,7 @@ export class ValleySnowCalculator {
 
     // Load combinations
     if (results.loadCombinations) {
-      lines.push("LOAD COMBINATIONS (ASCE 7-22 LRFD):");
+      lines.push("LOAD COMBINATIONS (ASCE 7-05 ASD):");
       lines.push("-".repeat(40));
       lines.push(
         `Governing Combination: ${results.loadCombinations.governingCombination}`,
