@@ -85,8 +85,9 @@ export const Diagrams: React.FC<DiagramsProps> = ({
     const valleyGeometry = calculateValleyGeometry(geometry);
     const valleyOffset = geometry.valleyOffset * scale;
 
-    // Valley line length for 45-degree lines
-    const valleyLineLengthSouth = (buildingBottom - ewRidgeY) * 0.8;
+    // Valley low point - offset from N-S ridge
+    const valleyLowX = nsRidgeX + valleyOffset;
+    const valleyLowY = ewRidgeY + (buildingBottom - ewRidgeY) * 0.6;
 
     return (
       <Group>
@@ -125,33 +126,33 @@ export const Diagrams: React.FC<DiagramsProps> = ({
           strokeWidth={2}
         />
 
-        {/* Valley Lines (45-degree angles from ridge intersection, symmetric about N-S) */}
-        {/* Southeast valley line (45 degrees from south) */}
+        {/* Valley Lines (converging to valley low point offset from N-S ridge) */}
+        {/* Southeast valley line (from ridge intersection to valley low point) */}
         <Line
           points={[
             nsRidgeX, ewRidgeY,
-            nsRidgeX + valleyLineLengthSouth * Math.sin(Math.PI/4), ewRidgeY + valleyLineLengthSouth * Math.cos(Math.PI/4)
+            valleyLowX, valleyLowY
           ]}
           stroke="#ef4444"
           strokeWidth={2}
           dash={[8, 4]}
         />
 
-        {/* Southwest valley line (-45 degrees from south) */}
+        {/* Southwest valley line (from ridge intersection to valley low point) */}
         <Line
           points={[
             nsRidgeX, ewRidgeY,
-            nsRidgeX - valleyLineLengthSouth * Math.sin(Math.PI/4), ewRidgeY + valleyLineLengthSouth * Math.cos(Math.PI/4)
+            nsRidgeX - (valleyLowX - nsRidgeX), valleyLowY
           ]}
           stroke="#ef4444"
           strokeWidth={2}
           dash={[8, 4]}
         />
 
-        {/* Valley low point marker - positioned at end of southeast valley line */}
+        {/* Valley low point marker */}
         <Circle
-          x={nsRidgeX + valleyLineLengthSouth * Math.sin(Math.PI/4)}
-          y={ewRidgeY + valleyLineLengthSouth * Math.cos(Math.PI/4)}
+          x={valleyLowX}
+          y={valleyLowY}
           radius={4}
           fill="#ef4444"
         />
@@ -176,17 +177,17 @@ export const Diagrams: React.FC<DiagramsProps> = ({
           fill="#000000"
         />
 
-        {/* lu_west 42.2 ft on left and right */}
+        {/* lu_west 42.2 ft on left and right - moved away from ridge */}
         <Text
           x={buildingLeft - 50}
-          y={centerY - 10}
+          y={centerY - 25}
           text={`lu_west ${geometry.ewHalfWidth.toFixed(1)} ft`}
           fontSize={11}
           fill="#000000"
         />
         <Text
           x={buildingRight + 10}
-          y={centerY - 10}
+          y={centerY - 25}
           text={`lu_west ${geometry.ewHalfWidth.toFixed(1)} ft`}
           fontSize={11}
           fill="#000000"
@@ -219,8 +220,8 @@ export const Diagrams: React.FC<DiagramsProps> = ({
 
         {/* lv = valley length along valley line - positioned near valley low point */}
         <Text
-          x={nsRidgeX + valleyLineLengthSouth * Math.sin(Math.PI/4) + 10}
-          y={ewRidgeY + valleyLineLengthSouth * Math.cos(Math.PI/4) + 5}
+          x={valleyLowX + 10}
+          y={valleyLowY + 5}
           text={`lv = ${valleyGeometry.valleyLengthHorizontal.toFixed(1)} ft`}
           fontSize={11}
           fill="#ef4444"
