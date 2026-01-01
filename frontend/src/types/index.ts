@@ -60,6 +60,13 @@ export interface DiagramData {
 }
 
 export interface CalculationResults {
+  // Primary snow loads
+  pf: number; // Flat roof snow load (psf)
+  ps: number; // Sloped roof snow load (psf)
+  cs: number; // Slope factor
+  lv: number; // Valley length (ft)
+
+  // Load analysis
   balancedLoads: {
     northRoof: number;
     westRoof: number;
@@ -76,13 +83,56 @@ export interface CalculationResults {
     horizontalLoad: number;
     verticalLoad: number;
   };
-  // Additional calculated values to match original program output
-  pf: number; // Flat roof snow load (psf)
-  ps: number; // Balanced snow load (psf)
-  cs: number; // Slope factor
-  lv: number; // Valley length (ft)
+
+  // Advanced analysis results (from development_v2)
+  slopeParameters?: {
+    slopeRatioN: number;
+    slopeRatioW: number;
+    runPerRiseN: number;
+    runPerRiseW: number;
+    angleN: number;
+    angleW: number;
+  };
+  unbalancedApplicability?: {
+    northUnbalanced: boolean;
+    westUnbalanced: boolean;
+    minSlopeRatio: number;
+    maxSlopeRatio: number;
+  };
+  valleyGeometry?: {
+    valleyLengthHorizontal: number;
+    valleyAngleDegrees: number;
+    valleySlopeRatio: number;
+    buildingWidth: number;
+    buildingLength: number;
+    northSpan: number;
+    southSpan: number;
+    ewHalfWidth: number;
+    valleyOffset: number;
+  };
+  jackRafters?: Array<{
+    jackNumber: number;
+    slopedDistanceFt: number;
+    horizontalOffsetFt: number;
+  }>;
+  tributaryAreas?: Array<{
+    jackNumber: number;
+    slopedDistanceFt: number;
+    horizontalOffsetFt: number;
+    tributaryWidthFt: number;
+    northTributaryAreaSqft: number;
+    westTributaryAreaSqft: number;
+    totalTributaryAreaSqft: number;
+  }>;
+
+  // Beam design and diagrams
   beamDesign?: BeamDesignResults;
   diagrams?: DiagramData;
+
+  // Metadata
+  status?: string;
+  timestamp?: string;
+  asceReference?: string;
 }
 
 export interface ProjectData {

@@ -68,9 +68,23 @@ export class ValleySnowCalculator {
     // Determine governing roof snow load
     const governing_roof_load = low_slope ? Math.max(ps, pm) : ps;
 
+    // Advanced slope analysis
+    const slopeParams = this.calculateSlopeParameters(geometry);
+    const unbalancedCheck = this.checkUnbalancedApplicability(
+      slopeParams.slopeRatioN,
+      slopeParams.slopeRatioW,
+    );
+
     // Valley geometry - calculate complete geometry parameters
     const valleyGeometry = this.calculateValleyGeometry(geometry);
     const lv = valleyGeometry.valleyLengthHorizontal;
+
+    // Jack rafter positioning and tributary areas
+    const jackPositions = this.calculateJackRafterPositions(geometry);
+    const tributaryAreas = this.calculateTributaryAreas(
+      jackPositions,
+      geometry,
+    );
 
     // Calculate tributary areas
     const northArea = geometry.northSpan * geometry.ewHalfWidth * 2;
@@ -103,6 +117,13 @@ export class ValleySnowCalculator {
     );
 
     return {
+      // Primary snow loads
+      pf,
+      ps,
+      cs,
+      lv,
+
+      // Load analysis
       balancedLoads: {
         northRoof: northBalancedLoad,
         westRoof: westBalancedLoad,
@@ -112,11 +133,51 @@ export class ValleySnowCalculator {
         westRoof: westUnbalancedLoad,
       },
       driftLoads,
+
+      // Valley analysis
       valleyLoads,
-      pf,
-      ps,
-      cs,
-      lv,
+
+      // Advanced analysis results (from development_v2)
+      slopeParameters: slopeParams,
+      unbalancedApplicability: unbalancedCheck,
+      valleyGeometry,
+      jackRafters: jackPositions,
+      tributaryAreas,
+
+      // Metadata
+      status: "analysis_complete",
+      timestamp: new Date().toISOString(),
+      asceReference: "ASCE 7-22 Chapters 7.3, 7.6, 7.7, 7.8",
+    };
+  }
+
+  private calculateSlopeParameters(geometry: RoofGeometry): any {
+    // Advanced slope parameter calculations from development_v2
+    const sN = geometry.northPitch / 12.0; // North roof slope ratio
+    const sW = geometry.westPitch / 12.0; // West roof slope ratio
+
+    return {
+      slopeRatioN: sN,
+      slopeRatioW: sW,
+      runPerRiseN:
+        geometry.northPitch > 0 ? 12.0 / geometry.northPitch : Infinity,
+      runPerRiseW:
+        geometry.westPitch > 0 ? 12.0 / geometry.westPitch : Infinity,
+      angleN: (Math.atan(sN) * 180) / Math.PI,
+      angleW: (Math.atan(sW) * 180) / Math.PI,
+    };
+  }
+
+  private checkUnbalancedApplicability(slopeN: number, slopeW: number): any {
+    // Unbalanced load applicability check from development_v2
+    const minSlope = 0.5 / 12.0; // 0.0417 (2.38°)
+    const maxSlope = 7.0 / 12.0; // 0.5833 (30.2°)
+
+    return {
+      northUnbalanced: slopeN >= minSlope && slopeN <= maxSlope,
+      westUnbalanced: slopeW >= minSlope && slopeW <= maxSlope,
+      minSlopeRatio: minSlope,
+      maxSlopeRatio: maxSlope,
     };
   }
 
@@ -172,7 +233,7 @@ export class ValleySnowCalculator {
   }
 
   private calculateValleyGeometry(geometry: RoofGeometry): any {
-    // Complete valley geometry calculation from development_v2 implementation
+    // Complete valley geometry calculation from development_v2/geometry.py
     const lv = Math.sqrt(geometry.southSpan ** 2 + geometry.valleyOffset ** 2);
 
     // Calculate valley angle from horizontal (convert radians to degrees)
@@ -186,9 +247,16 @@ export class ValleySnowCalculator {
     const buildingWidth = 2 * geometry.ewHalfWidth;
     const buildingLength = geometry.northSpan + geometry.southSpan;
 
+    // Calculate valley slope ratio
+    const valleySlope =
+      geometry.valleyOffset > 0
+        ? geometry.southSpan / geometry.valleyOffset
+        : Infinity;
+
     return {
       valleyLengthHorizontal: lv,
       valleyAngleDegrees: valleyAngle,
+      valleySlopeRatio: valleySlope,
       buildingWidth,
       buildingLength,
       northSpan: geometry.northSpan,
@@ -196,6 +264,89 @@ export class ValleySnowCalculator {
       ewHalfWidth: geometry.ewHalfWidth,
       valleyOffset: geometry.valleyOffset,
     };
+  }
+
+  private calculateJackRafterPositions(
+    geometry: RoofGeometry,
+    spacingInches: number = 16.0,
+  ): any[] {
+    // Jack rafter positioning from development_v2/geometry.py
+    const spacingFt = spacingInches / 12.0;
+    const valleyLength = Math.sqrt(
+      geometry.southSpan ** 2 + geometry.valleyOffset ** 2,
+    );
+
+    const numJacks = Math.floor(valleyLength / spacingFt);
+    const positions = [];
+
+    for (let i = 0; i <= numJacks; i++) {
+      const distanceFromLow = i * spacingFt;
+
+      if (distanceFromLow <= valleyLength) {
+        let horizontalOffset = 0;
+
+        if (geometry.valleyOffset > 0) {
+          const ratio = distanceFromLow / valleyLength;
+          horizontalOffset = ratio * geometry.valleyOffset;
+        }
+
+        positions.push({
+          jackNumber: i + 1,
+          slopedDistanceFt: distanceFromLow,
+          horizontalOffsetFt: horizontalOffset,
+        });
+      }
+    }
+
+    return positions;
+  }
+
+  private calculateTributaryAreas(
+    jackPositions: any[],
+    geometry: RoofGeometry,
+  ): any[] {
+    // Tributary area calculations from development_v2/geometry.py
+    const tributaryData = [];
+
+    for (let i = 0; i < jackPositions.length; i++) {
+      const jack = jackPositions[i];
+      let tributaryWidth = 0;
+
+      if (i === 0) {
+        // First rafter at valley low point
+        tributaryWidth =
+          jackPositions.length > 1
+            ? jack.slopedDistanceFt
+            : jack.slopedDistanceFt * 2;
+      } else if (i === jackPositions.length - 1) {
+        // Last rafter
+        const prevJack = jackPositions[i - 1];
+        tributaryWidth =
+          (jack.slopedDistanceFt - prevJack.slopedDistanceFt) / 2;
+      } else {
+        // Middle rafters
+        const prevJack = jackPositions[i - 1];
+        const nextJack = jackPositions[i + 1];
+        tributaryWidth =
+          (nextJack.slopedDistanceFt - prevJack.slopedDistanceFt) / 2;
+      }
+
+      // Tributary areas for north and west roof planes
+      const northArea = tributaryWidth * geometry.ewHalfWidth * 2; // Both sides
+      const westArea = tributaryWidth * geometry.northSpan;
+
+      tributaryData.push({
+        jackNumber: jack.jackNumber,
+        slopedDistanceFt: jack.slopedDistanceFt,
+        horizontalOffsetFt: jack.horizontalOffsetFt,
+        tributaryWidthFt: tributaryWidth,
+        northTributaryAreaSqft: northArea,
+        westTributaryAreaSqft: westArea,
+        totalTributaryAreaSqft: northArea + westArea,
+      });
+    }
+
+    return tributaryData;
   }
 
   private calculateDriftLoads(
