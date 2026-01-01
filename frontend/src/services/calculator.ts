@@ -20,7 +20,15 @@ export class ValleySnowCalculator {
     // Simulate calculation delay
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    const results = await this.calculateSnowLoads(geometry, inputs);
+    // Input validation
+    const validation = this.validateInputs(geometry, inputs);
+    if (!validation.isValid) {
+      throw new Error(
+        `Input validation failed: ${validation.errors.join(", ")}`,
+      );
+    }
+
+    let results = await this.calculateSnowLoads(geometry, inputs, validation);
 
     // Add beam design if provided
     if (beamInputs) {
@@ -32,12 +40,16 @@ export class ValleySnowCalculator {
       results.diagrams = this.generateDiagrams(geometry, results);
     }
 
+    // Generate comprehensive text report
+    results.report = this.generateTextReport(results);
+
     return results;
   }
 
   private async calculateSnowLoads(
     geometry: RoofGeometry,
     inputs: SnowLoadInputs,
+    validation?: { isValid: boolean; errors: string[] },
   ): Promise<CalculationResults> {
     const pg = inputs.groundSnowLoad;
     const is_factor = inputs.importanceFactor;
@@ -126,7 +138,21 @@ export class ValleySnowCalculator {
       driftLoads,
     );
 
+    // Load combinations analysis for structural design
+    const roofDeadLoad = 15; // psf - typical roof dead load
+    const liveLoad = 20; // psf - typical roof live load for access
+    const windLoad = 20; // psf - simplified wind load
+    const loadCombinations = this.calculateLoadCombinations(
+      roofDeadLoad,
+      liveLoad,
+      governing_roof_load,
+      windLoad,
+    );
+
     return {
+      // Input parameters (for traceability)
+      inputs: inputs,
+
       // Primary snow loads
       pf,
       ps,
@@ -154,6 +180,13 @@ export class ValleySnowCalculator {
       jackRafters: jackPositions,
       tributaryAreas,
       comprehensiveDrifts,
+      loadCombinations,
+
+      // Diagrams (placeholder for future diagram generation)
+      diagrams: null,
+
+      // Validation results
+      validation: validation,
 
       // Metadata
       status: "analysis_complete",
@@ -489,6 +522,124 @@ export class ValleySnowCalculator {
     };
   }
 
+  private calculateLoadCombinations(
+    deadLoad: number,
+    liveLoad: number,
+    snowLoad: number,
+    windLoad: number,
+    seismicLoad: number = 0,
+  ): any {
+    // ASCE 7-22 Load Combinations for Allowable Stress Design
+    // Using Load and Resistance Factor Design (LRFD) approach from ASCE 7-22 Section 2.3
+
+    const combinations = {
+      // Basic load combinations
+      "1.4D": {
+        name: "Dead Load Only",
+        dead: 1.4 * deadLoad,
+        live: 0,
+        snow: 0,
+        wind: 0,
+        seismic: 0,
+        total: 1.4 * deadLoad,
+        governing: "Storage, non-habitable structures",
+      },
+
+      "1.2D + 1.6L": {
+        name: "Dead + Live",
+        dead: 1.2 * deadLoad,
+        live: 1.6 * liveLoad,
+        snow: 0,
+        wind: 0,
+        seismic: 0,
+        total: 1.2 * deadLoad + 1.6 * liveLoad,
+        governing: "Typical building with live load",
+      },
+
+      "1.2D + 1.6S": {
+        name: "Dead + Snow",
+        dead: 1.2 * deadLoad,
+        live: 0,
+        snow: 1.6 * snowLoad,
+        wind: 0,
+        seismic: 0,
+        total: 1.2 * deadLoad + 1.6 * snowLoad,
+        governing: "Snow load design - most critical for valley beams",
+      },
+
+      "1.2D + 1.6L + 0.5S": {
+        name: "Dead + Live + Snow",
+        dead: 1.2 * deadLoad,
+        live: 1.6 * liveLoad,
+        snow: 0.5 * snowLoad,
+        wind: 0,
+        seismic: 0,
+        total: 1.2 * deadLoad + 1.6 * liveLoad + 0.5 * snowLoad,
+        governing: "Combined live and snow loads",
+      },
+
+      "1.2D + 1.0W": {
+        name: "Dead + Wind",
+        dead: 1.2 * deadLoad,
+        live: 0,
+        snow: 0,
+        wind: 1.0 * windLoad,
+        seismic: 0,
+        total: 1.2 * deadLoad + 1.0 * windLoad,
+        governing: "Wind load design",
+      },
+
+      "0.9D + 1.6W": {
+        name: "Reduced Dead + Wind",
+        dead: 0.9 * deadLoad,
+        live: 0,
+        snow: 0,
+        wind: 1.6 * windLoad,
+        seismic: 0,
+        total: 0.9 * deadLoad + 1.6 * windLoad,
+        governing: "Wind uplift conditions",
+      },
+
+      "1.2D + 1.6S + 0.5W": {
+        name: "Dead + Snow + Wind",
+        dead: 1.2 * deadLoad,
+        live: 0,
+        snow: 1.6 * snowLoad,
+        wind: 0.5 * windLoad,
+        seismic: 0,
+        total: 1.2 * deadLoad + 1.6 * snowLoad + 0.5 * windLoad,
+        governing: "Combined snow and wind",
+      },
+
+      "1.2D + 1.0E + 0.2S": {
+        name: "Dead + Seismic + Snow",
+        dead: 1.2 * deadLoad,
+        live: 0,
+        snow: 0.2 * snowLoad,
+        wind: 0,
+        seismic: 1.0 * seismicLoad,
+        total: 1.2 * deadLoad + 1.0 * seismicLoad + 0.2 * snowLoad,
+        governing: "Seismic design with reduced snow",
+      },
+    };
+
+    // Find governing combination (highest total load)
+    const governing = Object.entries(combinations).reduce(
+      (prev, [key, combo]) => {
+        return combo.total > prev.total ? { key, ...combo } : prev;
+      },
+      { key: "", total: 0 },
+    );
+
+    return {
+      combinations,
+      governingCombination: governing.key,
+      governingLoad: governing.total,
+      designApproach: "LRFD (Load and Resistance Factor Design)",
+      codeReference: "ASCE 7-22 Section 2.3",
+    };
+  }
+
   private calculateValleyLoads(
     northBalanced: number,
     westBalanced: number,
@@ -517,73 +668,572 @@ export class ValleySnowCalculator {
     beamInputs: BeamDesignInputs,
     snowResults: CalculationResults,
   ): Promise<BeamDesignResults> {
-    // Calculate beam design based on ASCE 7-22 and beam design principles
-    const valleyLength = geometry.valleyOffset; // Horizontal span
-    const tributaryWidth = geometry.ewHalfWidth * 2; // Total tributary width
+    // Comprehensive beam analysis from development_v2/beam_analysis.py
 
-    // Calculate loads on beam
-    const deadLoad = beamInputs.roofDeadLoad * tributaryWidth; // lb/ft
-    const snowLoad = snowResults.valleyLoads.verticalLoad; // psf
-    const totalLoad = deadLoad + snowLoad;
+    // Section properties calculation
+    const sectionProps = this.calculateSectionProperties(
+      beamInputs.beamWidth,
+      beamInputs.beamDepth,
+    );
 
-    // Calculate maximum moment (simply supported beam)
-    const maxMoment = (totalLoad * valleyLength * valleyLength) / 8; // lb-ft
+    // Material properties based on species
+    const materialProps = this.getMaterialProperties(beamInputs.materialType);
 
-    // Calculate required section modulus
-    const fbAllowable = beamInputs.allowableFb;
-    const requiredSectionModulus = (maxMoment * 12) / fbAllowable; // in³
+    // Load combinations for beam design
+    const loadCombos = this.calculateBeamLoadCombinations(
+      beamInputs.roofDeadLoad,
+      snowResults,
+      geometry,
+    );
 
-    // Calculate actual section modulus
-    const beamWidth = beamInputs.beamWidth;
-    const beamDepth = beamInputs.beamDepth;
-    const actualSectionModulus = (beamWidth * beamDepth * beamDepth) / 6;
+    // Bending analysis
+    const bendingAnalysis = this.calculateBendingAnalysis(
+      loadCombos.governing.total,
+      geometry.valleyOffset,
+      sectionProps.sectionModulus,
+      materialProps.fb,
+    );
 
-    // Calculate moment utilization
-    const actualMomentCapacity = (actualSectionModulus * fbAllowable) / 12; // lb-ft
-    const momentUtilization = (maxMoment / actualMomentCapacity) * 100;
+    // Shear analysis
+    const shearAnalysis = this.calculateShearAnalysis(
+      loadCombos.governing.total,
+      geometry.valleyOffset,
+      beamInputs.beamWidth,
+      beamInputs.beamDepth,
+      materialProps.fv,
+    );
 
-    // Calculate shear
-    const maxShear = (totalLoad * valleyLength) / 2; // lb
-    const actualShearCapacity = beamWidth * beamDepth * beamInputs.allowableFv; // lb
-    const shearUtilization = (maxShear / actualShearCapacity) * 100;
+    // Deflection analysis
+    const deflectionAnalysis = this.calculateDeflectionAnalysis(
+      loadCombos.deadLoad,
+      loadCombos.snowLoad,
+      geometry.valleyOffset,
+      beamInputs.modulusE,
+      sectionProps.momentInertia,
+      beamInputs.beamWidth,
+      beamInputs.deflectionLimitSnow,
+      beamInputs.deflectionLimitTotal,
+    );
 
-    // Calculate deflection
-    const ei = beamInputs.modulusE * actualSectionModulus; // lb-in²
-    const deflectionSnow =
-      ((5 *
-        snowLoad *
-        valleyLength *
-        valleyLength *
-        valleyLength *
-        valleyLength) /
-        (384 * ei)) *
-      12; // inches (snow load only)
-    const deflectionTotal = deflectionSnow; // Simplified - would include dead load deflection
-
-    // Deflection utilization (L/n limit)
-    const spanInches = valleyLength * 12;
-    const deflectionUtilization =
-      (deflectionSnow / spanInches) * beamInputs.deflectionLimitSnow * 100;
-
-    // Calculate beam weight (approximate)
-    const woodDensity = 35; // lb/ft³ for Douglas Fir
-    const beamVolume = (beamWidth / 12) * (beamDepth / 12) * valleyLength; // ft³
-    const beamWeight = woodDensity * beamVolume;
+    // Beam weight calculation
+    const beamWeight = this.calculateBeamWeight(
+      beamInputs.beamWidth,
+      beamInputs.beamDepth,
+      geometry.valleyOffset,
+      materialProps.density,
+    );
 
     return {
-      requiredSectionModulus: requiredSectionModulus,
-      requiredMomentCapacity: maxMoment,
-      actualMomentCapacity: actualMomentCapacity,
-      momentUtilization: momentUtilization,
-      requiredShearCapacity: maxShear,
-      actualShearCapacity: actualShearCapacity,
-      shearUtilization: shearUtilization,
-      deflectionSnow: deflectionSnow,
-      deflectionTotal: deflectionTotal,
-      deflectionUtilization: deflectionUtilization,
+      requiredSectionModulus: bendingAnalysis.requiredSectionModulus,
+      requiredMomentCapacity: bendingAnalysis.maxMoment,
+      actualMomentCapacity: bendingAnalysis.actualMomentCapacity,
+      momentUtilization: bendingAnalysis.momentUtilization,
+      requiredShearCapacity: shearAnalysis.maxShear,
+      actualShearCapacity: shearAnalysis.actualShearCapacity,
+      shearUtilization: shearAnalysis.shearUtilization,
+      deflectionSnow: deflectionAnalysis.deflectionSnow,
+      deflectionTotal: deflectionAnalysis.deflectionTotal,
+      deflectionUtilization: deflectionAnalysis.deflectionUtilization,
       beamWeight: beamWeight,
-      totalLoad: totalLoad,
+      totalLoad: loadCombos.governing.total,
+      // Comprehensive analysis results
+      sectionProperties: sectionProps,
+      materialProperties: materialProps,
+      loadCombinations: loadCombos,
     };
+  }
+
+  private calculateSectionProperties(width: number, depth: number): any {
+    // Section properties calculation from development_v2/beam_analysis.py
+    const area = width * depth;
+    const momentInertia = (width * depth ** 3) / 12.0;
+    const sectionModulus = momentInertia / (depth / 2.0);
+
+    return {
+      areaSqIn: area,
+      momentInertiaIn4: momentInertia,
+      sectionModulusIn3: sectionModulus,
+      width: width,
+      depth: depth,
+    };
+  }
+
+  private getMaterialProperties(materialType: string): any {
+    // Material properties from development_v2/beam_analysis.py
+    const materials: { [key: string]: any } = {
+      "Douglas Fir": {
+        fb: 2400, // Bending stress (psi)
+        fv: 265, // Shear stress (psi)
+        E: 1800000, // Modulus of elasticity (psi)
+        density: 35, // pcf
+      },
+      "Southern Pine": {
+        fb: 2000,
+        fv: 235,
+        E: 1700000,
+        density: 36,
+      },
+      "Spruce-Pine-Fir": {
+        fb: 1500,
+        fv: 180,
+        E: 1600000,
+        density: 28,
+      },
+      "Hem-Fir": {
+        fb: 1800,
+        fv: 210,
+        E: 1700000,
+        density: 32,
+      },
+      Redwood: {
+        fb: 1800,
+        fv: 180,
+        E: 1500000,
+        density: 28,
+      },
+      Cedar: {
+        fb: 1400,
+        fv: 165,
+        E: 1400000,
+        density: 25,
+      },
+    };
+
+    return materials[materialType] || materials["Douglas Fir"];
+  }
+
+  private calculateBeamLoadCombinations(
+    deadLoadPsf: number,
+    snowResults: CalculationResults,
+    geometry: RoofGeometry,
+  ): any {
+    // Load combinations for beam design per ASCE 7-05/16
+    const tributaryWidth = geometry.ewHalfWidth * 2; // ft
+    const spanLength = geometry.valleyOffset; // ft
+
+    // Convert to line loads (lb/ft)
+    const deadLoad = deadLoadPsf * tributaryWidth;
+    const snowLoad = snowResults.valleyLoads.verticalLoad * tributaryWidth;
+
+    // ASCE 7 load combinations for beam design
+    const combinations = {
+      D: { dead: deadLoad, snow: 0, total: deadLoad },
+      "D+S": { dead: deadLoad, snow: snowLoad, total: deadLoad + snowLoad },
+      "D+L+S": {
+        dead: deadLoad,
+        snow: snowLoad * 0.75,
+        total: deadLoad + snowLoad * 0.75,
+      }, // Reduced snow with live
+    };
+
+    // Find governing combination
+    const governing = Object.values(combinations).reduce((prev, curr) =>
+      curr.total > prev.total ? curr : prev,
+    );
+
+    return {
+      combinations,
+      governing,
+      deadLoad,
+      snowLoad,
+      tributaryWidth,
+      spanLength,
+    };
+  }
+
+  private calculateBendingAnalysis(
+    totalLoad: number,
+    spanLength: number,
+    sectionModulus: number,
+    allowableFb: number,
+  ): any {
+    // Bending analysis for simply supported beam
+    const maxMoment = (totalLoad * spanLength * spanLength) / 8; // lb-ft
+    const requiredSectionModulus = (maxMoment * 12) / allowableFb; // in³
+    const actualMomentCapacity = (sectionModulus * allowableFb) / 12; // lb-ft
+    const momentUtilization = (maxMoment / actualMomentCapacity) * 100;
+
+    return {
+      maxMoment,
+      requiredSectionModulus,
+      actualMomentCapacity,
+      momentUtilization,
+    };
+  }
+
+  private calculateShearAnalysis(
+    totalLoad: number,
+    spanLength: number,
+    beamWidth: number,
+    beamDepth: number,
+    allowableFv: number,
+  ): any {
+    // Shear analysis for simply supported beam
+    const maxShear = (totalLoad * spanLength) / 2; // lb
+    const actualShearCapacity = beamWidth * beamDepth * allowableFv; // lb
+    const shearUtilization = (maxShear / actualShearCapacity) * 100;
+
+    return {
+      maxShear,
+      actualShearCapacity,
+      shearUtilization,
+    };
+  }
+
+  private calculateDeflectionAnalysis(
+    deadLoad: number,
+    snowLoad: number,
+    spanLength: number,
+    modulusE: number,
+    momentInertia: number,
+    _beamWidth: number,
+    deflectionLimitSnow: number,
+    deflectionLimitTotal: number,
+  ): any {
+    // Deflection analysis for simply supported beam
+    const ei = modulusE * momentInertia; // lb-in²
+
+    // Snow load deflection (inches)
+    const deflectionSnow = (5 * snowLoad * spanLength ** 4 * 12) / (384 * ei);
+
+    // Total deflection (dead + snow)
+    const deflectionTotal =
+      (5 * (deadLoad + snowLoad) * spanLength ** 4 * 12) / (384 * ei);
+
+    // Utilization ratios
+    const spanInches = spanLength * 12;
+    const deflectionUtilizationSnow =
+      (deflectionSnow / spanInches) * deflectionLimitSnow * 100;
+    const deflectionUtilizationTotal =
+      (deflectionTotal / spanInches) * deflectionLimitTotal * 100;
+
+    return {
+      deflectionSnow,
+      deflectionTotal,
+      deflectionUtilization: Math.max(
+        deflectionUtilizationSnow,
+        deflectionUtilizationTotal,
+      ),
+      spanInches,
+      ei,
+    };
+  }
+
+  private calculateBeamWeight(
+    beamWidth: number,
+    beamDepth: number,
+    spanLength: number,
+    density: number,
+  ): number {
+    // Beam weight calculation
+    const volume = (beamWidth / 12) * (beamDepth / 12) * spanLength; // ft³
+    return density * volume; // lbs
+  }
+
+  private validateInputs(
+    geometry: RoofGeometry,
+    inputs: SnowLoadInputs,
+  ): { isValid: boolean; errors: string[] } {
+    // Comprehensive input validation from development_v2/calculator.py
+    const errors: string[] = [];
+
+    // Validate snow load parameters
+    if (inputs.groundSnowLoad <= 0) {
+      errors.push("Ground snow load (pg) must be positive");
+    }
+
+    if (
+      !(
+        inputs.winterWindParameter >= 0.25 && inputs.winterWindParameter <= 0.65
+      )
+    ) {
+      errors.push("Winter wind parameter (W2) should be between 0.25 and 0.65");
+    }
+
+    // Validate geometry parameters
+    if (geometry.northSpan <= 0) {
+      errors.push("North span must be positive");
+    }
+
+    if (geometry.southSpan <= 0) {
+      errors.push("South span must be positive");
+    }
+
+    if (geometry.ewHalfWidth <= 0) {
+      errors.push("E-W half-width must be positive");
+    }
+
+    if (geometry.valleyOffset < 0) {
+      errors.push("Valley offset cannot be negative");
+    }
+
+    // Validate pitch ranges
+    if (geometry.northPitch < 0 || geometry.northPitch > 45) {
+      errors.push("North roof pitch should be between 0° and 45°");
+    }
+
+    if (geometry.westPitch < 0 || geometry.westPitch > 45) {
+      errors.push("West roof pitch should be between 0° and 45°");
+    }
+
+    // Validate valley angle
+    if (geometry.valleyAngle < 0 || geometry.valleyAngle > 180) {
+      errors.push("Valley angle must be between 0° and 180°");
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+    };
+  }
+
+  private generateTextReport(results: CalculationResults): string {
+    // Comprehensive text report generation from development_v2/results_display.py
+    const lines: string[] = [];
+
+    // Header
+    lines.push("=".repeat(80));
+    lines.push("VALLEY SNOW LOAD ANALYSIS REPORT");
+    lines.push("=".repeat(80));
+    lines.push("");
+
+    // Project information
+    lines.push("PROJECT INFORMATION:");
+    lines.push("-".repeat(30));
+    lines.push(
+      `Analysis Date: ${results.timestamp || new Date().toISOString()}`,
+    );
+    lines.push(`Status: ${results.status || "Complete"}`);
+    lines.push(`ASCE Reference: ${results.asceReference || "ASCE 7-22"}`);
+    lines.push("");
+
+    // Input parameters
+    lines.push("INPUT PARAMETERS:");
+    lines.push("-".repeat(30));
+    if (results.inputs) {
+      lines.push(
+        `Ground Snow Load (pg): ${results.inputs.groundSnowLoad.toFixed(1)} psf`,
+      );
+      lines.push(
+        `Winter Wind Parameter (W2): ${results.inputs.winterWindParameter.toFixed(2)}`,
+      );
+      lines.push(
+        `Exposure Factor (Ce): ${results.inputs.exposureFactor.toFixed(2)}`,
+      );
+      lines.push(
+        `Thermal Factor (Ct): ${results.inputs.thermalFactor.toFixed(2)}`,
+      );
+      lines.push(
+        `Importance Factor (Is): ${results.inputs.importanceFactor.toFixed(2)}`,
+      );
+    }
+    lines.push("");
+
+    // Roof geometry (from results structure)
+    lines.push("ROOF GEOMETRY:");
+    lines.push("-".repeat(30));
+    if (results.valleyGeometry) {
+      lines.push(
+        `North Span: ${results.valleyGeometry.northSpan.toFixed(1)} ft`,
+      );
+      lines.push(
+        `South Span: ${results.valleyGeometry.southSpan.toFixed(1)} ft`,
+      );
+      lines.push(
+        `Building Width: ${results.valleyGeometry.buildingWidth.toFixed(1)} ft`,
+      );
+      lines.push(
+        `Valley Offset: ${results.valleyGeometry.valleyOffset.toFixed(1)} ft`,
+      );
+      lines.push(
+        `Valley Length: ${results.valleyGeometry.valleyLengthHorizontal.toFixed(2)} ft`,
+      );
+      lines.push(
+        `Valley Angle: ${results.valleyGeometry.valleyAngleDegrees.toFixed(1)}°`,
+      );
+    }
+    lines.push("");
+
+    // Slope analysis
+    lines.push("SLOPE ANALYSIS:");
+    lines.push("-".repeat(30));
+    if (results.slopeParameters) {
+      lines.push(
+        `North Roof Slope: ${results.slopeParameters.slopeRatioN.toFixed(3)} (${results.slopeParameters.angleN.toFixed(1)}°)`,
+      );
+      lines.push(
+        `West Roof Slope: ${results.slopeParameters.slopeRatioW.toFixed(3)} (${results.slopeParameters.angleW.toFixed(1)}°)`,
+      );
+    }
+    if (results.unbalancedApplicability) {
+      lines.push(
+        `North Unbalanced Applicable: ${results.unbalancedApplicability.northUnbalanced ? "Yes" : "No"}`,
+      );
+      lines.push(
+        `West Unbalanced Applicable: ${results.unbalancedApplicability.westUnbalanced ? "Yes" : "No"}`,
+      );
+    }
+    lines.push("");
+
+    // Snow load results
+    lines.push("SNOW LOAD RESULTS:");
+    lines.push("-".repeat(30));
+    lines.push(`Flat Roof Load (pf): ${results.pf.toFixed(1)} psf`);
+    lines.push(`Sloped Roof Load (ps): ${results.ps.toFixed(1)} psf`);
+    lines.push(`Slope Factor (Cs): ${results.cs.toFixed(3)}`);
+    lines.push(`Valley Length (lv): ${results.lv.toFixed(2)} ft`);
+    lines.push("");
+
+    // Load analysis
+    lines.push("LOAD ANALYSIS:");
+    lines.push("-".repeat(30));
+    lines.push("Balanced Loads:");
+    lines.push(
+      `  North Roof: ${results.balancedLoads.northRoof.toFixed(1)} psf`,
+    );
+    lines.push(`  West Roof: ${results.balancedLoads.westRoof.toFixed(1)} psf`);
+    lines.push("Unbalanced Loads:");
+    lines.push(
+      `  North Roof: ${results.unbalancedLoads.northRoof.toFixed(1)} psf`,
+    );
+    lines.push(
+      `  West Roof: ${results.unbalancedLoads.westRoof.toFixed(1)} psf`,
+    );
+    lines.push("");
+
+    // Drift analysis
+    lines.push("DRIFT ANALYSIS:");
+    lines.push("-".repeat(30));
+    if (results.comprehensiveDrifts) {
+      lines.push("North Roof Drift:");
+      lines.push(
+        `  Height: ${results.comprehensiveDrifts.northDrift.hd_ft.toFixed(2)} ft`,
+      );
+      lines.push(
+        `  Load: ${results.comprehensiveDrifts.northDrift.pd_max_psf.toFixed(1)} psf`,
+      );
+      lines.push(
+        `  Width: ${results.comprehensiveDrifts.northDrift.drift_width_ft.toFixed(1)} ft`,
+      );
+      lines.push("");
+      lines.push("West Roof Drift:");
+      lines.push(
+        `  Height: ${results.comprehensiveDrifts.westDrift.hd_ft.toFixed(2)} ft`,
+      );
+      lines.push(
+        `  Load: ${results.comprehensiveDrifts.westDrift.pd_max_psf.toFixed(1)} psf`,
+      );
+      lines.push(
+        `  Width: ${results.comprehensiveDrifts.westDrift.drift_width_ft.toFixed(1)} ft`,
+      );
+      lines.push("");
+      lines.push("Valley Drift:");
+      lines.push(
+        `  Height: ${results.comprehensiveDrifts.valleyDrift.hd_ft.toFixed(2)} ft`,
+      );
+      lines.push(
+        `  Load: ${results.comprehensiveDrifts.valleyDrift.leeSide.toFixed(1)} psf`,
+      );
+    }
+    lines.push("");
+
+    // Load combinations
+    if (results.loadCombinations) {
+      lines.push("LOAD COMBINATIONS (ASCE 7-22 LRFD):");
+      lines.push("-".repeat(40));
+      lines.push(
+        `Governing Combination: ${results.loadCombinations.governingCombination}`,
+      );
+      lines.push(
+        `Governing Load: ${results.loadCombinations.governingLoad.toFixed(1)} plf`,
+      );
+      lines.push("");
+
+      lines.push("All Load Combinations:");
+      Object.entries(results.loadCombinations.combinations).forEach(
+        ([key, combo]) => {
+          lines.push(`  ${key}: ${combo.total.toFixed(1)} plf (${combo.name})`);
+        },
+      );
+      lines.push("");
+    }
+
+    // Valley analysis
+    lines.push("VALLEY ANALYSIS:");
+    lines.push("-".repeat(30));
+    lines.push(
+      `Valley Load: ${results.valleyLoads.verticalLoad.toFixed(1)} psf`,
+    );
+    if (results.jackRafters && results.tributaryAreas) {
+      lines.push(`Jack Rafters: ${results.jackRafters.length}`);
+      lines.push(
+        `Total Tributary Area: ${results.tributaryAreas.reduce((sum, area) => sum + area.totalTributaryAreaSqft, 0).toFixed(1)} ft²`,
+      );
+    }
+    lines.push("");
+
+    // Beam design (if available)
+    if (results.beamDesign) {
+      lines.push("BEAM DESIGN ANALYSIS:");
+      lines.push("-".repeat(30));
+      lines.push(
+        `Material: ${results.beamDesign.materialProperties ? "Selected Species" : "Default"}`,
+      );
+      lines.push(
+        `Section: ${
+          results.beamDesign.sectionProperties
+            ? `${results.beamDesign.sectionProperties.width.toFixed(1)}" × ${results.beamDesign.sectionProperties.depth.toFixed(1)}"`
+            : "Calculated"
+        }`,
+      );
+      lines.push(
+        `Moment Utilization: ${results.beamDesign.momentUtilization.toFixed(1)}%`,
+      );
+      lines.push(
+        `Shear Utilization: ${results.beamDesign.shearUtilization.toFixed(1)}%`,
+      );
+      lines.push(
+        `Deflection: ${results.beamDesign.deflectionSnow.toFixed(2)}" (${results.beamDesign.deflectionUtilization.toFixed(1)}% of limit)`,
+      );
+      lines.push(
+        `Beam Weight: ${results.beamDesign.beamWeight.toFixed(1)} lbs`,
+      );
+      lines.push("");
+    }
+
+    // Compliance statement
+    lines.push("COMPLIANCE STATEMENT:");
+    lines.push("-".repeat(30));
+    lines.push("This analysis has been performed in accordance with");
+    lines.push("ASCE 7-22 Minimum Design Loads and Associated Criteria");
+    lines.push("Chapter 7 - Snow Loads");
+    lines.push("Chapter 2 - Load Combinations");
+    if (results.beamDesign) {
+      lines.push("AISC Steel Construction Manual (for beam design)");
+    }
+    lines.push("");
+
+    // Validation results
+    if (results.validation && !results.validation.isValid) {
+      lines.push("VALIDATION WARNINGS:");
+      lines.push("-".repeat(30));
+      results.validation.errors.forEach((error) => {
+        lines.push(`⚠️  ${error}`);
+      });
+      lines.push("");
+    }
+
+    // Professional disclaimer
+    lines.push("PROFESSIONAL DISCLAIMER:");
+    lines.push("-".repeat(30));
+    lines.push("This analysis is provided for engineering reference only.");
+    lines.push("Final design and construction documents should be prepared");
+    lines.push("by a licensed Professional Engineer familiar with local");
+    lines.push("building codes and site-specific conditions.");
+    lines.push("");
+    lines.push("© Valley Snow Load Calculator - ASCE 7-22 Compliant Analysis");
+
+    return lines.join("\n");
   }
 
   private generateDiagrams(

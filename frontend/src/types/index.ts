@@ -50,6 +50,28 @@ export interface BeamDesignResults {
   deflectionUtilization: number;
   beamWeight: number;
   totalLoad: number;
+  // Additional comprehensive results
+  sectionProperties?: {
+    areaSqIn: number;
+    momentInertiaIn4: number;
+    sectionModulusIn3: number;
+    width: number;
+    depth: number;
+  };
+  materialProperties?: {
+    fb: number;
+    fv: number;
+    E: number;
+    density: number;
+  };
+  loadCombinations?: {
+    combinations: any;
+    governing: any;
+    deadLoad: number;
+    snowLoad: number;
+    tributaryWidth: number;
+    spanLength: number;
+  };
 }
 
 export interface DiagramData {
@@ -60,6 +82,9 @@ export interface DiagramData {
 }
 
 export interface CalculationResults {
+  // Input parameters (for traceability)
+  inputs?: SnowLoadInputs;
+
   // Primary snow loads
   pf: number; // Flat roof snow load (psf)
   ps: number; // Sloped roof snow load (psf)
@@ -144,10 +169,37 @@ export interface CalculationResults {
       windwardSide: number;
     };
   };
+  loadCombinations?: {
+    combinations: {
+      [key: string]: {
+        name: string;
+        dead: number;
+        live: number;
+        snow: number;
+        wind: number;
+        seismic: number;
+        total: number;
+        governing: string;
+      };
+    };
+    governingCombination: string;
+    governingLoad: number;
+    designApproach: string;
+    codeReference: string;
+  };
 
   // Beam design and diagrams
   beamDesign?: BeamDesignResults;
-  diagrams?: DiagramData;
+  diagrams?: DiagramData | null;
+
+  // Validation
+  validation?: {
+    isValid: boolean;
+    errors: string[];
+  };
+
+  // Reporting
+  report?: string;
 
   // Metadata
   status?: string;
