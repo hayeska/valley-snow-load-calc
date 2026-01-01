@@ -66,6 +66,8 @@ export const Diagrams: React.FC<DiagramsProps> = ({
     const valleyLowX = centerX + valleyOffset;
     const valleyLowY = centerY;
 
+    // Valley line length for 45-degree lines
+    const valleyLineLengthSouth = (buildingBottom - ewRidgeY) * 0.8;
 
     return (
       <Group>
@@ -104,23 +106,23 @@ export const Diagrams: React.FC<DiagramsProps> = ({
           strokeWidth={2}
         />
 
-        {/* Valley Lines (symmetric dashed red lines about N-S ridge) */}
-        {/* Left valley line */}
+        {/* Valley Lines (45-degree angles from ridge intersection, symmetric about N-S) */}
+        {/* Southeast valley line (45 degrees from south) */}
         <Line
           points={[
-            valleyLowX, ewRidgeY,
-            valleyLowX, buildingBottom
+            nsRidgeX, ewRidgeY,
+            nsRidgeX + valleyLineLengthSouth * Math.sin(Math.PI/4), ewRidgeY + valleyLineLengthSouth * Math.cos(Math.PI/4)
           ]}
           stroke="#ef4444"
           strokeWidth={2}
           dash={[8, 4]}
         />
 
-        {/* Right valley line (symmetric about N-S ridge) */}
+        {/* Southwest valley line (-45 degrees from south) */}
         <Line
           points={[
-            centerX - (valleyLowX - centerX), ewRidgeY,
-            centerX - (valleyLowX - centerX), buildingBottom
+            nsRidgeX, ewRidgeY,
+            nsRidgeX - valleyLineLengthSouth * Math.sin(Math.PI/4), ewRidgeY + valleyLineLengthSouth * Math.cos(Math.PI/4)
           ]}
           stroke="#ef4444"
           strokeWidth={2}
