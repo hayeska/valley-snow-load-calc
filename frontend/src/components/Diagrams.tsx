@@ -66,8 +66,6 @@ export const Diagrams: React.FC<DiagramsProps> = ({
     const valleyLowX = centerX + valleyOffset;
     const valleyLowY = centerY;
 
-    // Valley lines extend from ridge intersection to building edges
-    const valleyLineLength = Math.max(buildingWidth, buildingHeight) * 0.8;
 
     return (
       <Group>
@@ -99,30 +97,19 @@ export const Diagrams: React.FC<DiagramsProps> = ({
           strokeWidth={2}
         />
 
-        {/* N-S Ridge (vertical solid line through center) */}
+        {/* N-S Ridge (vertical solid line from E-W ridge midpoint south only) */}
         <Line
-          points={[nsRidgeX, buildingTop, nsRidgeX, buildingBottom]}
+          points={[nsRidgeX, ewRidgeY, nsRidgeX, buildingBottom]}
           stroke="#000000"
           strokeWidth={2}
         />
 
-        {/* Valley Lines (two dashed red lines converging to low point) */}
-        {/* First valley line */}
+        {/* Valley Lines (dashed red lines along valley direction) */}
+        {/* Valley line extending from ridge intersection */}
         <Line
           points={[
-            valleyLowX - valleyLineLength * 0.7, valleyLowY - valleyLineLength * 0.7,
-            valleyLowX, valleyLowY
-          ]}
-          stroke="#ef4444"
-          strokeWidth={2}
-          dash={[8, 4]}
-        />
-
-        {/* Second valley line */}
-        <Line
-          points={[
-            valleyLowX + valleyLineLength * 0.7, valleyLowY - valleyLineLength * 0.7,
-            valleyLowX, valleyLowY
+            valleyLowX, ewRidgeY,
+            valleyLowX, buildingBottom
           ]}
           stroke="#ef4444"
           strokeWidth={2}
@@ -232,7 +219,7 @@ export const Diagrams: React.FC<DiagramsProps> = ({
           <Text x={25} y={40} text="N-S Ridge (black solid)" fontSize={10} fill="#000000" />
 
           <Line x={0} y={60} points={[0, 0, 20, 0]} stroke="#ef4444" strokeWidth={2} dash={[4, 2]} />
-          <Text x={25} y={55} text="Valley Lines (red dashed)" fontSize={10} fill="#000000" />
+          <Text x={25} y={55} text="Valley Line (red dashed)" fontSize={10} fill="#000000" />
         </Group>
       </Group>
     );
