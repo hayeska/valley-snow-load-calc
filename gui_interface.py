@@ -1614,11 +1614,14 @@ Always verify member spanning conditions and consult licensed engineer"""
         lu_west,
         result_north,
         result_west,
-        wind_direction="North",
-        north_load=0,
-        south_load=0,
-        west_load=0,
-        east_load=0,
+        north_load_governing=0,
+        south_load_governing=0,
+        west_load_governing=0,
+        east_load_governing=0,
+        north_load_north_wind=0,
+        south_load_north_wind=0,
+        west_load_west_wind=0,
+        east_load_west_wind=0,
     ):
         """Generate five professional diagrams: plan view, SFD, BMD, drift profile, and sloped point loads."""
         # Clear previous plot but keep figures alive for PDF capture if needed
@@ -1637,24 +1640,54 @@ Always verify member spanning conditions and consult licensed engineer"""
         canvas_plan.draw()
         canvas_plan.get_tk_widget().pack(side=tk.TOP, pady=5)
 
-        # Governing unbalanced load diagram (maximum loads from both wind directions)
-        fig_drift = self.draw_governing_unbalanced_overlay(
+        # ===== THREE UNBALANCED LOAD DIAGRAMS =====
+
+        # 1. North Wind Unbalanced Loads
+        fig_north = self.draw_north_unbalanced_overlay(
             north_span,
             south_span,
             ew_half_width,
             valley_offset,
-            north_load,
-            south_load,
-            west_load,
-            east_load,
+            north_load_north_wind,
+            south_load_north_wind,
             ps_balanced,
         )
-        diagram_title = "Governing Unbalanced Loads (North & West Winds)"
+        self._current_figures.append(fig_north)
+        canvas_north = FigureCanvasTkAgg(fig_north, master=self.plot_frame)
+        canvas_north.draw()
+        canvas_north.get_tk_widget().pack(side=tk.TOP, pady=5)
 
-        self._current_figures.append(fig_drift)
-        canvas_drift = FigureCanvasTkAgg(fig_drift, master=self.plot_frame)
-        canvas_drift.draw()
-        canvas_drift.get_tk_widget().pack(side=tk.TOP, pady=5)
+        # 2. West Wind Unbalanced Loads
+        fig_west = self.draw_west_unbalanced_overlay(
+            north_span,
+            south_span,
+            ew_half_width,
+            valley_offset,
+            west_load_west_wind,
+            east_load_west_wind,
+            ps_balanced,
+        )
+        self._current_figures.append(fig_west)
+        canvas_west = FigureCanvasTkAgg(fig_west, master=self.plot_frame)
+        canvas_west.draw()
+        canvas_west.get_tk_widget().pack(side=tk.TOP, pady=5)
+
+        # 3. Governing Unbalanced Loads (maximum from both wind directions)
+        fig_governing = self.draw_governing_unbalanced_overlay(
+            north_span,
+            south_span,
+            ew_half_width,
+            valley_offset,
+            north_load_governing,
+            south_load_governing,
+            west_load_governing,
+            east_load_governing,
+            ps_balanced,
+        )
+        self._current_figures.append(fig_governing)
+        canvas_governing = FigureCanvasTkAgg(fig_governing, master=self.plot_frame)
+        canvas_governing.draw()
+        canvas_governing.get_tk_widget().pack(side=tk.TOP, pady=5)
 
         # Get drift parameters
         pd_max = gov_drift["governing_pd_max_psf"]
@@ -3345,6 +3378,13 @@ Always verify member spanning conditions and consult licensed engineer"""
                 surcharge_west = hd_west * gamma / math.sqrt(S_w)
                 east_load_west_wind = ps + surcharge_west
 
+            # ===== STORE INDIVIDUAL WIND DIRECTION LOADS =====
+            # Keep individual wind direction loads for diagram display
+            north_load_north_wind_final = north_load_north_wind
+            south_load_north_wind_final = south_load_north_wind
+            west_load_west_wind_final = west_load_west_wind
+            east_load_west_wind_final = east_load_west_wind
+
             # ===== GOVERNING LOADS (Maximum from both wind directions) =====
             north_load = max(north_load, north_load_north_wind)  # North plane governing
             south_load = max(south_load, south_load_north_wind)  # South plane governing
@@ -3523,11 +3563,14 @@ Always verify member spanning conditions and consult licensed engineer"""
             lu_west,
             result_north,
             result_west,
-            "Governing",  # Always show governing loads
             north_load,
             south_load,
             west_load,
             east_load,
+            north_load_north_wind_final,
+            south_load_north_wind_final,
+            west_load_west_wind_final,
+            east_load_west_wind_final,
         )
 
         # Format beam design results
