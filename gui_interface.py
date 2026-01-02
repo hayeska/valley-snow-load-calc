@@ -1184,38 +1184,40 @@ Always verify member spanning conditions and consult licensed engineer"""
             bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
         )
 
-        # === North Wind Unbalanced Loads (Southern Roof Plane Only) ===
-        # For north wind, focus on southern roof plane perpendicular to N-S ridge
+        # === North Wind Loads ===
+        # Show uniform balanced loads across southern roof plane
+        # Add surcharge block only if unbalanced loads apply
 
-        # Shade west portion of southern roof plane (same loads as north for cross-gable)
-        if north_load > 0:
+        if surcharge_width_north > 0:
+            # Unbalanced loads apply - show balanced area + surcharge
             ax.fill_between(
-                [0, center_x],
+                [0, total_width],
                 [0, 0],
-                [south_span, south_span],
+                [south_span - surcharge_width_north, south_span - surcharge_width_north],
                 color="lightblue",
                 alpha=0.7,
-                label=f"North Windward: {north_load:.1f} psf",
+                label=f"Southern Balanced: {ps_balanced:.1f} psf",
             )
-
-        # Shade rectangular surcharge block south of E-W ridge, adjacent to N-S ridge
-        if south_load > 0 and surcharge_width_north > 0:
-            # Surcharge is a rectangular block extending south from E-W ridge
-            # Adjacent to N-S ridge (positioned along the ridge line)
-            # Width measured down-slope from ridge (north-south distance)
-            # The surcharge covers the full east-west width of southern roof plane
-
-            # Fill rectangular surcharge block from E-W ridge south by surcharge width
             ax.fill_between(
-                [0, total_width],  # Full east-west width of southern plane
-                [south_span - surcharge_width_north, south_span - surcharge_width_north],  # Bottom of surcharge
-                [south_span, south_span],  # Top at E-W ridge
+                [0, total_width],
+                [south_span - surcharge_width_north, south_span - surcharge_width_north],
+                [south_span, south_span],
                 color="lightcoral",
                 alpha=0.7,
                 hatch="///",
                 edgecolor="red",
                 linewidth=1.5,
                 label=f"Southern Surcharge: {south_load:.1f} psf (w={surcharge_width_north:.1f} ft)",
+            )
+        else:
+            # Balanced loads only - uniform across entire southern plane
+            ax.fill_between(
+                [0, total_width],
+                [0, 0],
+                [south_span, south_span],
+                color="lightblue",
+                alpha=0.7,
+                label=f"Southern Balanced: {south_load:.1f} psf",
             )
 
         # Labels (showing southern roof plane spans)
@@ -1327,9 +1329,16 @@ Always verify member spanning conditions and consult licensed engineer"""
             [center_x + valley_offset, center_x], [0, south_span], "r--", linewidth=2
         )
 
-        # === GOVERNING UNBALANCED LOADS ===
-        # North plane (governing load)
-        if north_load > 0:
+        # === GOVERNING LOADS ===
+        # Show governing loads (maximum from both wind directions)
+        # For balanced case, all planes show same balanced load
+
+        # Check if unbalanced loads apply (any surcharge width > 0)
+        unbalanced_applies = (surcharge_width_north > 0) or (surcharge_width_west > 0)
+
+        if unbalanced_applies:
+            # Show unbalanced load distribution
+            # North plane
             ax.fill_between(
                 [0, center_x],
                 [south_span, south_span],
@@ -1339,19 +1348,37 @@ Always verify member spanning conditions and consult licensed engineer"""
                 label=f"North: {north_load:.1f} psf",
             )
 
-        # South plane (governing load)
-        if south_load > 0:
-            ax.fill_between(
-                [0, center_x],
-                [0, 0],
-                [south_span, south_span],
-                color="lightcoral",
-                alpha=0.7,
-                label=f"South: {south_load:.1f} psf",
-            )
+            # South plane (may include surcharge)
+            if surcharge_width_north > 0:
+                ax.fill_between(
+                    [0, total_width],
+                    [0, 0],
+                    [south_span - surcharge_width_north, south_span - surcharge_width_north],
+                    color="lightblue",
+                    alpha=0.7,
+                )
+                ax.fill_between(
+                    [0, total_width],
+                    [south_span - surcharge_width_north, south_span - surcharge_width_north],
+                    [south_span, south_span],
+                    color="lightcoral",
+                    alpha=0.7,
+                    hatch="///",
+                    edgecolor="red",
+                    linewidth=1.5,
+                    label=f"South: {south_load:.1f} psf",
+                )
+            else:
+                ax.fill_between(
+                    [0, total_width],
+                    [0, 0],
+                    [south_span, south_span],
+                    color="lightcoral",
+                    alpha=0.7,
+                    label=f"South: {south_load:.1f} psf",
+                )
 
-        # West plane (governing load)
-        if west_load > 0:
+            # West plane
             ax.fill_between(
                 [0, 0],
                 [south_span, south_span],
@@ -1361,53 +1388,54 @@ Always verify member spanning conditions and consult licensed engineer"""
                 label=f"West: {west_load:.1f} psf",
             )
 
-        # East plane (governing load)
-        if east_load > 0:
-            ax.fill_between(
-                [total_width, total_width],
-                [south_span, south_span],
-                [total_height, total_height],
-                color="gold",
-                alpha=0.7,
-                label=f"East: {east_load:.1f} psf",
-            )
+            # East plane (may include surcharge)
+            if surcharge_width_west > 0:
+                ax.fill_between(
+                    [center_x, center_x + surcharge_width_west],
+                    [0, 0],
+                    [south_span, south_span],
+                    color="gold",
+                    alpha=0.7,
+                    hatch="///",
+                    edgecolor="red",
+                    linewidth=1.5,
+                    label=f"East: {east_load:.1f} psf",
+                )
+                if center_x + surcharge_width_west < total_width:
+                    ax.fill_between(
+                        [center_x + surcharge_width_west, total_width],
+                        [0, 0],
+                        [south_span, south_span],
+                        color="lightblue",
+                        alpha=0.7,
+                    )
+            else:
+                ax.fill_between(
+                    [total_width, total_width],
+                    [south_span, south_span],
+                    [total_height, total_height],
+                    color="gold",
+                    alpha=0.7,
+                    label=f"East: {east_load:.1f} psf",
+                )
 
-        # Shade south planes (same loads as north for cross-gable)
-        if north_load > 0:
+            # Fill south planes uniformly
             ax.fill_between(
-                [0, center_x],
+                [0, total_width],
                 [0, 0],
                 [south_span, south_span],
                 color="lightblue",
                 alpha=0.7,
             )
-
-        if south_load > 0:
+        else:
+            # Balanced loads only - uniform across all planes
             ax.fill_between(
-                [center_x, total_width],
+                [0, total_width],
                 [0, 0],
-                [south_span, south_span],
-                color="lightcoral",
+                [total_height, total_height],
+                color="lightblue",
                 alpha=0.7,
-            )
-
-        # Shade west/east south planes
-        if west_load > 0:
-            ax.fill_between(
-                [0, center_x],
-                [0, 0],
-                [south_span, south_span],
-                color="lightgreen",
-                alpha=0.7,
-            )
-
-        if east_load > 0:
-            ax.fill_between(
-                [center_x, total_width],
-                [0, 0],
-                [south_span, south_span],
-                color="gold",
-                alpha=0.7,
+                label=f"Balanced: {north_load:.1f} psf",
             )
 
         # Labels
@@ -1554,38 +1582,50 @@ Always verify member spanning conditions and consult licensed engineer"""
             bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
         )
 
-        # === West Wind Unbalanced Loads (Southern Roof Plane Only) ===
-        # For west wind, focus on southern roof plane perpendicular to N-S ridge
+        # === West Wind Loads ===
+        # Show uniform balanced loads across southern roof plane
+        # Add surcharge block only if unbalanced loads apply
 
-        # Shade west portion of southern roof plane (windward) with west_load
-        if west_load > 0:
+        if surcharge_width_west > 0:
+            # Unbalanced loads apply - show balanced area + surcharge
             ax.fill_between(
-                [0, center_x],
+                [0, center_x],  # West portion
                 [0, 0],
                 [south_span, south_span],
                 color="lightblue",
                 alpha=0.7,
-                label=f"West Windward: {west_load:.1f} psf",
+                label=f"Western Balanced: {ps_balanced:.1f} psf",
             )
-
-        # Shade rectangular surcharge block east of N-S ridge
-        if east_load > 0 and surcharge_width_west > 0:
-            # Surcharge is a rectangular block extending east from N-S ridge
-            # Adjacent to N-S ridge (starting at the ridge line)
-            # Width measured down-slope from ridge (east-west distance)
-            # The surcharge covers the full north-south height of eastern roof plane
-
-            # Fill rectangular surcharge block from N-S ridge east by surcharge width
             ax.fill_between(
-                [center_x, center_x + surcharge_width_west],  # From N-S ridge east
-                [0, 0],  # From south eave
-                [south_span, south_span],  # To E-W ridge (full height)
+                [center_x, center_x + surcharge_width_west],  # Surcharge portion
+                [0, 0],
+                [south_span, south_span],
                 color="lightcoral",
                 alpha=0.7,
                 hatch="///",
                 edgecolor="red",
                 linewidth=1.5,
                 label=f"Eastern Surcharge: {east_load:.1f} psf (w={surcharge_width_west:.1f} ft)",
+            )
+            # Show remaining east portion with balanced load
+            if center_x + surcharge_width_west < total_width:
+                ax.fill_between(
+                    [center_x + surcharge_width_west, total_width],
+                    [0, 0],
+                    [south_span, south_span],
+                    color="lightblue",
+                    alpha=0.7,
+                    label=f"Eastern Balanced: {ps_balanced:.1f} psf",
+                )
+        else:
+            # Balanced loads only - uniform across entire southern plane
+            ax.fill_between(
+                [0, total_width],
+                [0, 0],
+                [south_span, south_span],
+                color="lightblue",
+                alpha=0.7,
+                label=f"Southern Balanced: {east_load:.1f} psf",
             )
 
         # Annotations - positioned far right to avoid overlap
