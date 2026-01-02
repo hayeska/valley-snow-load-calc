@@ -1228,14 +1228,15 @@ Always verify member spanning conditions and consult licensed engineer"""
             bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
         )
 
-        # Annotations - showing southern roof plane only
+        # Annotations - positioned far right to avoid overlap
         ax.text(
-            total_width + 15,
-            total_height * 0.7,
+            total_width + 35,
+            total_height * 0.75,
             f"North Wind - Southern Roof Plane\nWest (windward): {north_load:.1f} psf\nEast (leeward): {south_load:.1f} psf\nBalanced: {ps:.1f} psf",
             ha="left",
             va="center",
-            bbox=dict(facecolor="white", alpha=0.9, edgecolor="blue"),
+            fontsize=9,
+            bbox=dict(facecolor="white", alpha=0.95, edgecolor="blue", boxstyle="round,pad=0.5"),
         )
 
         # North arrow
@@ -1252,7 +1253,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             va="bottom",
         )
 
-        ax.set_xlim(-15, total_width + 120)
+        ax.set_xlim(-15, total_width + 150)
         ax.set_ylim(-20, total_height + 30)
         ax.set_axis_off()
         ax.set_title("North Wind - Southern Roof Plane (ASCE 7-22 Section 7.6.1)")
@@ -1433,17 +1434,18 @@ Always verify member spanning conditions and consult licensed engineer"""
             bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
         )
 
-        # Annotations - moved further right and up to avoid overlap
+        # Annotations - positioned far right with rounded box to avoid overlap
         ax.text(
-            total_width + 25,
-            total_height * 0.85,
-            f"Governing Unbalanced Loads (ASCE 7-22 Section 7.6.1)\n"
-            f"North: {north_load:.1f} psf | South: {south_load:.1f} psf\n"
-            f"West: {west_load:.1f} psf | East: {east_load:.1f} psf\n"
+            total_width + 45,
+            total_height * 0.8,
+            f"Governing Unbalanced Loads\n(ASCE 7-22 Section 7.6.1)\n"
+            f"North: {north_load:.1f} psf\nSouth: {south_load:.1f} psf\n"
+            f"West: {west_load:.1f} psf\nEast: {east_load:.1f} psf\n"
             f"Balanced: {ps:.1f} psf",
             ha="left",
             va="center",
-            bbox=dict(facecolor="white", alpha=0.9, edgecolor="purple"),
+            fontsize=8,
+            bbox=dict(facecolor="white", alpha=0.95, edgecolor="purple", boxstyle="round,pad=0.5"),
         )
 
         # North arrow
@@ -1460,7 +1462,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             va="bottom",
         )
 
-        ax.set_xlim(-15, total_width + 140)
+        ax.set_xlim(-15, total_width + 180)
         ax.set_ylim(-20, total_height + 30)
         ax.set_axis_off()
         ax.set_title("Governing Unbalanced Loads (Max from North & West Winds)")
@@ -1566,14 +1568,15 @@ Always verify member spanning conditions and consult licensed engineer"""
                 label=f"East Leeward: {east_load:.1f} psf",
             )
 
-        # Annotations - showing southern roof plane only
+        # Annotations - positioned far right to avoid overlap
         ax.text(
-            total_width + 15,
-            total_height * 0.65,
+            total_width + 35,
+            total_height * 0.6,
             f"West Wind - Southern Roof Plane\nWest (windward): {west_load:.1f} psf\nEast (leeward): {east_load:.1f} psf\nBalanced: {ps:.1f} psf",
             ha="left",
             va="center",
-            bbox=dict(facecolor="white", alpha=0.9, edgecolor="red"),
+            fontsize=9,
+            bbox=dict(facecolor="white", alpha=0.95, edgecolor="red", boxstyle="round,pad=0.5"),
         )
 
         # North arrow
@@ -1590,7 +1593,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             va="bottom",
         )
 
-        ax.set_xlim(-15, total_width + 120)
+        ax.set_xlim(-15, total_width + 150)
         ax.set_ylim(-20, total_height + 30)
         ax.set_axis_off()
         ax.set_title("West Wind - Southern Roof Plane (ASCE 7-22 Section 7.6.1)")
