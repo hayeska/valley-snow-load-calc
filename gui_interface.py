@@ -1808,10 +1808,10 @@ Always verify member spanning conditions and consult licensed engineer"""
         south_load_governing=0,
         west_load_governing=0,
         east_load_governing=0,
-        north_load_north_wind=0,
-        south_load_north_wind=0,
-        west_load_west_wind=0,
-        east_load_west_wind=0,
+        north_load_north_wind_final=0,
+        south_load_north_wind_final=0,
+        west_load_west_wind_final=0,
+        east_load_west_wind_final=0,
     ):
         """Generate five professional diagrams: plan view, SFD, BMD, drift profile, and sloped point loads."""
         # Clear previous plot but keep figures alive for PDF capture if needed
