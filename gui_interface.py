@@ -1119,6 +1119,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         north_load,
         south_load,
         ps,
+        surcharge_width_north=0,
     ):
         """Draw north wind unbalanced load distribution on roof planes"""
         fig = plt.Figure(figsize=(8, 8))
@@ -1197,15 +1198,19 @@ Always verify member spanning conditions and consult licensed engineer"""
                 label=f"North Windward: {north_load:.1f} psf",
             )
 
-        # Shade east portion of southern roof plane (same loads as south for cross-gable)
-        if south_load > 0:
+        # Shade surcharge portion of southern roof plane (leeward)
+        if south_load > 0 and surcharge_width_north > 0:
+            surcharge_start = max(center_x, total_width - surcharge_width_north)
             ax.fill_between(
-                [center_x, total_width],
+                [surcharge_start, total_width],
                 [0, 0],
                 [south_span, south_span],
                 color="lightcoral",
                 alpha=0.7,
-                label=f"South Leeward: {south_load:.1f} psf",
+                hatch="///",
+                edgecolor="red",
+                linewidth=1.5,
+                label=f"South Leeward Surcharge: {south_load:.1f} psf (w={surcharge_width_north:.1f} ft)",
             )
 
         # Labels (showing southern roof plane spans)
@@ -1270,6 +1275,8 @@ Always verify member spanning conditions and consult licensed engineer"""
         west_load,
         east_load,
         ps,
+        surcharge_width_north=0,
+        surcharge_width_west=0,
     ):
         """Draw governing unbalanced load distribution showing maximum loads from both wind directions"""
         fig = plt.Figure(figsize=(8, 8))
@@ -1477,6 +1484,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         west_load,
         east_load,
         ps,
+        surcharge_width_west=0,
     ):
         """Draw west wind unbalanced load distribution on roof planes"""
         fig = plt.Figure(figsize=(8, 8))
@@ -1555,15 +1563,19 @@ Always verify member spanning conditions and consult licensed engineer"""
                 label=f"West Windward: {west_load:.1f} psf",
             )
 
-        # Shade east portion of southern roof plane (leeward) with east_load
-        if east_load > 0:
+        # Shade surcharge portion of southern roof plane (leeward)
+        if east_load > 0 and surcharge_width_west > 0:
+            surcharge_start = max(center_x, total_width - surcharge_width_west)
             ax.fill_between(
-                [center_x, total_width],
+                [surcharge_start, total_width],
                 [0, 0],
                 [south_span, south_span],
                 color="lightcoral",
                 alpha=0.7,
-                label=f"East Leeward: {east_load:.1f} psf",
+                hatch="///",
+                edgecolor="red",
+                linewidth=1.5,
+                label=f"East Leeward Surcharge: {east_load:.1f} psf (w={surcharge_width_west:.1f} ft)",
             )
 
         # Annotations - positioned far right to avoid overlap
@@ -1618,6 +1630,8 @@ Always verify member spanning conditions and consult licensed engineer"""
         lu_west,
         result_north,
         result_west,
+        surcharge_width_north=0,
+        surcharge_width_west=0,
         north_load_governing=0,
         south_load_governing=0,
         west_load_governing=0,
@@ -3336,11 +3350,13 @@ Always verify member spanning conditions and consult licensed engineer"""
         west_load = ps_west if ps_west > 0 else ps    # West roof plane balanced load
         east_load = ps_west if ps_west > 0 else ps    # East roof plane balanced load (same as west for cross-gable)
 
-        # Initialize individual wind direction loads (will be set if unbalanced loads apply)
+        # Initialize individual wind direction loads and surcharge widths (will be set if unbalanced loads apply)
         north_load_north_wind_final = north_load
         south_load_north_wind_final = south_load
         west_load_west_wind_final = west_load
         east_load_west_wind_final = east_load
+        surcharge_width_north = 0
+        surcharge_width_west = 0
 
         # Apply unbalanced loads if slope is in applicable range (2.38° ≤ θ ≤ 30.2°)
         if 2.38 <= min(theta_n, theta_w) <= 30.2:
@@ -3365,6 +3381,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                 # Calculate surcharge for south plane
                 hd_north = 1.5 * math.sqrt((pg**0.74 * windward_span_north**0.70 * w2**1.7) / gamma)
                 surcharge_north = hd_north * gamma / math.sqrt(S_n)
+                surcharge_width_north = (8 * hd_north * math.sqrt(S_n)) / 3
                 south_load_north_wind = ps + surcharge_north
 
             # ===== WEST WIND ANALYSIS =====
@@ -3386,6 +3403,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                 # Calculate surcharge for east plane
                 hd_west = 1.5 * math.sqrt((pg**0.74 * windward_span_west**0.70 * w2**1.7) / gamma)
                 surcharge_west = hd_west * gamma / math.sqrt(S_w)
+                surcharge_width_west = (8 * hd_west * math.sqrt(S_w)) / 3
                 east_load_west_wind = ps + surcharge_west
 
             # ===== STORE INDIVIDUAL WIND DIRECTION LOADS =====
@@ -3581,6 +3599,8 @@ Always verify member spanning conditions and consult licensed engineer"""
             south_load_north_wind_final,
             west_load_west_wind_final,
             east_load_west_wind_final,
+            surcharge_width_north,
+            surcharge_width_west,
         )
 
         # Format beam design results
