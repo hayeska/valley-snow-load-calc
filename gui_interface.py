@@ -849,7 +849,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         )
 
     def draw_plan_view(self, north_span, south_span, ew_half_width, valley_offset):
-        fig = plt.Figure(figsize=(8, 8))
+        fig = plt.Figure(figsize=(12, 10))
         ax = fig.add_subplot(111)
         ax.set_aspect("equal")
 
@@ -969,7 +969,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         ps,
         pd_north,
     ):
-        fig = plt.Figure(figsize=(8, 8))
+        fig = plt.Figure(figsize=(12, 10))
         ax = fig.add_subplot(111)
         ax.set_aspect("equal")
 
@@ -1121,7 +1121,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         ps,
     ):
         """Draw north wind unbalanced load distribution on roof planes"""
-        fig = plt.Figure(figsize=(8, 8))
+        fig = plt.Figure(figsize=(12, 10))
         ax = fig.add_subplot(111)
         ax.set_aspect("equal")
 
@@ -1479,7 +1479,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         ps,
     ):
         """Draw west wind unbalanced load distribution on roof planes"""
-        fig = plt.Figure(figsize=(8, 8))
+        fig = plt.Figure(figsize=(12, 10))
         ax = fig.add_subplot(111)
         ax.set_aspect("equal")
 
