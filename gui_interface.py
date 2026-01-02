@@ -1159,21 +1159,41 @@ Always verify member spanning conditions and consult licensed engineer"""
         canvas_plan.draw()
         canvas_plan.get_tk_widget().pack(side=tk.TOP, pady=5)
 
-        # North wind drift diagram
-        fig_north_drift = self.draw_north_drift_overlay(
-            north_span,
-            south_span,
-            ew_half_width,
-            valley_offset,
-            result_north["hd_ft"],
-            result_north["drift_width_ft"],
-            ps_balanced,
-            result_north["pd_max_psf"],
-        )
-        self._current_figures.append(fig_north_drift)
-        canvas_north = FigureCanvasTkAgg(fig_north_drift, master=self.plot_frame)
-        canvas_north.draw()
-        canvas_north.get_tk_widget().pack(side=tk.TOP, pady=5)
+        # Wind direction drift diagram
+        if wind_direction == "North":
+            fig_drift = self.draw_north_drift_overlay(
+                north_span,
+                south_span,
+                ew_half_width,
+                valley_offset,
+                result_north["hd_ft"],
+                result_north["drift_width_ft"],
+                ps_balanced,
+                result_north["pd_max_psf"],
+            )
+            diagram_title = "North Wind Drift Diagram"
+        else:  # West wind
+            # For west wind, we need to create a west drift overlay diagram
+            # For now, use north drift overlay as template but label appropriately
+            fig_drift = self.draw_north_drift_overlay(
+                north_span,
+                south_span,
+                ew_half_width,
+                valley_offset,
+                result_west["hd_ft"],
+                result_west["drift_width_ft"],
+                ps_balanced,
+                result_west["pd_max_psf"],
+            )
+            # Update the title to show West wind
+            ax = fig_drift.gca()
+            ax.set_title("West Wind Drift Diagram", fontsize=12, fontweight='bold')
+            diagram_title = "West Wind Drift Diagram"
+
+        self._current_figures.append(fig_drift)
+        canvas_drift = FigureCanvasTkAgg(fig_drift, master=self.plot_frame)
+        canvas_drift.draw()
+        canvas_drift.get_tk_widget().pack(side=tk.TOP, pady=5)
 
         # Get drift parameters
         pd_max = gov_drift["governing_pd_max_psf"]
@@ -2841,12 +2861,14 @@ Always verify member spanning conditions and consult licensed engineer"""
 
             if is_narrow_roof:
                 # ASCE 7-22 Section 7.6.1: Narrow roof (W ≤ 20 ft)
+                # SIMPLIFIED: No surcharge calculations - just p_g on leeward, 0 on windward
                 if leeward_plane == "south":
                     south_load = pg  # Leeward gets p_g
-                    north_load = 0  # Windward gets 0
+                    north_load = 0   # Windward gets 0
                 else:  # leeward_plane == "east"
-                    east_load = pg  # Leeward gets p_g
-                    west_load = 0  # Windward gets 0
+                    east_load = pg   # Leeward gets p_g
+                    west_load = 0    # Windward gets 0
+                # For narrow roofs, skip all other calculations
             else:
                 # ASCE 7-22 Section 7.6.1: Wide roof (W > 20 ft)
                 # Windward gets 0.3 × p_s
@@ -3428,12 +3450,17 @@ Always verify member spanning conditions and consult licensed engineer"""
 
             # Show narrow vs wide roof determination
             windward_span = north_span if wind_direction == "North" else ew_half_width
-            roof_type = (
-                "Narrow (W ≤ 20 ft)" if windward_span <= 20 else "Wide (W > 20 ft)"
-            )
+            is_narrow = windward_span <= 20
+            roof_type = "Narrow (W ≤ 20 ft)" if is_narrow else "Wide (W > 20 ft)"
             self.output_text.insert(
                 tk.END, f"Roof Type: {roof_type} (W = {windward_span:.1f} ft)\n"
             )
+
+            if is_narrow:
+                self.output_text.insert(tk.END, f"Narrow roof case: No surcharge calculations needed\n")
+                self.output_text.insert(tk.END, f"Leeward = p_g = {pg} psf, Windward = 0 psf\n")
+            else:
+                self.output_text.insert(tk.END, f"Wide roof case: Surcharge calculations applied\n")
         else:
             self.output_text.insert(tk.END, "\n=== NO GABLE UNBALANCED LOADS ===\n")
             self.output_text.insert(
