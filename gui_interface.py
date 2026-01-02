@@ -1118,7 +1118,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         valley_offset,
         north_load,
         south_load,
-        ps,
+        ps_balanced,
         surcharge_width_north=0,
     ):
         """Draw north wind unbalanced load distribution on roof planes"""
@@ -1292,7 +1292,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         south_load,
         west_load,
         east_load,
-        ps,
+        ps_balanced,
         surcharge_width_north=0,
         surcharge_width_west=0,
     ):
@@ -1538,7 +1538,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         valley_offset,
         west_load,
         east_load,
-        ps,
+        ps_balanced,
         surcharge_width_west=0,
     ):
         """Draw west wind unbalanced load distribution on roof planes"""
