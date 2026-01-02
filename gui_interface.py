@@ -1200,16 +1200,14 @@ Always verify member spanning conditions and consult licensed engineer"""
 
         # Shade rectangular surcharge block south of E-W ridge, adjacent to N-S ridge
         if south_load > 0 and surcharge_width_north > 0:
-            # Surcharge extends south (down-slope) from E-W ridge
-            # Adjacent to N-S ridge, so centered on the ridge line
-            # Width measured perpendicular to ridge (east-west direction)
-            surcharge_width_half = surcharge_width_north / 2
-            surcharge_east_limit = min(total_width, center_x + surcharge_width_half)
-            surcharge_west_limit = max(0, center_x - surcharge_width_half)
+            # Surcharge is a rectangular block extending south from E-W ridge
+            # Adjacent to N-S ridge (positioned along the ridge line)
+            # Width measured down-slope from ridge (north-south distance)
+            # The surcharge covers the full east-west width of southern roof plane
 
-            # Fill rectangular surcharge block from E-W ridge down by surcharge width
+            # Fill rectangular surcharge block from E-W ridge south by surcharge width
             ax.fill_between(
-                [surcharge_west_limit, surcharge_east_limit],
+                [0, total_width],  # Full east-west width of southern plane
                 [south_span - surcharge_width_north, south_span - surcharge_width_north],  # Bottom of surcharge
                 [south_span, south_span],  # Top at E-W ridge
                 color="lightcoral",
@@ -1572,15 +1570,16 @@ Always verify member spanning conditions and consult licensed engineer"""
 
         # Shade rectangular surcharge block east of N-S ridge
         if east_load > 0 and surcharge_width_west > 0:
-            # Surcharge extends east (down-slope) from N-S ridge
-            # Adjacent to N-S ridge, starting at the ridge line
-            # Width measured down-slope from ridge (east-west direction)
+            # Surcharge is a rectangular block extending east from N-S ridge
+            # Adjacent to N-S ridge (starting at the ridge line)
+            # Width measured down-slope from ridge (east-west distance)
+            # The surcharge covers the full north-south height of eastern roof plane
 
             # Fill rectangular surcharge block from N-S ridge east by surcharge width
             ax.fill_between(
                 [center_x, center_x + surcharge_width_west],  # From N-S ridge east
                 [0, 0],  # From south eave
-                [south_span, south_span],  # To E-W ridge
+                [south_span, south_span],  # To E-W ridge (full height)
                 color="lightcoral",
                 alpha=0.7,
                 hatch="///",
