@@ -1117,6 +1117,176 @@ Always verify member spanning conditions and consult licensed engineer"""
 
         return fig
 
+    def draw_west_drift_overlay(
+        self,
+        north_span,
+        south_span,
+        ew_half_width,
+        valley_offset,
+        hd_west,
+        w_west,
+        ps,
+        pd_west,
+    ):
+        """Draw west wind drift overlay showing leeward drift accumulation on east side of N-S ridge"""
+        fig = plt.Figure(figsize=(8, 8))
+        ax = fig.add_subplot(111)
+        ax.set_aspect("equal")
+
+        # Copy the exact same roof geometry as in the current draw_plan_view (do not change anything)
+        total_width = 2 * ew_half_width
+        total_height = north_span + south_span
+        center_x = ew_half_width
+
+        # Coordinate system: (0,0) at southwest corner (south eave left), Y increasing north (up page)
+        # South eave at y=0, north eave at y=total_height
+
+        # Building outline - rotated 180 degrees (south at bottom, north at top)
+        ax.plot(
+            [0, total_width, total_width, 0, 0],
+            [total_height, total_height, 0, 0, total_height],
+            "k-",
+            linewidth=2,
+            label="Building Outline",
+        )
+
+        # E-W ridge (horizontal at y = south_span from south eave)
+        ax.plot(
+            [0, total_width],
+            [south_span, south_span],
+            "k-",
+            linewidth=3,
+            label="E-W Ridge",
+        )
+
+        # N-S ridge (vertical, centered, from E-W ridge down to south eave)
+        ax.plot(
+            [center_x, center_x], [south_span, 0], "k-", linewidth=3, label="N-S Ridge"
+        )
+
+        # Valley lines – symmetric, using valley_offset
+        ax.plot(
+            [center_x - valley_offset, center_x],
+            [0, south_span],
+            "r--",
+            linewidth=2,
+            label="Valley Lines",
+        )
+        ax.plot(
+            [center_x + valley_offset, center_x], [0, south_span], "r--", linewidth=2
+        )
+
+        # Labels - repositioned for 180 degree rotation with proper spacing
+        ax.text(
+            total_width / 2,
+            south_span + north_span * 0.75,
+            f"North span\n{north_span:.1f} ft\n(lu_north)",
+            ha="center",
+            va="center",
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
+        )
+        ax.text(
+            total_width / 2,
+            south_span * 0.25,
+            f"South span\n{south_span:.1f} ft",
+            ha="center",
+            va="center",
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
+        )
+        ax.text(
+            center_x * 0.3,
+            south_span / 2,
+            f"West half\n{ew_half_width:.1f} ft",
+            ha="center",
+            va="center",
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
+        )
+        ax.text(
+            total_width - center_x * 0.3,
+            south_span / 2,
+            f"East half\n{ew_half_width:.1f} ft\n(lu_west)",
+            ha="center",
+            va="center",
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
+        )
+        ax.text(
+            center_x * 0.3,
+            -8,
+            f"{ew_half_width:.1f} ft\n(lu_west)",
+            ha="center",
+            va="top",
+        )
+        ax.text(
+            total_width - center_x * 0.3,
+            -8,
+            f"{ew_half_width:.1f} ft\n(lu_west)",
+            ha="center",
+            va="top",
+        )
+        ax.text(
+            center_x,
+            -8,
+            f"Valley offset ±{valley_offset:.1f} ft → lv = {math.sqrt(south_span**2 + valley_offset**2):.1f} ft",
+            ha="center",
+            va="top",
+        )
+
+        # === West-wind leeward drift on east roof plane ===
+        # Shaded rectangular area east of N-S ridge line, extending distance = w
+
+        # Limit drift width by available east span if necessary
+        effective_w = min(w_west, ew_half_width)
+
+        # Rectangular shaded area east of N-S ridge line, extending distance = w
+        # Clearly positioned east (right) of the ridge for leeward drift accumulation
+        drift_left = center_x  # Start at N-S ridge
+        drift_right = center_x + effective_w  # Extend east of ridge
+        ax.fill_between(
+            [drift_left, drift_right],
+            [0, 0],  # From south eave up
+            [south_span, south_span],  # To E-W ridge
+            color="lightcoral",
+            alpha=0.7,
+            hatch="///",
+            edgecolor="darkred",
+            linewidth=1.5,
+            label="West Wind Drift",
+        )
+
+        # Annotations for west drift - positioned to avoid overlap
+        ax.text(
+            total_width + 10,
+            south_span / 2,
+            f"West Wind Drift\nhd = {hd_west:.1f} ft\nw = {effective_w:.1f} ft\npd = {pd_west:.0f} psf",
+            ha="left",
+            va="center",
+            bbox=dict(facecolor="white", alpha=0.9, edgecolor="red"),
+        )
+
+        # North arrow – at top center, separated from 'N' text (reduced size)
+        arrow_x = total_width / 2
+        arrow_y = total_height + 12
+        ax.arrow(arrow_x, arrow_y, 0, 6, head_width=3, head_length=6, fc="k", ec="k")
+        ax.text(
+            arrow_x,
+            arrow_y + 15,
+            "N",
+            fontsize=12,
+            ha="center",
+            fontweight="bold",
+            va="bottom",
+        )
+
+        ax.set_xlim(-15, total_width + 60)  # Extended right for info box
+        ax.set_ylim(
+            -50, total_height + 30
+        )  # Extended further downward for moved labels
+        ax.set_axis_off()
+        ax.set_title("West Wind Leeward Gable Drift (lu_west = ew_half_width)")
+        ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
+
+        return fig
+
     def generate_diagrams(
         self,
         snow_point_loads,
@@ -1173,9 +1343,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             )
             diagram_title = "North Wind Drift Diagram"
         else:  # West wind
-            # For west wind, we need to create a west drift overlay diagram
-            # For now, use north drift overlay as template but label appropriately
-            fig_drift = self.draw_north_drift_overlay(
+            fig_drift = self.draw_west_drift_overlay(
                 north_span,
                 south_span,
                 ew_half_width,
@@ -1185,9 +1353,6 @@ Always verify member spanning conditions and consult licensed engineer"""
                 ps_balanced,
                 result_west["pd_max_psf"],
             )
-            # Update the title to show West wind
-            ax = fig_drift.gca()
-            ax.set_title("West Wind Drift Diagram", fontsize=12, fontweight='bold')
             diagram_title = "West Wind Drift Diagram"
 
         self._current_figures.append(fig_drift)
