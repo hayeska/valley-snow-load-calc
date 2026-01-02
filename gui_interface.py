@@ -950,7 +950,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             va="bottom",
         )
 
-        ax.set_xlim(-15, total_width + 15)
+        ax.set_xlim(-15, total_width + 180)
         ax.set_ylim(-25, total_height + 40)  # North at top, south at bottom
         ax.set_axis_off()
         ax.set_title("Roof Plan View")
@@ -1103,11 +1103,9 @@ Always verify member spanning conditions and consult licensed engineer"""
         )
 
         ax.set_xlim(-15, total_width + 60)  # Extended right for info box
-        ax.set_ylim(
-            -50, total_height + 30
-        )  # Extended further downward for moved labels
+        ax.set_ylim(-25, total_height + 40)
         ax.set_axis_off()
-        ax.set_title("North Wind Leeward Gable Drift (lu_north = north_span)")
+        ax.set_title("North Wind - Southern Roof Plane (ASCE 7-22 Section 7.6.1)")
         ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
 
         return fig
@@ -1463,7 +1461,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         )
 
         ax.set_xlim(-15, total_width + 180)
-        ax.set_ylim(-20, total_height + 30)
+        ax.set_ylim(-25, total_height + 40)
         ax.set_axis_off()
         ax.set_title("Governing Unbalanced Loads (Max from North & West Winds)")
         ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
@@ -1594,7 +1592,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         )
 
         ax.set_xlim(-15, total_width + 150)
-        ax.set_ylim(-20, total_height + 30)
+        ax.set_ylim(-25, total_height + 40)
         ax.set_axis_off()
         ax.set_title("West Wind - Southern Roof Plane (ASCE 7-22 Section 7.6.1)")
         ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
