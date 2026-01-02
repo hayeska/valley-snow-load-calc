@@ -177,6 +177,17 @@ class ValleySnowCalculator:
             ("Ct – Thermal factor, Table 7.3-2/7.3-3", "1.2", "ct"),
         ]
 
+        # Add wind direction selection
+        wind_directions = ["North", "West"]
+        ttk.Label(snow_frame, text="Wind Direction (ASCE 7-22 Section 7.6.1)").grid(
+            row=4, column=0, sticky="w", pady=3, padx=5
+        )
+        self.wind_direction_combo = ttk.Combobox(
+            snow_frame, values=wind_directions, state="readonly", width=15
+        )
+        self.wind_direction_combo.set(wind_directions[0])  # Default to North
+        self.wind_direction_combo.grid(row=4, column=1, sticky="ew", pady=3, padx=5)
+
         for i, (label_text, default, key) in enumerate(snow_inputs):
             row = i // 2
             col = (i % 2) * 2
@@ -1125,6 +1136,11 @@ Always verify member spanning conditions and consult licensed engineer"""
         lu_west,
         result_north,
         result_west,
+        wind_direction="North",
+        north_load=0,
+        south_load=0,
+        west_load=0,
+        east_load=0,
     ):
         """Generate five professional diagrams: plan view, SFD, BMD, drift profile, and sloped point loads."""
         # Clear previous plot but keep figures alive for PDF capture if needed
@@ -2757,7 +2773,11 @@ Always verify member spanning conditions and consult licensed engineer"""
         gamma = min(0.13 * pg + 14, 30)  # γ = min(0.13 × pg + 14, 30) pcf
 
         # Balanced sloped roof snow load - ASCE 7-22 Equation 7.4-1
-        ps = cs * pf  # ps = Cs × pf
+        ps = cs * pf  # ps = Cs × pf (governing value)
+
+        # Calculate individual plane balanced loads (different slopes may give different ps)
+        ps_north = cs_n * pf  # North roof plane
+        ps_west = cs_w * pf   # West roof plane
 
         # Balanced snow depth - ASCE 7-22 Section 7.7.1
         hb = ps / gamma  # hb = ps / γ
@@ -2789,36 +2809,96 @@ Always verify member spanning conditions and consult licensed engineer"""
             lv, pitch_n / 12.0, pitch_w / 12.0, north_span, south_span
         )
 
-        # Individual gable drifts with unbalanced applicability checks
-        if not unbalanced_applies_n:
-            result_north = {
-                "hd_ft": 0,
-                "pd_max_psf": 0,
-                "drift_width_ft": 0,
-                "pd_max": 0,
-                "w": 0,
-                "ps": ps,
-                "gamma": 25.0,
-            }  # Default gamma
-        else:
-            result_north = self.calculate_gable_drift(
-                pg, lu_north, w2, ce, ct, cs_n, is_factor, s_n, S_n
-            )
+        # ASCE 7-22 Section 7.6.1: Gable Unbalanced Loads
+        wind_direction = self.wind_direction_combo.get()
 
-        if not unbalanced_applies_w:
-            result_west = {
-                "hd_ft": 0,
-                "pd_max_psf": 0,
-                "drift_width_ft": 0,
-                "pd_max": 0,
-                "w": 0,
-                "ps": ps,
-                "gamma": 25.0,
-            }  # Default gamma
-        else:
-            result_west = self.calculate_gable_drift(
-                pg, lu_west, w2, ce, ct, cs_w, is_factor, s_w, S_w
-            )
+        # Initialize balanced loads (will be modified by unbalanced loads if applicable)
+        north_load = ps_north if ps_north > 0 else ps  # North roof plane balanced load
+        south_load = (
+            ps_north if ps_north > 0 else ps
+        )  # South roof plane balanced load (same as north for cross-gable)
+        west_load = ps_west if ps_west > 0 else ps  # West roof plane balanced load
+        east_load = (
+            ps_west if ps_west > 0 else ps
+        )  # East roof plane balanced load (same as west for cross-gable)
+
+        # Apply unbalanced loads if slope is in applicable range (2.38° ≤ θ ≤ 30.2°)
+        if 2.38 <= min(theta_n, theta_w) <= 30.2:
+            # Determine which roof planes are windward vs leeward based on wind direction
+            if wind_direction == "North":
+                # North wind: North plane is windward, South plane is leeward
+                windward_plane = "north"
+                leeward_plane = "south"
+                windward_span = north_span  # W for windward portion
+            else:  # West wind
+                # West wind: West plane is windward, East plane is leeward
+                windward_plane = "west"
+                leeward_plane = "east"
+                windward_span = ew_half_width  # W for windward portion
+
+            # Determine narrow vs wide roof
+            is_narrow_roof = windward_span <= 20
+
+            if is_narrow_roof:
+                # ASCE 7-22 Section 7.6.1: Narrow roof (W ≤ 20 ft)
+                if leeward_plane == "south":
+                    south_load = pg  # Leeward gets p_g
+                    north_load = 0  # Windward gets 0
+                else:  # leeward_plane == "east"
+                    east_load = pg  # Leeward gets p_g
+                    west_load = 0  # Windward gets 0
+            else:
+                # ASCE 7-22 Section 7.6.1: Wide roof (W > 20 ft)
+                # Windward gets 0.3 × p_s
+                if windward_plane == "north":
+                    north_load = 0.3 * ps_north if ps_north > 0 else 0
+                else:  # windward_plane == "west"
+                    west_load = 0.3 * ps_west if ps_west > 0 else 0
+
+                # Leeward gets p_s + rectangular surcharge
+                # Calculate h_d for the windward portion (l_u = W)
+                hd_unbalanced = 1.5 * math.sqrt(
+                    (pg**0.74 * windward_span**0.70 * w2**1.7) / gamma
+                )
+
+                # Determine the slope factor S for the leeward plane
+                if leeward_plane == "south":
+                    S_leeward = S_n  # North roof slope factor
+                else:  # leeward_plane == "east"
+                    S_leeward = S_w  # West roof slope factor
+
+                # Calculate surcharge per ASCE 7-22 Section 7.6.1
+                surcharge_magnitude = hd_unbalanced * gamma / math.sqrt(S_leeward)
+                # surcharge_width = (8 * hd_unbalanced * math.sqrt(S_leeward)) / 3  # Calculated but not used in current implementation
+
+                # Apply surcharge to leeward plane
+                if leeward_plane == "south":
+                    south_load = ps + surcharge_magnitude
+                else:  # leeward_plane == "east"
+                    east_load = ps + surcharge_magnitude
+
+        # Create result dictionaries for compatibility with existing code
+        result_north = {
+            "hd_ft": 0,  # These will be updated for valley drifts later
+            "pd_max_psf": 0,
+            "drift_width_ft": 0,
+            "pd_max": 0,
+            "w": 0,
+            "ps": ps,
+            "gamma": gamma,
+            "unbalanced_load": north_load,
+        }
+
+        result_west = {
+            "hd_ft": 0,
+            "pd_max_psf": 0,
+            "drift_width_ft": 0,
+            "pd_max": 0,
+            "w": 0,
+            "ps": ps,
+            "gamma": gamma,
+            "unbalanced_load": west_load,
+        }
 
         # Special narrow roof case (W <= 20 ft, simply supported prismatic members assumed)
         if narrow_roof_n and unbalanced_applies_n:
@@ -2969,6 +3049,11 @@ Always verify member spanning conditions and consult licensed engineer"""
             lu_west,
             result_north,
             result_west,
+            wind_direction,
+            north_load,
+            south_load,
+            west_load,
+            east_load,
         )
 
         # Format beam design results
@@ -3312,6 +3397,54 @@ Always verify member spanning conditions and consult licensed engineer"""
         )
         self.output_text.insert(
             tk.END, f"γ = min(0.13 × pg + 14, 30) = {gamma:.1f} pcf (Eq. 7.7-1)\n"
+        )
+
+        # Add unbalanced load information per ASCE 7-22 Section 7.6.1
+        min_slope = min(theta_n, theta_w)
+        if 2.38 <= min_slope <= 30.2:
+            self.output_text.insert(
+                tk.END, "\n=== GABLE UNBALANCED LOADS (ASCE 7-22 Section 7.6.1) ===\n"
+            )
+            self.output_text.insert(tk.END, f"Wind Direction: {wind_direction}\n")
+            self.output_text.insert(
+                tk.END,
+                f"Roof Slope Range: 2.38° ≤ {min_slope:.1f}° ≤ 30.2° ✓ (Unbalanced loads apply)\n",
+            )
+
+            if wind_direction == "North":
+                self.output_text.insert(
+                    tk.END, f"Windward Plane: North ({north_load:.1f} psf)\n"
+                )
+                self.output_text.insert(
+                    tk.END, f"Leeward Plane: South ({south_load:.1f} psf)\n"
+                )
+            else:  # West wind
+                self.output_text.insert(
+                    tk.END, f"Windward Plane: West ({west_load:.1f} psf)\n"
+                )
+                self.output_text.insert(
+                    tk.END, f"Leeward Plane: East ({east_load:.1f} psf)\n"
+                )
+
+            # Show narrow vs wide roof determination
+            windward_span = north_span if wind_direction == "North" else ew_half_width
+            roof_type = (
+                "Narrow (W ≤ 20 ft)" if windward_span <= 20 else "Wide (W > 20 ft)"
+            )
+            self.output_text.insert(
+                tk.END, f"Roof Type: {roof_type} (W = {windward_span:.1f} ft)\n"
+            )
+        else:
+            self.output_text.insert(tk.END, "\n=== NO GABLE UNBALANCED LOADS ===\n")
+            self.output_text.insert(
+                tk.END, f"Roof Slope: {min_slope:.1f}° outside 2.38°-30.2° range\n"
+            )
+            self.output_text.insert(
+                tk.END, f"Uniform balanced load: {ps:.1f} psf on all planes\n"
+            )
+
+        self.output_text.insert(
+            tk.END, "\n=== VALLEY DRIFT LOADS (ASCE 7-22 Section 7.7.3) ===\n"
         )
         self.output_text.insert(tk.END, f"hd = drift height = {hd_governing:.2f} ft\n")
         self.output_text.insert(
