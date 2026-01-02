@@ -1102,8 +1102,8 @@ Always verify member spanning conditions and consult licensed engineer"""
             va="bottom",
         )
 
-        ax.set_xlim(-15, total_width + 60)  # Extended right for info box
-        ax.set_ylim(-25, total_height + 40)
+        ax.set_xlim(-10, total_width + 10)
+        ax.set_ylim(-15, total_height + 15)
         ax.set_axis_off()
         ax.set_title("North Wind - Southern Roof Plane (ASCE 7-22 Section 7.6.1)")
         ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
@@ -1121,7 +1121,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         ps,
     ):
         """Draw north wind unbalanced load distribution on roof planes"""
-        fig = plt.Figure(figsize=(12, 10))
+        fig = plt.Figure(figsize=(8, 8))
         ax = fig.add_subplot(111)
         ax.set_aspect("equal")
 
@@ -1251,8 +1251,8 @@ Always verify member spanning conditions and consult licensed engineer"""
             va="bottom",
         )
 
-        ax.set_xlim(-15, total_width + 150)
-        ax.set_ylim(-20, total_height + 30)
+        ax.set_xlim(-10, total_width + 10)
+        ax.set_ylim(-15, total_height + 15)
         ax.set_axis_off()
         ax.set_title("North Wind - Southern Roof Plane (ASCE 7-22 Section 7.6.1)")
         ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
@@ -1272,7 +1272,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         ps,
     ):
         """Draw governing unbalanced load distribution showing maximum loads from both wind directions"""
-        fig = plt.Figure(figsize=(10, 8))
+        fig = plt.Figure(figsize=(8, 8))
         ax = fig.add_subplot(111)
         ax.set_aspect("equal")
 
@@ -1460,8 +1460,8 @@ Always verify member spanning conditions and consult licensed engineer"""
             va="bottom",
         )
 
-        ax.set_xlim(-15, total_width + 180)
-        ax.set_ylim(-25, total_height + 40)
+        ax.set_xlim(-10, total_width + 10)
+        ax.set_ylim(-15, total_height + 15)
         ax.set_axis_off()
         ax.set_title("Governing Unbalanced Loads (Max from North & West Winds)")
         ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
@@ -1479,7 +1479,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         ps,
     ):
         """Draw west wind unbalanced load distribution on roof planes"""
-        fig = plt.Figure(figsize=(12, 10))
+        fig = plt.Figure(figsize=(8, 8))
         ax = fig.add_subplot(111)
         ax.set_aspect("equal")
 
