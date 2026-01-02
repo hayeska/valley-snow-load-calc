@@ -3442,6 +3442,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         surcharge_width_west = 0
 
         # Apply unbalanced loads if slope is in applicable range (2.38° ≤ θ ≤ 30.2°)
+        # Apply unbalanced loads if slope is in applicable range (2.38° ≤ θ ≤ 30.2°)
         if 2.38 <= min(theta_n, theta_w) <= 30.2:
             # Calculate loads for BOTH wind directions and take maximums
 
