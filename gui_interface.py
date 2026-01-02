@@ -1435,7 +1435,9 @@ Always verify member spanning conditions and consult licensed engineer"""
         canvas_plan.get_tk_widget().pack(side=tk.TOP, pady=5)
 
         # Wind direction unbalanced load diagram
+        print(f"DEBUG: wind_direction = '{wind_direction}'")
         if wind_direction == "North":
+            print("DEBUG: Drawing North wind diagram")
             fig_drift = self.draw_north_unbalanced_overlay(
                 north_span,
                 south_span,
@@ -1447,6 +1449,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             )
             diagram_title = "North Wind Unbalanced Loads"
         else:  # West wind
+            print("DEBUG: Drawing West wind diagram")
             fig_drift = self.draw_west_unbalanced_overlay(
                 north_span,
                 south_span,
