@@ -3102,6 +3102,9 @@ Always verify member spanning conditions and consult licensed engineer"""
 
         # ASCE 7-22 Section 7.6.1: Gable Unbalanced Loads
         wind_direction = self.wind_direction_combo.get()
+        print(f"DEBUG: wind_direction = '{wind_direction}'")
+        print(f"DEBUG: combo current value = '{self.wind_direction_combo.get()}'")
+        print(f"DEBUG: combo current index = {self.wind_direction_combo.current()}")
 
         # Initialize windward/leeward plane variables (will be set if unbalanced loads apply)
         windward_plane = None
