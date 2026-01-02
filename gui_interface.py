@@ -1210,14 +1210,26 @@ Always verify member spanning conditions and consult licensed engineer"""
                 label=f"Southern Surcharge: {south_load:.1f} psf (w={surcharge_width_north:.1f} ft)",
             )
         else:
-            # Balanced loads only - uniform across entire roof
+            # No surcharge - show both windward and leeward portions with clear differentiation
+            # West portion (windward): show even if 0 (but with different styling)
             ax.fill_between(
-                [0, total_width],
+                [0, center_x],
                 [0, 0],
-                [total_height, total_height],
-                color="lightblue",
+                [south_span, south_span],
+                color="lightgray" if north_load == 0 else "lightblue",
+                alpha=0.5 if north_load == 0 else 0.7,
+                hatch="//" if north_load == 0 else None,
+                label=f"Windward (North): {north_load:.1f} psf",
+            )
+
+            # East portion (leeward): always show since it's the loaded side
+            ax.fill_between(
+                [center_x, total_width],
+                [0, 0],
+                [south_span, south_span],
+                color="lightcoral",
                 alpha=0.7,
-                label=f"Balanced Load: {ps_balanced:.1f} psf",
+                label=f"Leeward (South): {south_load:.1f} psf",
             )
 
         # Labels (showing southern roof plane spans)
@@ -1439,15 +1451,84 @@ Always verify member spanning conditions and consult licensed engineer"""
                 alpha=0.7,
             )
         else:
-            # Balanced loads only - uniform across entire roof
-            ax.fill_between(
-                [0, total_width],
-                [0, 0],
-                [total_height, total_height],
-                color="lightblue",
-                alpha=0.7,
-                label=f"Balanced Load: {ps_balanced:.1f} psf",
-            )
+            # No unbalanced loads - show governing loads on each plane
+            # North plane
+            if north_load > 0:
+                ax.fill_between(
+                    [0, center_x],
+                    [south_span, south_span],
+                    [total_height, total_height],
+                    color="lightblue",
+                    alpha=0.7,
+                    label=f"North: {north_load:.1f} psf",
+                )
+
+            # South plane
+            if south_load > 0:
+                ax.fill_between(
+                    [0, center_x],
+                    [0, 0],
+                    [south_span, south_span],
+                    color="lightcoral",
+                    alpha=0.7,
+                    label=f"South: {south_load:.1f} psf",
+                )
+
+            # West plane
+            if west_load > 0:
+                ax.fill_between(
+                    [0, 0],
+                    [south_span, south_span],
+                    [total_height, total_height],
+                    color="lightgreen",
+                    alpha=0.7,
+                    label=f"West: {west_load:.1f} psf",
+                )
+
+            # East plane
+            if east_load > 0:
+                ax.fill_between(
+                    [total_width, total_width],
+                    [south_span, south_span],
+                    [total_height, total_height],
+                    color="gold",
+                    alpha=0.7,
+                    label=f"East: {east_load:.1f} psf",
+                )
+
+            # Fill south planes with appropriate colors
+            if north_load > 0:
+                ax.fill_between(
+                    [0, center_x],
+                    [0, 0],
+                    [south_span, south_span],
+                    color="lightblue",
+                    alpha=0.7,
+                )
+            if south_load > 0:
+                ax.fill_between(
+                    [center_x, total_width],
+                    [0, 0],
+                    [south_span, south_span],
+                    color="lightcoral",
+                    alpha=0.7,
+                )
+            if west_load > 0:
+                ax.fill_between(
+                    [0, center_x],
+                    [0, 0],
+                    [south_span, south_span],
+                    color="lightgreen",
+                    alpha=0.7,
+                )
+            if east_load > 0:
+                ax.fill_between(
+                    [center_x, total_width],
+                    [0, 0],
+                    [south_span, south_span],
+                    color="gold",
+                    alpha=0.7,
+                )
 
         # Labels
         ax.text(
@@ -1640,14 +1721,26 @@ Always verify member spanning conditions and consult licensed engineer"""
                     label=f"Eastern Balanced: {ps_balanced:.1f} psf",
                 )
         else:
-            # Balanced loads only - uniform across entire roof
+            # No surcharge - show both windward and leeward portions with clear differentiation
+            # West portion (windward): show even if 0 (but with different styling)
             ax.fill_between(
-                [0, total_width],
+                [0, center_x],
                 [0, 0],
-                [total_height, total_height],
-                color="lightblue",
+                [south_span, south_span],
+                color="lightgray" if west_load == 0 else "lightblue",
+                alpha=0.5 if west_load == 0 else 0.7,
+                hatch="//" if west_load == 0 else None,
+                label=f"Windward (West): {west_load:.1f} psf",
+            )
+
+            # East portion (leeward): always show since it's the loaded side
+            ax.fill_between(
+                [center_x, total_width],
+                [0, 0],
+                [south_span, south_span],
+                color="lightcoral",
                 alpha=0.7,
-                label=f"Balanced Load: {ps_balanced:.1f} psf",
+                label=f"Leeward (East): {east_load:.1f} psf",
             )
 
         # Annotations
@@ -4037,7 +4130,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                 tk.END, "\n=== GABLE UNBALANCED LOADS (ASCE 7-22 Section 7.6.1) ===\n"
             )
             self.output_text.insert(
-                f"Roof Slope Range: 2.38° ≤ {min_slope:.1f}° ≤ 30.2° ✓ (Unbalanced loads apply)\n"
+                tk.END, f"Roof Slope Range: 2.38° ≤ {min_slope:.1f}° ≤ 30.2° ✓ (Unbalanced loads apply)\n"
             )
             self.output_text.insert(tk.END, "Analysis: Both North & West wind directions evaluated, governing loads used\n\n")
 
