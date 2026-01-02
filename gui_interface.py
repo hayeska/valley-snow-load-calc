@@ -1830,16 +1830,16 @@ Always verify member spanning conditions and consult licensed engineer"""
         canvas_plan.draw()
         canvas_plan.get_tk_widget().pack(side=tk.TOP, pady=5)
 
-        # ===== THREE UNBALANCED LOAD DIAGRAMS =====
+        # ===== THREE LOAD DIAGRAMS =====
 
-        # 1. North Wind Unbalanced Loads
+        # 1. North Wind Diagram
         fig_north = self.draw_north_unbalanced_overlay(
             north_span,
             south_span,
             ew_half_width,
             valley_offset,
-            north_load_north_wind,
-            south_load_north_wind,
+            north_load_north_wind_final,
+            south_load_north_wind_final,
             ps_balanced,
         )
         self._current_figures.append(fig_north)
@@ -1847,14 +1847,14 @@ Always verify member spanning conditions and consult licensed engineer"""
         canvas_north.draw()
         canvas_north.get_tk_widget().pack(side=tk.TOP, pady=5)
 
-        # 2. West Wind Unbalanced Loads
+        # 2. West Wind Diagram
         fig_west = self.draw_west_unbalanced_overlay(
             north_span,
             south_span,
             ew_half_width,
             valley_offset,
-            west_load_west_wind,
-            east_load_west_wind,
+            west_load_west_wind_final,
+            east_load_west_wind_final,
             ps_balanced,
         )
         self._current_figures.append(fig_west)
@@ -3522,13 +3522,20 @@ Always verify member spanning conditions and consult licensed engineer"""
         west_load = ps_west if ps_west > 0 else ps    # West roof plane balanced load
         east_load = ps_west if ps_west > 0 else ps    # East roof plane balanced load (same as west for cross-gable)
 
-        # Initialize individual wind direction loads and surcharge widths (will be set if unbalanced loads apply)
+        # Initialize individual wind direction loads (set to balanced values initially)
+        # These will be updated if unbalanced loads apply
+        north_load_north_wind = north_load  # Start with balanced loads
+        south_load_north_wind = south_load
+        west_load_west_wind = west_load
+        east_load_west_wind = east_load
+        surcharge_width_north = 0
+        surcharge_width_west = 0
+
+        # Initialize final variables for diagram display (will be set in both balanced and unbalanced cases)
         north_load_north_wind_final = north_load
         south_load_north_wind_final = south_load
         west_load_west_wind_final = west_load
         east_load_west_wind_final = east_load
-        surcharge_width_north = 0
-        surcharge_width_west = 0
 
         # === ASCE 7-22 FIGURE 7.6-2: BALANCED vs UNBALANCED SNOW LOADS ===
         # Criteria: Roof slope determines balanced vs unbalanced loading
@@ -3544,8 +3551,6 @@ Always verify member spanning conditions and consult licensed engineer"""
             windward_span_north = north_span
             is_narrow_north = windward_span_north <= 20
 
-            north_load_north_wind = north_load  # Start with balanced
-            south_load_north_wind = south_load
 
             if is_narrow_north:
                 # Narrow roof: p_g on leeward (south), 0 on windward (north)
@@ -3567,8 +3572,6 @@ Always verify member spanning conditions and consult licensed engineer"""
             windward_span_west = ew_half_width
             is_narrow_west = windward_span_west <= 20
 
-            west_load_west_wind = west_load  # Start with balanced
-            east_load_west_wind = east_load
 
             if is_narrow_west:
                 # Narrow roof: p_g on leeward (east), 0 on windward (west)
