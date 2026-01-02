@@ -1201,15 +1201,18 @@ Always verify member spanning conditions and consult licensed engineer"""
 
         # South roof plane (bottom half, leeward)
         if surcharge_width_north > 0:
-            # Show balanced area + surcharge area
+            # Show base load (ps) over entire south plane
             ax.fill_between(
                 [0, total_width],
                 [0, 0],
-                [south_span - surcharge_width_north, south_span - surcharge_width_north],
+                [south_span, south_span],
                 color="lightcoral",
                 alpha=0.7,
-                label=f"South Balanced: {ps_balanced:.1f} psf",
+                label=f"South Base: {ps_balanced:.1f} psf",
             )
+            # Overlay surcharge area with additional load
+            # For wide roofs: south_load = ps + surcharge, so surcharge = south_load - ps_balanced
+            surcharge_intensity = south_load - ps_balanced
             ax.fill_between(
                 [0, total_width],
                 [south_span - surcharge_width_north, south_span - surcharge_width_north],
@@ -1219,7 +1222,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                 hatch="///",
                 edgecolor="darkred",
                 linewidth=1.5,
-                label=f"South Surcharge: {south_load:.1f} psf (w={surcharge_width_north:.1f} ft)",
+                label=f"Surcharge: +{surcharge_intensity:.1f} psf (w={surcharge_width_north:.1f} ft)",
             )
         else:
             # No surcharge - uniform load on south plane
@@ -1702,15 +1705,18 @@ Always verify member spanning conditions and consult licensed engineer"""
 
         # East roof plane (right half, leeward)
         if surcharge_width_west > 0:
-            # Show balanced area + surcharge area
+            # Show base load (ps) over entire east plane
             ax.fill_between(
                 [center_x, total_width],
                 [0, 0],
-                [total_height - surcharge_width_west, total_height - surcharge_width_west],
+                [total_height, total_height],
                 color="lightcoral",
                 alpha=0.7,
-                label=f"East Balanced: {ps_balanced:.1f} psf",
+                label=f"East Base: {ps_balanced:.1f} psf",
             )
+            # Overlay surcharge area with additional load
+            # For wide roofs: east_load = ps + surcharge, so surcharge = east_load - ps_balanced
+            surcharge_intensity = east_load - ps_balanced
             ax.fill_between(
                 [center_x, total_width],
                 [total_height - surcharge_width_west, total_height - surcharge_width_west],
@@ -1720,7 +1726,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                 hatch="///",
                 edgecolor="darkred",
                 linewidth=1.5,
-                label=f"East Surcharge: {east_load:.1f} psf (w={surcharge_width_west:.1f} ft)",
+                label=f"Surcharge: +{surcharge_intensity:.1f} psf (w={surcharge_width_west:.1f} ft)",
             )
         else:
             # No surcharge - uniform load on east plane
