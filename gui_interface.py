@@ -1591,8 +1591,8 @@ Always verify member spanning conditions and consult licensed engineer"""
             va="bottom",
         )
 
-        ax.set_xlim(-15, total_width + 150)
-        ax.set_ylim(-25, total_height + 40)
+        ax.set_xlim(-10, total_width + 10)
+        ax.set_ylim(-15, total_height + 15)
         ax.set_axis_off()
         ax.set_title("West Wind - Southern Roof Plane (ASCE 7-22 Section 7.6.1)")
         ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
