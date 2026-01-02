@@ -3530,13 +3530,17 @@ Always verify member spanning conditions and consult licensed engineer"""
         surcharge_width_north = 0
         surcharge_width_west = 0
 
-        # Apply unbalanced loads if slope is in applicable range (2.38° ≤ θ ≤ 30.2°)
-        # Apply unbalanced loads if slope is in applicable range (2.38° ≤ θ ≤ 30.2°)
+        # === ASCE 7-22 FIGURE 7.6-2: BALANCED vs UNBALANCED SNOW LOADS ===
+        # Criteria: Roof slope determines balanced vs unbalanced loading
+        # If slope outside 2.38°-30.2° range: BALANCED loads on ALL planes
+        # If slope within range: UNBALANCED loads based on wind direction
+
         if 2.38 <= min(theta_n, theta_w) <= 30.2:
             # Calculate loads for BOTH wind directions and take maximums
 
             # ===== NORTH WIND ANALYSIS =====
-            # North wind: North plane windward, South plane leeward
+            # North wind blows parallel to N-S ridge, affecting North-South roof planes
+            # Figure 7.6-2: North plane = windward, South plane = leeward
             windward_span_north = north_span
             is_narrow_north = windward_span_north <= 20
 
@@ -3558,7 +3562,8 @@ Always verify member spanning conditions and consult licensed engineer"""
                 south_load_north_wind = ps + surcharge_north
 
             # ===== WEST WIND ANALYSIS =====
-            # West wind: West plane windward, East plane leeward
+            # West wind blows perpendicular to N-S ridge, affecting East-West roof planes
+            # Figure 7.6-2: West plane = windward, East plane = leeward
             windward_span_west = ew_half_width
             is_narrow_west = windward_span_west <= 20
 
@@ -3587,10 +3592,12 @@ Always verify member spanning conditions and consult licensed engineer"""
             east_load_west_wind_final = east_load_west_wind
 
             # ===== GOVERNING LOADS (Maximum from both wind directions) =====
-            north_load = max(north_load, north_load_north_wind)  # North plane governing
-            south_load = max(south_load, south_load_north_wind)  # South plane governing
-            west_load = max(west_load, west_load_west_wind)      # West plane governing
-            east_load = max(east_load, east_load_west_wind)      # East plane governing
+            # Each roof plane takes the maximum load from either wind direction
+            # This ensures conservative design for unknown wind conditions
+            north_load = max(north_load, north_load_north_wind)  # North plane: max from balanced + north wind
+            south_load = max(south_load, south_load_north_wind)  # South plane: max from balanced + north wind
+            west_load = max(west_load, west_load_west_wind)      # West plane: max from balanced + west wind
+            east_load = max(east_load, east_load_west_wind)      # East plane: max from balanced + west wind
 
         # Create result dictionaries for compatibility with existing code
         result_north = {
