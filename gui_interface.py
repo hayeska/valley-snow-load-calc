@@ -1105,7 +1105,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         ax.set_xlim(-10, total_width + 10)
         ax.set_ylim(-15, total_height + 15)
         ax.set_axis_off()
-        ax.set_title("North Wind - Southern Roof Plane (ASCE 7-22 Section 7.6.1)")
+        ax.set_title("North Wind - North & South Roof Planes (ASCE 7-22 Section 7.6.1)")
         ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
 
         return fig
@@ -1121,7 +1121,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         ps_balanced,
         surcharge_width_north=0,
     ):
-        """Draw north wind unbalanced load distribution on roof planes"""
+        """Draw north wind load distribution - shows North and South roof planes"""
         fig = plt.Figure(figsize=(8, 8))
         ax = fig.add_subplot(111)
         ax.set_aspect("equal")
@@ -1184,52 +1184,47 @@ Always verify member spanning conditions and consult licensed engineer"""
             bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
         )
 
-        # === North Wind Loads ===
-        # Show uniform balanced loads across southern roof plane
-        # Add surcharge block only if unbalanced loads apply
+        # === NORTH WIND DIAGRAM ===
+        # Wind from North affects North and South roof planes
+        # North plane (top): windward, South plane (bottom): leeward
 
+        # North roof plane (top half, windward) - always show
+        ax.fill_between(
+            [0, total_width],
+            [south_span, south_span],
+            [total_height, total_height],
+            color="lightgray" if north_load == 0 else "lightblue",
+            alpha=0.5 if north_load == 0 else 0.7,
+            hatch="//" if north_load == 0 else None,
+            label=f"North Plane (Windward): {north_load:.1f} psf",
+        )
+
+        # South roof plane (bottom half, leeward)
         if surcharge_width_north > 0:
-            # Unbalanced loads apply - show balanced area + surcharge
+            # Show balanced area + surcharge area
             ax.fill_between(
                 [0, total_width],
                 [0, 0],
                 [south_span - surcharge_width_north, south_span - surcharge_width_north],
-                color="lightblue",
-                alpha=0.7,
-                label=f"Southern Balanced: {ps_balanced:.1f} psf",
-            )
-            ax.fill_between(
-                [0, total_width],
-                [south_span - surcharge_width_north, south_span - surcharge_width_north],
-                [south_span, south_span],
                 color="lightcoral",
                 alpha=0.7,
+                label=f"South Balanced: {ps_balanced:.1f} psf",
+            )
+            ax.fill_between(
+                [0, total_width],
+                [south_span - surcharge_width_north, south_span - surcharge_width_north],
+                [south_span, south_span],
+                color="red",
+                alpha=0.7,
                 hatch="///",
-                edgecolor="red",
+                edgecolor="darkred",
                 linewidth=1.5,
-                label=f"Southern Surcharge: {south_load:.1f} psf (w={surcharge_width_north:.1f} ft)",
+                label=f"South Surcharge: {south_load:.1f} psf (w={surcharge_width_north:.1f} ft)",
             )
         else:
-            # No surcharge - show both windward and leeward portions with clear differentiation
-            # West portion (windward): show even if 0 (but with different styling)
-            # North Wind Direction Logic:
-            # Wind from North → Windward = North plane, Leeward = South plane
-            # This diagram shows the South roof plane (leeward side)
-
-            # West portion represents North roof plane (windward for north wind)
+            # No surcharge - uniform load on south plane
             ax.fill_between(
-                [0, center_x],
-                [0, 0],
-                [south_span, south_span],
-                color="lightgray" if north_load == 0 else "lightblue",
-                alpha=0.5 if north_load == 0 else 0.7,
-                hatch="//" if north_load == 0 else None,
-                label=f"North Plane (Windward): {north_load:.1f} psf",
-            )
-
-            # East portion represents South roof plane (leeward for north wind)
-            ax.fill_between(
-                [center_x, total_width],
+                [0, total_width],
                 [0, 0],
                 [south_span, south_span],
                 color="lightcoral",
@@ -1237,19 +1232,19 @@ Always verify member spanning conditions and consult licensed engineer"""
                 label=f"South Plane (Leeward): {south_load:.1f} psf",
             )
 
-        # Labels (showing southern roof plane spans)
+        # Labels for North and South roof planes
         ax.text(
-            center_x * 0.3,
-            south_span / 2,
-            f"Southern\nWest\n{center_x:.1f} ft span",
+            center_x,
+            total_height - north_span * 0.5,
+            f"North Roof Plane\n(Windward)\n{north_span:.1f} ft span",
             ha="center",
             va="center",
             bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
         )
         ax.text(
-            total_width - center_x * 0.3,
-            south_span / 2,
-            f"Southern\nEast\n{center_x:.1f} ft span",
+            center_x,
+            south_span * 0.5,
+            f"South Roof Plane\n(Leeward)\n{south_span:.1f} ft span",
             ha="center",
             va="center",
             bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
@@ -1294,7 +1289,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         ax.set_xlim(-10, total_width + 10)
         ax.set_ylim(-15, total_height + 15)
         ax.set_axis_off()
-        ax.set_title("North Wind - Southern Roof Plane (ASCE 7-22 Section 7.6.1)")
+        ax.set_title("North Wind - North & South Roof Planes (ASCE 7-22 Section 7.6.1)")
         ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
 
         return fig
@@ -1672,80 +1667,67 @@ Always verify member spanning conditions and consult licensed engineer"""
         )
 
         # Labels (showing southern roof plane only)
+        # Labels for West and East roof planes
         ax.text(
-            center_x * 0.3,
-            south_span / 2,
-            f"Southern\nWest\n{ew_half_width:.1f} ft span",
+            center_x * 0.5,
+            total_height * 0.5,
+            f"West Roof Plane\n(Windward)\n{ew_half_width:.1f} ft span",
             ha="center",
             va="center",
             bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
         )
         ax.text(
-            total_width - center_x * 0.3,
-            south_span / 2,
-            f"Southern\nEast\n{ew_half_width:.1f} ft span",
+            center_x + ew_half_width * 0.5,
+            total_height * 0.5,
+            f"East Roof Plane\n(Leeward)\n{ew_half_width:.1f} ft span",
             ha="center",
             va="center",
             bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
         )
 
-        # === West Wind Loads ===
-        # Show uniform balanced loads across southern roof plane
-        # Add surcharge block only if unbalanced loads apply
+        # === WEST WIND DIAGRAM ===
+        # Wind from West affects West and East roof planes
+        # West plane (left): windward, East plane (right): leeward
 
+        # West roof plane (left half, windward) - always show
+        ax.fill_between(
+            [0, center_x],
+            [0, 0],
+            [total_height, total_height],
+            color="lightgray" if west_load == 0 else "lightblue",
+            alpha=0.5 if west_load == 0 else 0.7,
+            hatch="//" if west_load == 0 else None,
+            label=f"West Plane (Windward): {west_load:.1f} psf",
+        )
+
+        # East roof plane (right half, leeward)
         if surcharge_width_west > 0:
-            # Unbalanced loads apply - show balanced area + surcharge
-            ax.fill_between(
-                [0, center_x],  # West portion
-                [0, 0],
-                [south_span, south_span],
-                color="lightblue",
-                alpha=0.7,
-                label=f"Western Balanced: {ps_balanced:.1f} psf",
-            )
-            ax.fill_between(
-                [center_x, center_x + surcharge_width_west],  # Surcharge portion
-                [0, 0],
-                [south_span, south_span],
-                color="lightcoral",
-                alpha=0.7,
-                hatch="///",
-                edgecolor="red",
-                linewidth=1.5,
-                label=f"Eastern Surcharge: {east_load:.1f} psf (w={surcharge_width_west:.1f} ft)",
-            )
-            # Show remaining east portion with balanced load
-            if center_x + surcharge_width_west < total_width:
-                ax.fill_between(
-                    [center_x + surcharge_width_west, total_width],
-                    [0, 0],
-                    [south_span, south_span],
-                    color="lightblue",
-                    alpha=0.7,
-                    label=f"Eastern Balanced: {ps_balanced:.1f} psf",
-                )
-        else:
-            # No surcharge - show both windward and leeward portions with clear differentiation
-            # West Wind Direction Logic:
-            # Wind from West → Windward = West plane, Leeward = East plane
-            # This diagram shows the South roof plane (but represents east-west loads)
-
-            # West portion represents West roof plane (windward for west wind)
-            ax.fill_between(
-                [0, center_x],
-                [0, 0],
-                [south_span, south_span],
-                color="lightgray" if west_load == 0 else "lightblue",
-                alpha=0.5 if west_load == 0 else 0.7,
-                hatch="//" if west_load == 0 else None,
-                label=f"West Plane (Windward): {west_load:.1f} psf",
-            )
-
-            # East portion represents East roof plane (leeward for west wind)
+            # Show balanced area + surcharge area
             ax.fill_between(
                 [center_x, total_width],
                 [0, 0],
-                [south_span, south_span],
+                [total_height - surcharge_width_west, total_height - surcharge_width_west],
+                color="lightcoral",
+                alpha=0.7,
+                label=f"East Balanced: {ps_balanced:.1f} psf",
+            )
+            ax.fill_between(
+                [center_x, total_width],
+                [total_height - surcharge_width_west, total_height - surcharge_width_west],
+                [total_height, total_height],
+                color="red",
+                alpha=0.7,
+                hatch="///",
+                edgecolor="darkred",
+                linewidth=1.5,
+                label=f"East Surcharge: {east_load:.1f} psf (w={surcharge_width_west:.1f} ft)",
+            )
+        else:
+            # No surcharge - uniform load on east plane
+            ax.fill_between(
+                [center_x, total_width],
+                [0, 0],
+                [total_height, total_height],
                 color="lightcoral",
                 alpha=0.7,
                 label=f"East Plane (Leeward): {east_load:.1f} psf",
@@ -1790,7 +1772,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         ax.set_xlim(-10, total_width + 10)
         ax.set_ylim(-15, total_height + 15)
         ax.set_axis_off()
-        ax.set_title("West Wind - Southern Roof Plane (ASCE 7-22 Section 7.6.1)")
+        ax.set_title("West Wind - West & East Roof Planes (ASCE 7-22 Section 7.6.1)")
         ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
 
         return fig
