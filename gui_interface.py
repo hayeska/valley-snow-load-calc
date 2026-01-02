@@ -3100,6 +3100,11 @@ Always verify member spanning conditions and consult licensed engineer"""
         # ASCE 7-22 Section 7.6.1: Gable Unbalanced Loads
         wind_direction = self.wind_direction_combo.get()
 
+        # Initialize windward/leeward plane variables (will be set if unbalanced loads apply)
+        windward_plane = None
+        leeward_plane = None
+        windward_span = 0
+
         # Initialize balanced loads (will be modified by unbalanced loads if applicable)
         north_load = ps_north if ps_north > 0 else ps  # North roof plane balanced load
         south_load = (
@@ -3137,7 +3142,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                     east_load = pg   # Leeward gets p_g
                     west_load = 0    # Windward gets 0
                 # For narrow roofs, skip all other calculations
-        else:
+        elif windward_plane is not None:
                 # ASCE 7-22 Section 7.6.1: Wide roof (W > 20 ft)
                 # Windward gets 0.3 × p_s
                 if windward_plane == "north":
