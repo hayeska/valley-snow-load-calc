@@ -849,7 +849,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         )
 
     def draw_plan_view(self, north_span, south_span, ew_half_width, valley_offset):
-        fig = plt.Figure(figsize=(12, 10))
+        fig = plt.Figure(figsize=(8, 8))
         ax = fig.add_subplot(111)
         ax.set_aspect("equal")
 
@@ -950,8 +950,8 @@ Always verify member spanning conditions and consult licensed engineer"""
             va="bottom",
         )
 
-        ax.set_xlim(-15, total_width + 180)
-        ax.set_ylim(-25, total_height + 40)  # North at top, south at bottom
+        ax.set_xlim(-10, total_width + 10)
+        ax.set_ylim(-15, total_height + 15)  # North at top, south at bottom
         ax.set_axis_off()
         ax.set_title("Roof Plan View")
         ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
