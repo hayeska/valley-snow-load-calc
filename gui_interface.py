@@ -1235,7 +1235,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         ax.text(
             total_width + 35,
             total_height * 0.75,
-            f"North Wind - Southern Roof Plane\nWest (windward): {north_load:.1f} psf\nEast (leeward): {south_load:.1f} psf\nBalanced: {ps:.1f} psf",
+            f"North Wind - Surcharge South of E-W Ridge\nWindward (North): {north_load:.1f} psf\nLeeward Surcharge (South): {south_load:.1f} psf\nBalanced: {ps:.1f} psf",
             ha="left",
             va="center",
             fontsize=9,
@@ -1444,8 +1444,8 @@ Always verify member spanning conditions and consult licensed engineer"""
             total_width + 45,
             total_height * 0.8,
             f"Governing Unbalanced Loads\n(ASCE 7-22 Section 7.6.1)\n"
-            f"North: {north_load:.1f} psf\nSouth: {south_load:.1f} psf\n"
-            f"West: {west_load:.1f} psf\nEast: {east_load:.1f} psf\n"
+            f"North (windward): {north_load:.1f} psf\nSouth (leeward): {south_load:.1f} psf\n"
+            f"West (windward): {west_load:.1f} psf\nEast (leeward): {east_load:.1f} psf\n"
             f"Balanced: {ps:.1f} psf",
             ha="left",
             va="center",
@@ -1563,13 +1563,13 @@ Always verify member spanning conditions and consult licensed engineer"""
                 label=f"West Windward: {west_load:.1f} psf",
             )
 
-        # Shade surcharge portion of southern roof plane (leeward)
+        # Shade surcharge portion of eastern roof plane (leeward)
         if east_load > 0 and surcharge_width_west > 0:
-            surcharge_start = max(center_x, total_width - surcharge_width_west)
+            surcharge_end = min(total_width, center_x + surcharge_width_west)
             ax.fill_between(
-                [surcharge_start, total_width],
-                [0, 0],
-                [south_span, south_span],
+                [center_x, surcharge_end],
+                [south_span, south_span],  # From E-W ridge down
+                [0, 0],  # To south eave
                 color="lightcoral",
                 alpha=0.7,
                 hatch="///",
@@ -1582,7 +1582,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         ax.text(
             total_width + 35,
             total_height * 0.6,
-            f"West Wind - Southern Roof Plane\nWest (windward): {west_load:.1f} psf\nEast (leeward): {east_load:.1f} psf\nBalanced: {ps:.1f} psf",
+            f"West Wind - Surcharge East of N-S Ridge\nWindward (West): {west_load:.1f} psf\nLeeward Surcharge (East): {east_load:.1f} psf\nBalanced: {ps:.1f} psf",
             ha="left",
             va="center",
             fontsize=9,
