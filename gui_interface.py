@@ -1198,19 +1198,26 @@ Always verify member spanning conditions and consult licensed engineer"""
                 label=f"North Windward: {north_load:.1f} psf",
             )
 
-        # Shade surcharge portion of southern roof plane (leeward)
+        # Shade rectangular surcharge block south of E-W ridge, adjacent to N-S ridge
         if south_load > 0 and surcharge_width_north > 0:
-            surcharge_start = max(center_x, total_width - surcharge_width_north)
+            # Surcharge extends south (down-slope) from E-W ridge
+            # Adjacent to N-S ridge, so centered on the ridge line
+            # Width measured perpendicular to ridge (east-west direction)
+            surcharge_width_half = surcharge_width_north / 2
+            surcharge_east_limit = min(total_width, center_x + surcharge_width_half)
+            surcharge_west_limit = max(0, center_x - surcharge_width_half)
+
+            # Fill rectangular surcharge block from E-W ridge down by surcharge width
             ax.fill_between(
-                [surcharge_start, total_width],
-                [0, 0],
-                [south_span, south_span],
+                [surcharge_west_limit, surcharge_east_limit],
+                [south_span - surcharge_width_north, south_span - surcharge_width_north],  # Bottom of surcharge
+                [south_span, south_span],  # Top at E-W ridge
                 color="lightcoral",
                 alpha=0.7,
                 hatch="///",
                 edgecolor="red",
                 linewidth=1.5,
-                label=f"South Leeward Surcharge: {south_load:.1f} psf (w={surcharge_width_north:.1f} ft)",
+                label=f"Southern Surcharge: {south_load:.1f} psf (w={surcharge_width_north:.1f} ft)",
             )
 
         # Labels (showing southern roof plane spans)
@@ -1563,19 +1570,23 @@ Always verify member spanning conditions and consult licensed engineer"""
                 label=f"West Windward: {west_load:.1f} psf",
             )
 
-        # Shade surcharge portion of eastern roof plane (leeward)
+        # Shade rectangular surcharge block east of N-S ridge
         if east_load > 0 and surcharge_width_west > 0:
-            surcharge_end = min(total_width, center_x + surcharge_width_west)
+            # Surcharge extends east (down-slope) from N-S ridge
+            # Adjacent to N-S ridge, starting at the ridge line
+            # Width measured down-slope from ridge (east-west direction)
+
+            # Fill rectangular surcharge block from N-S ridge east by surcharge width
             ax.fill_between(
-                [center_x, surcharge_end],
-                [south_span, south_span],  # From E-W ridge down
-                [0, 0],  # To south eave
+                [center_x, center_x + surcharge_width_west],  # From N-S ridge east
+                [0, 0],  # From south eave
+                [south_span, south_span],  # To E-W ridge
                 color="lightcoral",
                 alpha=0.7,
                 hatch="///",
                 edgecolor="red",
                 linewidth=1.5,
-                label=f"East Leeward Surcharge: {east_load:.1f} psf (w={surcharge_width_west:.1f} ft)",
+                label=f"Eastern Surcharge: {east_load:.1f} psf (w={surcharge_width_west:.1f} ft)",
             )
 
         # Annotations - positioned far right to avoid overlap
