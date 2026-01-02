@@ -1185,34 +1185,54 @@ Always verify member spanning conditions and consult licensed engineer"""
             bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
         )
 
-        # === North Wind Unbalanced Loads ===
-        # Shade north plane (windward) with north_load
+        # === North Wind Unbalanced Loads (Southern Roof Plane Only) ===
+        # For north wind, focus on southern roof plane perpendicular to N-S ridge
+
+        # Shade west portion of southern roof plane (same loads as north for cross-gable)
         if north_load > 0:
             ax.fill_between(
-                [0, total_width],
+                [0, center_x],
+                [0, 0],
                 [south_span, south_span],
-                [total_height, total_height],
                 color="lightblue",
                 alpha=0.7,
-                label=f"North Plane: {north_load:.1f} psf",
+                label=f"North Windward: {north_load:.1f} psf",
             )
 
-        # Shade south plane (leeward) with south_load
+        # Shade east portion of southern roof plane (same loads as south for cross-gable)
         if south_load > 0:
             ax.fill_between(
-                [0, total_width],
+                [center_x, total_width],
                 [0, 0],
                 [south_span, south_span],
                 color="lightcoral",
                 alpha=0.7,
-                label=f"South Plane: {south_load:.1f} psf",
+                label=f"South Leeward: {south_load:.1f} psf",
             )
 
-        # Annotations - positioned to avoid overlap
+        # Labels (showing southern roof plane spans)
+        ax.text(
+            center_x * 0.3,
+            south_span / 2,
+            f"Southern\nWest\n{center_x:.1f} ft span",
+            ha="center",
+            va="center",
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
+        )
+        ax.text(
+            total_width - center_x * 0.3,
+            south_span / 2,
+            f"Southern\nEast\n{center_x:.1f} ft span",
+            ha="center",
+            va="center",
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
+        )
+
+        # Annotations - showing southern roof plane only
         ax.text(
             total_width + 15,
             total_height * 0.7,
-            f"North Wind Unbalanced Loads\nNorth (windward): {north_load:.1f} psf\nSouth (leeward): {south_load:.1f} psf\nBalanced: {ps:.1f} psf",
+            f"North Wind - Southern Roof Plane\nWest (windward): {north_load:.1f} psf\nEast (leeward): {south_load:.1f} psf\nBalanced: {ps:.1f} psf",
             ha="left",
             va="center",
             bbox=dict(facecolor="white", alpha=0.9, edgecolor="blue"),
@@ -1235,7 +1255,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         ax.set_xlim(-15, total_width + 120)
         ax.set_ylim(-20, total_height + 30)
         ax.set_axis_off()
-        ax.set_title("North Wind Gable Unbalanced Loads (ASCE 7-22 Section 7.6.1)")
+        ax.set_title("North Wind - Southern Roof Plane (ASCE 7-22 Section 7.6.1)")
         ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
 
         return fig
@@ -1503,48 +1523,28 @@ Always verify member spanning conditions and consult licensed engineer"""
             [center_x + valley_offset, center_x], [0, south_span], "r--", linewidth=2
         )
 
-        # Labels
+        # Labels (showing southern roof plane only)
         ax.text(
             center_x * 0.3,
-            south_span + north_span * 0.75,
-            f"West span\n{ew_half_width:.1f} ft",
+            south_span / 2,
+            f"Southern\nWest\n{ew_half_width:.1f} ft span",
             ha="center",
             va="center",
             bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
         )
         ax.text(
             total_width - center_x * 0.3,
-            south_span + north_span * 0.75,
-            f"East span\n{ew_half_width:.1f} ft",
+            south_span / 2,
+            f"Southern\nEast\n{ew_half_width:.1f} ft span",
             ha="center",
             va="center",
             bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
         )
 
-        # === West Wind Unbalanced Loads ===
-        # Shade west plane (windward) with west_load
-        if west_load > 0:
-            ax.fill_between(
-                [0, center_x],
-                [south_span, south_span],
-                [total_height, total_height],
-                color="lightblue",
-                alpha=0.7,
-                label=f"West Plane: {west_load:.1f} psf",
-            )
+        # === West Wind Unbalanced Loads (Southern Roof Plane Only) ===
+        # For west wind, focus on southern roof plane perpendicular to N-S ridge
 
-        # Shade east plane (leeward) with east_load
-        if east_load > 0:
-            ax.fill_between(
-                [center_x, total_width],
-                [south_span, south_span],
-                [total_height, total_height],
-                color="lightcoral",
-                alpha=0.7,
-                label=f"East Plane: {east_load:.1f} psf",
-            )
-
-        # Shade south planes (same loads as north for cross-gable)
+        # Shade west portion of southern roof plane (windward) with west_load
         if west_load > 0:
             ax.fill_between(
                 [0, center_x],
@@ -1552,8 +1552,10 @@ Always verify member spanning conditions and consult licensed engineer"""
                 [south_span, south_span],
                 color="lightblue",
                 alpha=0.7,
+                label=f"West Windward: {west_load:.1f} psf",
             )
 
+        # Shade east portion of southern roof plane (leeward) with east_load
         if east_load > 0:
             ax.fill_between(
                 [center_x, total_width],
@@ -1561,13 +1563,14 @@ Always verify member spanning conditions and consult licensed engineer"""
                 [south_span, south_span],
                 color="lightcoral",
                 alpha=0.7,
+                label=f"East Leeward: {east_load:.1f} psf",
             )
 
-        # Annotations - positioned to avoid overlap
+        # Annotations - showing southern roof plane only
         ax.text(
             total_width + 15,
             total_height * 0.65,
-            f"West Wind Unbalanced Loads\nWest (windward): {west_load:.1f} psf\nEast (leeward): {east_load:.1f} psf\nBalanced: {ps:.1f} psf",
+            f"West Wind - Southern Roof Plane\nWest (windward): {west_load:.1f} psf\nEast (leeward): {east_load:.1f} psf\nBalanced: {ps:.1f} psf",
             ha="left",
             va="center",
             bbox=dict(facecolor="white", alpha=0.9, edgecolor="red"),
@@ -1590,7 +1593,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         ax.set_xlim(-15, total_width + 120)
         ax.set_ylim(-20, total_height + 30)
         ax.set_axis_off()
-        ax.set_title("West Wind Gable Unbalanced Loads (ASCE 7-22 Section 7.6.1)")
+        ax.set_title("West Wind - Southern Roof Plane (ASCE 7-22 Section 7.6.1)")
         ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
 
         return fig
