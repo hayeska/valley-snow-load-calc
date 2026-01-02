@@ -1210,14 +1210,14 @@ Always verify member spanning conditions and consult licensed engineer"""
                 label=f"Southern Surcharge: {south_load:.1f} psf (w={surcharge_width_north:.1f} ft)",
             )
         else:
-            # Balanced loads only - uniform across entire southern plane
+            # Balanced loads only - uniform across entire roof
             ax.fill_between(
                 [0, total_width],
                 [0, 0],
-                [south_span, south_span],
+                [total_height, total_height],
                 color="lightblue",
                 alpha=0.7,
-                label=f"Southern Balanced: {south_load:.1f} psf",
+                label=f"Balanced Load: {ps_balanced:.1f} psf",
             )
 
         # Labels (showing southern roof plane spans)
@@ -1238,16 +1238,27 @@ Always verify member spanning conditions and consult licensed engineer"""
             bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
         )
 
-        # Annotations - positioned far right to avoid overlap
-        ax.text(
-            total_width + 35,
-            total_height * 0.75,
-            f"North Wind - Surcharge South of E-W Ridge\nWindward (North): {north_load:.1f} psf\nLeeward Surcharge (South): {south_load:.1f} psf\nBalanced: {ps:.1f} psf",
-            ha="left",
-            va="center",
-            fontsize=9,
-            bbox=dict(facecolor="white", alpha=0.95, edgecolor="blue", boxstyle="round,pad=0.5"),
-        )
+        # Annotations
+        if surcharge_width_north > 0:
+            ax.text(
+                total_width + 35,
+                total_height * 0.75,
+                f"North Wind - Surcharge South of E-W Ridge\nWindward (North): {north_load:.1f} psf\nLeeward Surcharge (South): {south_load:.1f} psf\nBalanced: {ps_balanced:.1f} psf",
+                ha="left",
+                va="center",
+                fontsize=9,
+                bbox=dict(facecolor="white", alpha=0.95, edgecolor="blue", boxstyle="round,pad=0.5"),
+            )
+        else:
+            ax.text(
+                total_width + 35,
+                total_height * 0.75,
+                f"North Wind - Balanced Loads Only\nEntire Roof: {ps_balanced:.1f} psf\n(No unbalanced loads apply)",
+                ha="left",
+                va="center",
+                fontsize=9,
+                bbox=dict(facecolor="white", alpha=0.95, edgecolor="blue", boxstyle="round,pad=0.5"),
+            )
 
         # North arrow
         arrow_x = total_width / 2
@@ -1428,14 +1439,14 @@ Always verify member spanning conditions and consult licensed engineer"""
                 alpha=0.7,
             )
         else:
-            # Balanced loads only - uniform across all planes
+            # Balanced loads only - uniform across entire roof
             ax.fill_between(
                 [0, total_width],
                 [0, 0],
                 [total_height, total_height],
                 color="lightblue",
                 alpha=0.7,
-                label=f"Balanced: {north_load:.1f} psf",
+                label=f"Balanced Load: {ps_balanced:.1f} psf",
             )
 
         # Labels
@@ -1472,19 +1483,30 @@ Always verify member spanning conditions and consult licensed engineer"""
             bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
         )
 
-        # Annotations - positioned far right with rounded box to avoid overlap
-        ax.text(
-            total_width + 45,
-            total_height * 0.8,
-            f"Governing Unbalanced Loads\n(ASCE 7-22 Section 7.6.1)\n"
-            f"North (windward): {north_load:.1f} psf\nSouth (leeward): {south_load:.1f} psf\n"
-            f"West (windward): {west_load:.1f} psf\nEast (leeward): {east_load:.1f} psf\n"
-            f"Balanced: {ps:.1f} psf",
-            ha="left",
-            va="center",
-            fontsize=8,
-            bbox=dict(facecolor="white", alpha=0.95, edgecolor="purple", boxstyle="round,pad=0.5"),
-        )
+        # Annotations
+        if unbalanced_applies:
+            ax.text(
+                total_width + 45,
+                total_height * 0.8,
+                f"Governing Unbalanced Loads\n(ASCE 7-22 Section 7.6.1)\n"
+                f"North (windward): {north_load:.1f} psf\nSouth (leeward): {south_load:.1f} psf\n"
+                f"West (windward): {west_load:.1f} psf\nEast (leeward): {east_load:.1f} psf\n"
+                f"Balanced: {ps_balanced:.1f} psf",
+                ha="left",
+                va="center",
+                fontsize=8,
+                bbox=dict(facecolor="white", alpha=0.95, edgecolor="purple", boxstyle="round,pad=0.5"),
+            )
+        else:
+            ax.text(
+                total_width + 45,
+                total_height * 0.8,
+                f"Governing Loads - Balanced Only\nEntire Roof: {ps_balanced:.1f} psf\n(No unbalanced loads apply)",
+                ha="left",
+                va="center",
+                fontsize=8,
+                bbox=dict(facecolor="white", alpha=0.95, edgecolor="purple", boxstyle="round,pad=0.5"),
+            )
 
         # North arrow
         arrow_x = total_width / 2
@@ -1618,26 +1640,37 @@ Always verify member spanning conditions and consult licensed engineer"""
                     label=f"Eastern Balanced: {ps_balanced:.1f} psf",
                 )
         else:
-            # Balanced loads only - uniform across entire southern plane
+            # Balanced loads only - uniform across entire roof
             ax.fill_between(
                 [0, total_width],
                 [0, 0],
-                [south_span, south_span],
+                [total_height, total_height],
                 color="lightblue",
                 alpha=0.7,
-                label=f"Southern Balanced: {east_load:.1f} psf",
+                label=f"Balanced Load: {ps_balanced:.1f} psf",
             )
 
-        # Annotations - positioned far right to avoid overlap
-        ax.text(
-            total_width + 35,
-            total_height * 0.6,
-            f"West Wind - Surcharge East of N-S Ridge\nWindward (West): {west_load:.1f} psf\nLeeward Surcharge (East): {east_load:.1f} psf\nBalanced: {ps:.1f} psf",
-            ha="left",
-            va="center",
-            fontsize=9,
-            bbox=dict(facecolor="white", alpha=0.95, edgecolor="red", boxstyle="round,pad=0.5"),
-        )
+        # Annotations
+        if surcharge_width_west > 0:
+            ax.text(
+                total_width + 35,
+                total_height * 0.6,
+                f"West Wind - Surcharge East of N-S Ridge\nWindward (West): {west_load:.1f} psf\nLeeward Surcharge (East): {east_load:.1f} psf\nBalanced: {ps_balanced:.1f} psf",
+                ha="left",
+                va="center",
+                fontsize=9,
+                bbox=dict(facecolor="white", alpha=0.95, edgecolor="red", boxstyle="round,pad=0.5"),
+            )
+        else:
+            ax.text(
+                total_width + 35,
+                total_height * 0.6,
+                f"West Wind - Balanced Loads Only\nEntire Roof: {ps_balanced:.1f} psf\n(No unbalanced loads apply)",
+                ha="left",
+                va="center",
+                fontsize=9,
+                bbox=dict(facecolor="white", alpha=0.95, edgecolor="red", boxstyle="round,pad=0.5"),
+            )
 
         # North arrow
         arrow_x = total_width / 2
