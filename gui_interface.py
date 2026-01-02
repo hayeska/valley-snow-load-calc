@@ -2745,15 +2745,22 @@ Always verify member spanning conditions and consult licensed engineer"""
             messagebox.showwarning("Validation Warnings", "\n".join(errors))
             return
 
-        # Balanced load calculation
-        pf = 0.7 * ce * ct * is_factor * pg
+        # Flat roof snow load - ASCE 7-22 Equation 7.3-1
+        pf = 0.7 * ce * ct * pg  # pf = 0.7 × Ce × Ct × pg
 
-        # Slope factor calculations
+        # Slope factor calculations - ASCE 7-22 Section 7.4.1, Figure 7.4-1
         cs_n = calculate_cs(theta_n, ct, slippery=slippery)
         cs_w = calculate_cs(theta_w, ct, slippery=slippery)
         cs = min(cs_n, cs_w)  # governing slope factor
 
-        ps = pf * cs
+        # Snow density - ASCE 7-22 Equation 7.7-1
+        gamma = min(0.13 * pg + 14, 30)  # γ = min(0.13 × pg + 14, 30) pcf
+
+        # Balanced sloped roof snow load - ASCE 7-22 Equation 7.4-1
+        ps = cs * pf  # ps = Cs × pf
+
+        # Balanced snow depth - ASCE 7-22 Section 7.7.1
+        hb = ps / gamma  # hb = ps / γ
 
         # Low-slope roof check per ASCE 7-22 Sec. 7.3
         min_slope_deg = min(theta_n, theta_w)
@@ -3219,7 +3226,6 @@ Always verify member spanning conditions and consult licensed engineer"""
         beam_summary = create_beam_summary(beam_results, beam_inputs)
 
         # Calculate additional values for formulas
-        gamma_pcf = min(0.13 * pg + 14, 30)  # Eq. 7.7-1
         hd_governing = gov_drift["governing_hd_ft"]
         pd_max_governing = gov_drift["governing_pd_max_psf"]
         w_governing = gov_drift_width
@@ -3271,7 +3277,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                 tk.END, f"Governing roof snow load = ps = {ps:.1f} psf\n\n"
             )
         self.output_text.insert(
-            tk.END, "pf = 0.7 × Ce × Ct × Is × pg   (ASCE 7-22 Equation 7.3-1)\n"
+            tk.END, "pf = 0.7 × Ce × Ct × pg   (ASCE 7-22 Equation 7.3-1)\n"
         )
         self.output_text.insert(tk.END, "ps = pf × Cs   (ASCE 7-22 Equation 7.4-1)\n")
         self.output_text.insert(
@@ -3286,9 +3292,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         self.output_text.insert(
             tk.END, "=== CALCULATIONS WITH ASCE 7-22 SYMBOLS (Chapter 7) ===\n\n"
         )
-        self.output_text.insert(
-            tk.END, f"pf = 0.7 × Ce × Ct × Is × pg = {pf:.1f} psf\n"
-        )
+        self.output_text.insert(tk.END, f"pf = 0.7 × Ce × Ct × pg = {pf:.1f} psf\n")
         # Determine Figure 7.4-1 part and roof classification
         if ct == 1.1:
             pass
@@ -3304,7 +3308,10 @@ Always verify member spanning conditions and consult licensed engineer"""
         )
         self.output_text.insert(tk.END, f"ps = pf × Cs = {ps:.1f} psf\n")
         self.output_text.insert(
-            tk.END, f"γ = min(0.13 × pg + 14, 30) = {gamma_pcf:.1f} pcf (Eq. 7.7-1)\n"
+            tk.END, f"hb = ps / γ = {hb:.2f} ft   (ASCE 7-22 Section 7.7.1)\n"
+        )
+        self.output_text.insert(
+            tk.END, f"γ = min(0.13 × pg + 14, 30) = {gamma:.1f} pcf (Eq. 7.7-1)\n"
         )
         self.output_text.insert(tk.END, f"hd = drift height = {hd_governing:.2f} ft\n")
         self.output_text.insert(
