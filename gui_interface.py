@@ -1212,6 +1212,11 @@ Always verify member spanning conditions and consult licensed engineer"""
         else:
             # No surcharge - show both windward and leeward portions with clear differentiation
             # West portion (windward): show even if 0 (but with different styling)
+            # North Wind Direction Logic:
+            # Wind from North → Windward = North plane, Leeward = South plane
+            # This diagram shows the South roof plane (leeward side)
+
+            # West portion represents North roof plane (windward for north wind)
             ax.fill_between(
                 [0, center_x],
                 [0, 0],
@@ -1219,17 +1224,17 @@ Always verify member spanning conditions and consult licensed engineer"""
                 color="lightgray" if north_load == 0 else "lightblue",
                 alpha=0.5 if north_load == 0 else 0.7,
                 hatch="//" if north_load == 0 else None,
-                label=f"Windward (North): {north_load:.1f} psf",
+                label=f"North Plane (Windward): {north_load:.1f} psf",
             )
 
-            # East portion (leeward): always show since it's the loaded side
+            # East portion represents South roof plane (leeward for north wind)
             ax.fill_between(
                 [center_x, total_width],
                 [0, 0],
                 [south_span, south_span],
                 color="lightcoral",
                 alpha=0.7,
-                label=f"Leeward (South): {south_load:.1f} psf",
+                label=f"South Plane (Leeward): {south_load:.1f} psf",
             )
 
         # Labels (showing southern roof plane spans)
@@ -1569,10 +1574,9 @@ Always verify member spanning conditions and consult licensed engineer"""
             ax.text(
                 total_width + 45,
                 total_height * 0.8,
-                f"Governing Unbalanced Loads\n(ASCE 7-22 Section 7.6.1)\n"
-                f"North (windward): {north_load:.1f} psf\nSouth (leeward): {south_load:.1f} psf\n"
-                f"West (windward): {west_load:.1f} psf\nEast (leeward): {east_load:.1f} psf\n"
-                f"Balanced: {ps_balanced:.1f} psf",
+                f"Governing Loads (Max from North & West Winds)\n(ASCE 7-22 Section 7.6.1)\n"
+                f"North Plane: {north_load:.1f} psf\nSouth Plane: {south_load:.1f} psf\n"
+                f"West Plane: {west_load:.1f} psf\nEast Plane: {east_load:.1f} psf",
                 ha="left",
                 va="center",
                 fontsize=8,
@@ -1722,7 +1726,11 @@ Always verify member spanning conditions and consult licensed engineer"""
                 )
         else:
             # No surcharge - show both windward and leeward portions with clear differentiation
-            # West portion (windward): show even if 0 (but with different styling)
+            # West Wind Direction Logic:
+            # Wind from West → Windward = West plane, Leeward = East plane
+            # This diagram shows the South roof plane (but represents east-west loads)
+
+            # West portion represents West roof plane (windward for west wind)
             ax.fill_between(
                 [0, center_x],
                 [0, 0],
@@ -1730,17 +1738,17 @@ Always verify member spanning conditions and consult licensed engineer"""
                 color="lightgray" if west_load == 0 else "lightblue",
                 alpha=0.5 if west_load == 0 else 0.7,
                 hatch="//" if west_load == 0 else None,
-                label=f"Windward (West): {west_load:.1f} psf",
+                label=f"West Plane (Windward): {west_load:.1f} psf",
             )
 
-            # East portion (leeward): always show since it's the loaded side
+            # East portion represents East roof plane (leeward for west wind)
             ax.fill_between(
                 [center_x, total_width],
                 [0, 0],
                 [south_span, south_span],
                 color="lightcoral",
                 alpha=0.7,
-                label=f"Leeward (East): {east_load:.1f} psf",
+                label=f"East Plane (Leeward): {east_load:.1f} psf",
             )
 
         # Annotations
