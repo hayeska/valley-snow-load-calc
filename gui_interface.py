@@ -1443,7 +1443,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                 valley_offset,
                 north_load,
                 south_load,
-                ps,
+                ps_balanced,
             )
             diagram_title = "North Wind Unbalanced Loads"
         else:  # West wind
@@ -1454,7 +1454,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                 valley_offset,
                 west_load,
                 east_load,
-                ps,
+                ps_balanced,
             )
             diagram_title = "West Wind Unbalanced Loads"
 
