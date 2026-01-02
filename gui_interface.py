@@ -177,16 +177,11 @@ class ValleySnowCalculator:
             ("Ct – Thermal factor, Table 7.3-2/7.3-3", "1.2", "ct"),
         ]
 
-        # Add wind direction selection
-        wind_directions = ["North", "West"]
-        ttk.Label(snow_frame, text="Wind Direction (ASCE 7-22 Section 7.6.1)").grid(
-            row=4, column=0, sticky="w", pady=3, padx=5
+        # Note: Program automatically analyzes both North and West wind directions
+        # and uses governing (maximum) loads per ASCE 7-22 Section 7.6.1
+        ttk.Label(snow_frame, text="Note: Automatically analyzes both North & West winds, uses governing loads").grid(
+            row=4, column=0, columnspan=4, sticky="w", pady=3, padx=5
         )
-        self.wind_direction_combo = ttk.Combobox(
-            snow_frame, values=wind_directions, state="readonly", width=15
-        )
-        self.wind_direction_combo.set(wind_directions[0])  # Default to North
-        self.wind_direction_combo.grid(row=4, column=1, sticky="ew", pady=3, padx=5)
 
         for i, (label_text, default, key) in enumerate(snow_inputs):
             row = i // 2
@@ -1245,6 +1240,214 @@ Always verify member spanning conditions and consult licensed engineer"""
 
         return fig
 
+    def draw_governing_unbalanced_overlay(
+        self,
+        north_span,
+        south_span,
+        ew_half_width,
+        valley_offset,
+        north_load,
+        south_load,
+        west_load,
+        east_load,
+        ps,
+    ):
+        """Draw governing unbalanced load distribution showing maximum loads from both wind directions"""
+        fig = plt.Figure(figsize=(10, 8))
+        ax = fig.add_subplot(111)
+        ax.set_aspect("equal")
+
+        # Building outline
+        total_width = 2 * ew_half_width
+        total_height = north_span + south_span
+        center_x = ew_half_width
+
+        ax.plot(
+            [0, total_width, total_width, 0, 0],
+            [total_height, total_height, 0, 0, total_height],
+            "k-",
+            linewidth=2,
+            label="Building Outline",
+        )
+
+        # E-W ridge
+        ax.plot(
+            [0, total_width],
+            [south_span, south_span],
+            "k-",
+            linewidth=3,
+            label="E-W Ridge",
+        )
+
+        # N-S ridge
+        ax.plot(
+            [center_x, center_x], [south_span, 0], "k-", linewidth=3, label="N-S Ridge"
+        )
+
+        # Valley lines
+        ax.plot(
+            [center_x - valley_offset, center_x],
+            [0, south_span],
+            "r--",
+            linewidth=2,
+            label="Valley Lines",
+        )
+        ax.plot(
+            [center_x + valley_offset, center_x], [0, south_span], "r--", linewidth=2
+        )
+
+        # === GOVERNING UNBALANCED LOADS ===
+        # North plane (governing load)
+        if north_load > 0:
+            ax.fill_between(
+                [0, center_x],
+                [south_span, south_span],
+                [total_height, total_height],
+                color="lightblue",
+                alpha=0.7,
+                label=f"North: {north_load:.1f} psf",
+            )
+
+        # South plane (governing load)
+        if south_load > 0:
+            ax.fill_between(
+                [0, center_x],
+                [0, 0],
+                [south_span, south_span],
+                color="lightcoral",
+                alpha=0.7,
+                label=f"South: {south_load:.1f} psf",
+            )
+
+        # West plane (governing load)
+        if west_load > 0:
+            ax.fill_between(
+                [0, 0],
+                [south_span, south_span],
+                [total_height, total_height],
+                color="lightgreen",
+                alpha=0.7,
+                label=f"West: {west_load:.1f} psf",
+            )
+
+        # East plane (governing load)
+        if east_load > 0:
+            ax.fill_between(
+                [total_width, total_width],
+                [south_span, south_span],
+                [total_height, total_height],
+                color="gold",
+                alpha=0.7,
+                label=f"East: {east_load:.1f} psf",
+            )
+
+        # Shade south planes (same loads as north for cross-gable)
+        if north_load > 0:
+            ax.fill_between(
+                [0, center_x],
+                [0, 0],
+                [south_span, south_span],
+                color="lightblue",
+                alpha=0.7,
+            )
+
+        if south_load > 0:
+            ax.fill_between(
+                [center_x, total_width],
+                [0, 0],
+                [south_span, south_span],
+                color="lightcoral",
+                alpha=0.7,
+            )
+
+        # Shade west/east south planes
+        if west_load > 0:
+            ax.fill_between(
+                [0, center_x],
+                [0, 0],
+                [south_span, south_span],
+                color="lightgreen",
+                alpha=0.7,
+            )
+
+        if east_load > 0:
+            ax.fill_between(
+                [center_x, total_width],
+                [0, 0],
+                [south_span, south_span],
+                color="gold",
+                alpha=0.7,
+            )
+
+        # Labels
+        ax.text(
+            center_x * 0.3,
+            south_span + north_span * 0.75,
+            f"North span\n{north_span:.1f} ft",
+            ha="center",
+            va="center",
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
+        )
+        ax.text(
+            total_width - center_x * 0.3,
+            south_span + north_span * 0.75,
+            f"East span\n{ew_half_width:.1f} ft",
+            ha="center",
+            va="center",
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
+        )
+        ax.text(
+            center_x * 0.3,
+            south_span * 0.25,
+            f"West span\n{ew_half_width:.1f} ft",
+            ha="center",
+            va="center",
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
+        )
+        ax.text(
+            total_width - center_x * 0.3,
+            south_span * 0.25,
+            f"South span\n{south_span:.1f} ft",
+            ha="center",
+            va="center",
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
+        )
+
+        # Annotations
+        ax.text(
+            total_width + 10,
+            total_height * 0.75,
+            f"Governing Unbalanced Loads (ASCE 7-22 Section 7.6.1)\n"
+            f"North: {north_load:.1f} psf | South: {south_load:.1f} psf\n"
+            f"West: {west_load:.1f} psf | East: {east_load:.1f} psf\n"
+            f"Balanced: {ps:.1f} psf",
+            ha="left",
+            va="center",
+            bbox=dict(facecolor="white", alpha=0.9, edgecolor="purple"),
+        )
+
+        # North arrow
+        arrow_x = total_width / 2
+        arrow_y = total_height + 12
+        ax.arrow(arrow_x, arrow_y, 0, 6, head_width=3, head_length=6, fc="k", ec="k")
+        ax.text(
+            arrow_x,
+            arrow_y + 15,
+            "N",
+            fontsize=12,
+            ha="center",
+            fontweight="bold",
+            va="bottom",
+        )
+
+        ax.set_xlim(-15, total_width + 90)
+        ax.set_ylim(-20, total_height + 30)
+        ax.set_axis_off()
+        ax.set_title("Governing Unbalanced Loads (Max from North & West Winds)")
+        ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
+
+        return fig
+
     def draw_west_unbalanced_overlay(
         self,
         north_span,
@@ -1434,32 +1637,19 @@ Always verify member spanning conditions and consult licensed engineer"""
         canvas_plan.draw()
         canvas_plan.get_tk_widget().pack(side=tk.TOP, pady=5)
 
-        # Wind direction unbalanced load diagram
-        print(f"DEBUG: wind_direction = '{wind_direction}'")
-        if wind_direction == "North":
-            print("DEBUG: Drawing North wind diagram")
-            fig_drift = self.draw_north_unbalanced_overlay(
-                north_span,
-                south_span,
-                ew_half_width,
-                valley_offset,
-                north_load,
-                south_load,
-                ps_balanced,
-            )
-            diagram_title = "North Wind Unbalanced Loads"
-        else:  # West wind
-            print("DEBUG: Drawing West wind diagram")
-            fig_drift = self.draw_west_unbalanced_overlay(
-                north_span,
-                south_span,
-                ew_half_width,
-                valley_offset,
-                west_load,
-                east_load,
-                ps_balanced,
-            )
-            diagram_title = "West Wind Unbalanced Loads"
+        # Governing unbalanced load diagram (maximum loads from both wind directions)
+        fig_drift = self.draw_governing_unbalanced_overlay(
+            north_span,
+            south_span,
+            ew_half_width,
+            valley_offset,
+            north_load,
+            south_load,
+            west_load,
+            east_load,
+            ps_balanced,
+        )
+        diagram_title = "Governing Unbalanced Loads (North & West Winds)"
 
         self._current_figures.append(fig_drift)
         canvas_drift = FigureCanvasTkAgg(fig_drift, master=self.plot_frame)
@@ -3101,82 +3291,65 @@ Always verify member spanning conditions and consult licensed engineer"""
         )
 
         # ASCE 7-22 Section 7.6.1: Gable Unbalanced Loads
-        wind_direction = self.wind_direction_combo.get()
-        print(f"DEBUG: wind_direction = '{wind_direction}'")
-        print(f"DEBUG: combo current value = '{self.wind_direction_combo.get()}'")
-        print(f"DEBUG: combo current index = {self.wind_direction_combo.current()}")
-
-        # Initialize windward/leeward plane variables (will be set if unbalanced loads apply)
-        windward_plane = None
-        leeward_plane = None
-        windward_span = 0
+        # Analyze BOTH North and West wind directions and use governing (maximum) loads
 
         # Initialize balanced loads (will be modified by unbalanced loads if applicable)
         north_load = ps_north if ps_north > 0 else ps  # North roof plane balanced load
-        south_load = (
-            ps_north if ps_north > 0 else ps
-        )  # South roof plane balanced load (same as north for cross-gable)
-        west_load = ps_west if ps_west > 0 else ps  # West roof plane balanced load
-        east_load = (
-            ps_west if ps_west > 0 else ps
-        )  # East roof plane balanced load (same as west for cross-gable)
+        south_load = ps_north if ps_north > 0 else ps  # South roof plane balanced load (same as north for cross-gable)
+        west_load = ps_west if ps_west > 0 else ps    # West roof plane balanced load
+        east_load = ps_west if ps_west > 0 else ps    # East roof plane balanced load (same as west for cross-gable)
 
         # Apply unbalanced loads if slope is in applicable range (2.38° ≤ θ ≤ 30.2°)
         if 2.38 <= min(theta_n, theta_w) <= 30.2:
-            # Determine which roof planes are windward vs leeward based on wind direction
-            if wind_direction == "North":
-                # North wind: North plane is windward, South plane is leeward
-                windward_plane = "north"
-                leeward_plane = "south"
-                windward_span = north_span  # W for windward portion
-            else:  # West wind
-                # West wind: West plane is windward, East plane is leeward
-                windward_plane = "west"
-                leeward_plane = "east"
-                windward_span = ew_half_width  # W for windward portion
+            # Calculate loads for BOTH wind directions and take maximums
 
-            # Determine narrow vs wide roof
-            is_narrow_roof = windward_span <= 20
+            # ===== NORTH WIND ANALYSIS =====
+            # North wind: North plane windward, South plane leeward
+            windward_span_north = north_span
+            is_narrow_north = windward_span_north <= 20
 
-            if is_narrow_roof:
-                # ASCE 7-22 Section 7.6.1: Narrow roof (W ≤ 20 ft)
-                # SIMPLIFIED: No surcharge calculations - just p_g on leeward, 0 on windward
-                if leeward_plane == "south":
-                    south_load = pg  # Leeward gets p_g
-                    north_load = 0   # Windward gets 0
-                else:  # leeward_plane == "east"
-                    east_load = pg   # Leeward gets p_g
-                    west_load = 0    # Windward gets 0
-                # For narrow roofs, skip all other calculations
-        elif windward_plane is not None:
-                # ASCE 7-22 Section 7.6.1: Wide roof (W > 20 ft)
-                # Windward gets 0.3 × p_s
-                if windward_plane == "north":
-                    north_load = 0.3 * ps_north if ps_north > 0 else 0
-                else:  # windward_plane == "west"
-                    west_load = 0.3 * ps_west if ps_west > 0 else 0
+            north_load_north_wind = north_load  # Start with balanced
+            south_load_north_wind = south_load
 
-                # Leeward gets p_s + rectangular surcharge
-                # Calculate h_d for the windward portion (l_u = W)
-                hd_unbalanced = 1.5 * math.sqrt(
-                    (pg**0.74 * windward_span**0.70 * w2**1.7) / gamma
-                )
+            if is_narrow_north:
+                # Narrow roof: p_g on leeward (south), 0 on windward (north)
+                north_load_north_wind = 0
+                south_load_north_wind = pg
+            else:
+                # Wide roof: 0.3p_s on windward (north), p_s + surcharge on leeward (south)
+                north_load_north_wind = 0.3 * ps_north if ps_north > 0 else 0
 
-                # Determine the slope factor S for the leeward plane
-                if leeward_plane == "south":
-                    S_leeward = S_n  # North roof slope factor
-                else:  # leeward_plane == "east"
-                    S_leeward = S_w  # West roof slope factor
+                # Calculate surcharge for south plane
+                hd_north = 1.5 * math.sqrt((pg**0.74 * windward_span_north**0.70 * w2**1.7) / gamma)
+                surcharge_north = hd_north * gamma / math.sqrt(S_n)
+                south_load_north_wind = ps + surcharge_north
 
-                # Calculate surcharge per ASCE 7-22 Section 7.6.1
-                surcharge_magnitude = hd_unbalanced * gamma / math.sqrt(S_leeward)
-                # surcharge_width = (8 * hd_unbalanced * math.sqrt(S_leeward)) / 3  # Calculated but not used in current implementation
+            # ===== WEST WIND ANALYSIS =====
+            # West wind: West plane windward, East plane leeward
+            windward_span_west = ew_half_width
+            is_narrow_west = windward_span_west <= 20
 
-                # Apply surcharge to leeward plane
-                if leeward_plane == "south":
-                    south_load = ps + surcharge_magnitude
-                else:  # leeward_plane == "east"
-                    east_load = ps + surcharge_magnitude
+            west_load_west_wind = west_load  # Start with balanced
+            east_load_west_wind = east_load
+
+            if is_narrow_west:
+                # Narrow roof: p_g on leeward (east), 0 on windward (west)
+                west_load_west_wind = 0
+                east_load_west_wind = pg
+            else:
+                # Wide roof: 0.3p_s on windward (west), p_s + surcharge on leeward (east)
+                west_load_west_wind = 0.3 * ps_west if ps_west > 0 else 0
+
+                # Calculate surcharge for east plane
+                hd_west = 1.5 * math.sqrt((pg**0.74 * windward_span_west**0.70 * w2**1.7) / gamma)
+                surcharge_west = hd_west * gamma / math.sqrt(S_w)
+                east_load_west_wind = ps + surcharge_west
+
+            # ===== GOVERNING LOADS (Maximum from both wind directions) =====
+            north_load = max(north_load, north_load_north_wind)  # North plane governing
+            south_load = max(south_load, south_load_north_wind)  # South plane governing
+            west_load = max(west_load, west_load_west_wind)      # West plane governing
+            east_load = max(east_load, east_load_west_wind)      # East plane governing
 
         # Create result dictionaries for compatibility with existing code
         result_north = {
@@ -3350,7 +3523,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             lu_west,
             result_north,
             result_west,
-            wind_direction,
+            "Governing",  # Always show governing loads
             north_load,
             south_load,
             west_load,
@@ -3706,40 +3879,47 @@ Always verify member spanning conditions and consult licensed engineer"""
             self.output_text.insert(
                 tk.END, "\n=== GABLE UNBALANCED LOADS (ASCE 7-22 Section 7.6.1) ===\n"
             )
-            self.output_text.insert(tk.END, f"Wind Direction: {wind_direction}\n")
             self.output_text.insert(
-                tk.END,
-                f"Roof Slope Range: 2.38° ≤ {min_slope:.1f}° ≤ 30.2° ✓ (Unbalanced loads apply)\n",
+                f"Roof Slope Range: 2.38° ≤ {min_slope:.1f}° ≤ 30.2° ✓ (Unbalanced loads apply)\n"
             )
+            self.output_text.insert(tk.END, "Analysis: Both North & West wind directions evaluated, governing loads used\n\n")
 
-            if wind_direction == "North":
-                self.output_text.insert(
-                    tk.END, f"Windward Plane: North ({north_load:.1f} psf)\n"
-                )
-                self.output_text.insert(
-                    tk.END, f"Leeward Plane: South ({south_load:.1f} psf)\n"
-                )
-            else:  # West wind
-                self.output_text.insert(
-                    tk.END, f"Windward Plane: West ({west_load:.1f} psf)\n"
-                )
-                self.output_text.insert(
-                    tk.END, f"Leeward Plane: East ({east_load:.1f} psf)\n"
-                )
-
-            # Show narrow vs wide roof determination
-            windward_span = north_span if wind_direction == "North" else ew_half_width
-            is_narrow = windward_span <= 20
-            roof_type = "Narrow (W ≤ 20 ft)" if is_narrow else "Wide (W > 20 ft)"
-            self.output_text.insert(
-                tk.END, f"Roof Type: {roof_type} (W = {windward_span:.1f} ft)\n"
-            )
-
-            if is_narrow:
-                self.output_text.insert(tk.END, f"Narrow roof case: No surcharge calculations needed\n")
-                self.output_text.insert(tk.END, f"Leeward = p_g = {pg} psf, Windward = 0 psf\n")
+            # Show North wind analysis
+            windward_span_north = north_span
+            is_narrow_north = windward_span_north <= 20
+            self.output_text.insert(tk.END, f"NORTH WIND (W = {windward_span_north:.1f} ft {'Narrow' if is_narrow_north else 'Wide'}):\n")
+            if is_narrow_north:
+                self.output_text.insert(tk.END, f"  Windward (North): 0 psf\n")
+                self.output_text.insert(tk.END, f"  Leeward (South): {pg:.1f} psf (p_g)\n")
             else:
-                self.output_text.insert(tk.END, f"Wide roof case: Surcharge calculations applied\n")
+                north_load_north = 0.3 * ps_north if ps_north > 0 else 0
+                hd_north = 1.5 * math.sqrt((pg**0.74 * windward_span_north**0.70 * w2**1.7) / gamma)
+                surcharge_north = hd_north * gamma / math.sqrt(S_n)
+                south_load_north = ps + surcharge_north
+                self.output_text.insert(tk.END, f"  Windward (North): {north_load_north:.1f} psf (0.3 × p_s)\n")
+                self.output_text.insert(tk.END, f"  Leeward (South): {south_load_north:.1f} psf (p_s + surcharge)\n")
+
+            # Show West wind analysis
+            windward_span_west = ew_half_width
+            is_narrow_west = windward_span_west <= 20
+            self.output_text.insert(tk.END, f"\nWEST WIND (W = {windward_span_west:.1f} ft {'Narrow' if is_narrow_west else 'Wide'}):\n")
+            if is_narrow_west:
+                self.output_text.insert(tk.END, f"  Windward (West): 0 psf\n")
+                self.output_text.insert(tk.END, f"  Leeward (East): {pg:.1f} psf (p_g)\n")
+            else:
+                west_load_west = 0.3 * ps_west if ps_west > 0 else 0
+                hd_west = 1.5 * math.sqrt((pg**0.74 * windward_span_west**0.70 * w2**1.7) / gamma)
+                surcharge_west = hd_west * gamma / math.sqrt(S_w)
+                east_load_west = ps + surcharge_west
+                self.output_text.insert(tk.END, f"  Windward (West): {west_load_west:.1f} psf (0.3 × p_s)\n")
+                self.output_text.insert(tk.END, f"  Leeward (East): {east_load_west:.1f} psf (p_s + surcharge)\n")
+
+            # Show governing loads
+            self.output_text.insert(tk.END, f"\nGOVERNING LOADS (Maximum from both wind directions):\n")
+            self.output_text.insert(tk.END, f"  North Plane: {north_load:.1f} psf\n")
+            self.output_text.insert(tk.END, f"  South Plane: {south_load:.1f} psf\n")
+            self.output_text.insert(tk.END, f"  West Plane: {west_load:.1f} psf\n")
+            self.output_text.insert(tk.END, f"  East Plane: {east_load:.1f} psf\n")
         else:
             self.output_text.insert(tk.END, "\n=== NO GABLE UNBALANCED LOADS ===\n")
             self.output_text.insert(
