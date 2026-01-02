@@ -3332,6 +3332,12 @@ Always verify member spanning conditions and consult licensed engineer"""
         west_load = ps_west if ps_west > 0 else ps    # West roof plane balanced load
         east_load = ps_west if ps_west > 0 else ps    # East roof plane balanced load (same as west for cross-gable)
 
+        # Initialize individual wind direction loads (will be set if unbalanced loads apply)
+        north_load_north_wind_final = north_load
+        south_load_north_wind_final = south_load
+        west_load_west_wind_final = west_load
+        east_load_west_wind_final = east_load
+
         # Apply unbalanced loads if slope is in applicable range (2.38° ≤ θ ≤ 30.2°)
         if 2.38 <= min(theta_n, theta_w) <= 30.2:
             # Calculate loads for BOTH wind directions and take maximums
