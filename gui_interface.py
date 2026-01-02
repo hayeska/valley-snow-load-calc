@@ -139,7 +139,7 @@ class ValleySnowCalculator:
         banner = tk.Label(
             self.scrollable_frame,
             text="LIFE-SAFETY CRITICAL: Service-level loads only. Verify all inputs per ASCE 7-22 & Hazard Tool.\n"
-            "Consult licensed structural engineer.",
+                 "Consult licensed structural engineer.",
             fg="black",
             bg="#f0f0f0",
             font=("Helvetica", 10),
@@ -1117,31 +1117,27 @@ Always verify member spanning conditions and consult licensed engineer"""
 
         return fig
 
-    def draw_west_drift_overlay(
+    def draw_north_unbalanced_overlay(
         self,
         north_span,
         south_span,
         ew_half_width,
         valley_offset,
-        hd_west,
-        w_west,
+        north_load,
+        south_load,
         ps,
-        pd_west,
     ):
-        """Draw west wind drift overlay showing leeward drift accumulation on east side of N-S ridge"""
+        """Draw north wind unbalanced load distribution on roof planes"""
         fig = plt.Figure(figsize=(8, 8))
         ax = fig.add_subplot(111)
         ax.set_aspect("equal")
 
-        # Copy the exact same roof geometry as in the current draw_plan_view (do not change anything)
+        # Copy the exact same roof geometry
         total_width = 2 * ew_half_width
         total_height = north_span + south_span
         center_x = ew_half_width
 
-        # Coordinate system: (0,0) at southwest corner (south eave left), Y increasing north (up page)
-        # South eave at y=0, north eave at y=total_height
-
-        # Building outline - rotated 180 degrees (south at bottom, north at top)
+        # Building outline
         ax.plot(
             [0, total_width, total_width, 0, 0],
             [total_height, total_height, 0, 0, total_height],
@@ -1150,7 +1146,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             label="Building Outline",
         )
 
-        # E-W ridge (horizontal at y = south_span from south eave)
+        # E-W ridge
         ax.plot(
             [0, total_width],
             [south_span, south_span],
@@ -1159,12 +1155,12 @@ Always verify member spanning conditions and consult licensed engineer"""
             label="E-W Ridge",
         )
 
-        # N-S ridge (vertical, centered, from E-W ridge down to south eave)
+        # N-S ridge
         ax.plot(
             [center_x, center_x], [south_span, 0], "k-", linewidth=3, label="N-S Ridge"
         )
 
-        # Valley lines – symmetric, using valley_offset
+        # Valley lines
         ax.plot(
             [center_x - valley_offset, center_x],
             [0, south_span],
@@ -1176,11 +1172,11 @@ Always verify member spanning conditions and consult licensed engineer"""
             [center_x + valley_offset, center_x], [0, south_span], "r--", linewidth=2
         )
 
-        # Labels - repositioned for 180 degree rotation with proper spacing
+        # Labels
         ax.text(
             total_width / 2,
             south_span + north_span * 0.75,
-            f"North span\n{north_span:.1f} ft\n(lu_north)",
+            f"North span\n{north_span:.1f} ft",
             ha="center",
             va="center",
             bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
@@ -1193,77 +1189,41 @@ Always verify member spanning conditions and consult licensed engineer"""
             va="center",
             bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
         )
-        ax.text(
-            center_x * 0.3,
-            south_span / 2,
-            f"West half\n{ew_half_width:.1f} ft",
-            ha="center",
-            va="center",
-            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
-        )
-        ax.text(
-            total_width - center_x * 0.3,
-            south_span / 2,
-            f"East half\n{ew_half_width:.1f} ft\n(lu_west)",
-            ha="center",
-            va="center",
-            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
-        )
-        ax.text(
-            center_x * 0.3,
-            -8,
-            f"{ew_half_width:.1f} ft\n(lu_west)",
-            ha="center",
-            va="top",
-        )
-        ax.text(
-            total_width - center_x * 0.3,
-            -8,
-            f"{ew_half_width:.1f} ft\n(lu_west)",
-            ha="center",
-            va="top",
-        )
-        ax.text(
-            center_x,
-            -8,
-            f"Valley offset ±{valley_offset:.1f} ft → lv = {math.sqrt(south_span**2 + valley_offset**2):.1f} ft",
-            ha="center",
-            va="top",
-        )
 
-        # === West-wind leeward drift on east roof plane ===
-        # Shaded rectangular area east of N-S ridge line, extending distance = w
+        # === North Wind Unbalanced Loads ===
+        # Shade north plane (windward) with north_load
+        if north_load > 0:
+            ax.fill_between(
+                [0, total_width],
+                [south_span, south_span],
+                [total_height, total_height],
+                color="lightblue",
+                alpha=0.7,
+                label=f"North Plane: {north_load:.1f} psf",
+            )
 
-        # Limit drift width by available east span if necessary
-        effective_w = min(w_west, ew_half_width)
+        # Shade south plane (leeward) with south_load
+        if south_load > 0:
+            ax.fill_between(
+                [0, total_width],
+                [0, 0],
+                [south_span, south_span],
+                color="lightcoral",
+                alpha=0.7,
+                label=f"South Plane: {south_load:.1f} psf",
+            )
 
-        # Rectangular shaded area east of N-S ridge line, extending distance = w
-        # Clearly positioned east (right) of the ridge for leeward drift accumulation
-        drift_left = center_x  # Start at N-S ridge
-        drift_right = center_x + effective_w  # Extend east of ridge
-        ax.fill_between(
-            [drift_left, drift_right],
-            [0, 0],  # From south eave up
-            [south_span, south_span],  # To E-W ridge
-            color="lightcoral",
-            alpha=0.7,
-            hatch="///",
-            edgecolor="darkred",
-            linewidth=1.5,
-            label="West Wind Drift",
-        )
-
-        # Annotations for west drift - positioned to avoid overlap
+        # Annotations
         ax.text(
             total_width + 10,
-            south_span / 2,
-            f"West Wind Drift\nhd = {hd_west:.1f} ft\nw = {effective_w:.1f} ft\npd = {pd_west:.0f} psf",
+            total_height * 0.75,
+            f"North Wind Unbalanced Loads\nNorth (windward): {north_load:.1f} psf\nSouth (leeward): {south_load:.1f} psf\nBalanced: {ps:.1f} psf",
             ha="left",
             va="center",
-            bbox=dict(facecolor="white", alpha=0.9, edgecolor="red"),
+            bbox=dict(facecolor="white", alpha=0.9, edgecolor="blue"),
         )
 
-        # North arrow – at top center, separated from 'N' text (reduced size)
+        # North arrow
         arrow_x = total_width / 2
         arrow_y = total_height + 12
         ax.arrow(arrow_x, arrow_y, 0, 6, head_width=3, head_length=6, fc="k", ec="k")
@@ -1277,12 +1237,157 @@ Always verify member spanning conditions and consult licensed engineer"""
             va="bottom",
         )
 
-        ax.set_xlim(-15, total_width + 60)  # Extended right for info box
-        ax.set_ylim(
-            -50, total_height + 30
-        )  # Extended further downward for moved labels
+        ax.set_xlim(-15, total_width + 80)
+        ax.set_ylim(-20, total_height + 30)
         ax.set_axis_off()
-        ax.set_title("West Wind Leeward Gable Drift (lu_west = ew_half_width)")
+        ax.set_title("North Wind Gable Unbalanced Loads (ASCE 7-22 Section 7.6.1)")
+        ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
+
+        return fig
+
+    def draw_west_unbalanced_overlay(
+        self,
+        north_span,
+        south_span,
+        ew_half_width,
+        valley_offset,
+        west_load,
+        east_load,
+        ps,
+    ):
+        """Draw west wind unbalanced load distribution on roof planes"""
+        fig = plt.Figure(figsize=(8, 8))
+        ax = fig.add_subplot(111)
+        ax.set_aspect("equal")
+
+        # Copy the exact same roof geometry
+        total_width = 2 * ew_half_width
+        total_height = north_span + south_span
+        center_x = ew_half_width
+
+        # Building outline
+        ax.plot(
+            [0, total_width, total_width, 0, 0],
+            [total_height, total_height, 0, 0, total_height],
+            "k-",
+            linewidth=2,
+            label="Building Outline",
+        )
+
+        # E-W ridge
+        ax.plot(
+            [0, total_width],
+            [south_span, south_span],
+            "k-",
+            linewidth=3,
+            label="E-W Ridge",
+        )
+
+        # N-S ridge
+        ax.plot(
+            [center_x, center_x], [south_span, 0], "k-", linewidth=3, label="N-S Ridge"
+        )
+
+        # Valley lines
+        ax.plot(
+            [center_x - valley_offset, center_x],
+            [0, south_span],
+            "r--",
+            linewidth=2,
+            label="Valley Lines",
+        )
+        ax.plot(
+            [center_x + valley_offset, center_x], [0, south_span], "r--", linewidth=2
+        )
+
+        # Labels
+        ax.text(
+            center_x * 0.3,
+            south_span + north_span * 0.75,
+            f"West span\n{ew_half_width:.1f} ft",
+            ha="center",
+            va="center",
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
+        )
+        ax.text(
+            total_width - center_x * 0.3,
+            south_span + north_span * 0.75,
+            f"East span\n{ew_half_width:.1f} ft",
+            ha="center",
+            va="center",
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
+        )
+
+        # === West Wind Unbalanced Loads ===
+        # Shade west plane (windward) with west_load
+        if west_load > 0:
+            ax.fill_between(
+                [0, center_x],
+                [south_span, south_span],
+                [total_height, total_height],
+                color="lightblue",
+                alpha=0.7,
+                label=f"West Plane: {west_load:.1f} psf",
+            )
+
+        # Shade east plane (leeward) with east_load
+        if east_load > 0:
+            ax.fill_between(
+                [center_x, total_width],
+                [south_span, south_span],
+                [total_height, total_height],
+                color="lightcoral",
+                alpha=0.7,
+                label=f"East Plane: {east_load:.1f} psf",
+            )
+
+        # Shade south planes (same loads as north for cross-gable)
+        if west_load > 0:
+            ax.fill_between(
+                [0, center_x],
+                [0, 0],
+                [south_span, south_span],
+                color="lightblue",
+                alpha=0.7,
+            )
+
+        if east_load > 0:
+            ax.fill_between(
+                [center_x, total_width],
+                [0, 0],
+                [south_span, south_span],
+                color="lightcoral",
+                alpha=0.7,
+            )
+
+        # Annotations
+        ax.text(
+            total_width + 10,
+            total_height * 0.75,
+            f"West Wind Unbalanced Loads\nWest (windward): {west_load:.1f} psf\nEast (leeward): {east_load:.1f} psf\nBalanced: {ps:.1f} psf",
+            ha="left",
+            va="center",
+            bbox=dict(facecolor="white", alpha=0.9, edgecolor="red"),
+        )
+
+        # North arrow
+        arrow_x = total_width / 2
+        arrow_y = total_height + 12
+        ax.arrow(arrow_x, arrow_y, 0, 6, head_width=3, head_length=6, fc="k", ec="k")
+        ax.text(
+            arrow_x,
+            arrow_y + 15,
+            "N",
+            fontsize=12,
+            ha="center",
+            fontweight="bold",
+            va="bottom",
+        )
+
+        ax.set_xlim(-15, total_width + 80)
+        ax.set_ylim(-20, total_height + 30)
+        ax.set_axis_off()
+        ax.set_title("West Wind Gable Unbalanced Loads (ASCE 7-22 Section 7.6.1)")
         ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
 
         return fig
@@ -1329,31 +1434,29 @@ Always verify member spanning conditions and consult licensed engineer"""
         canvas_plan.draw()
         canvas_plan.get_tk_widget().pack(side=tk.TOP, pady=5)
 
-        # Wind direction drift diagram
+        # Wind direction unbalanced load diagram
         if wind_direction == "North":
-            fig_drift = self.draw_north_drift_overlay(
+            fig_drift = self.draw_north_unbalanced_overlay(
                 north_span,
                 south_span,
                 ew_half_width,
                 valley_offset,
-                result_north["hd_ft"],
-                result_north["drift_width_ft"],
-                ps_balanced,
-                result_north["pd_max_psf"],
+                north_load,
+                south_load,
+                ps,
             )
-            diagram_title = "North Wind Drift Diagram"
+            diagram_title = "North Wind Unbalanced Loads"
         else:  # West wind
-            fig_drift = self.draw_west_drift_overlay(
+            fig_drift = self.draw_west_unbalanced_overlay(
                 north_span,
                 south_span,
                 ew_half_width,
                 valley_offset,
-                result_west["hd_ft"],
-                result_west["drift_width_ft"],
-                ps_balanced,
-                result_west["pd_max_psf"],
+                west_load,
+                east_load,
+                ps,
             )
-            diagram_title = "West Wind Drift Diagram"
+            diagram_title = "West Wind Unbalanced Loads"
 
         self._current_figures.append(fig_drift)
         canvas_drift = FigureCanvasTkAgg(fig_drift, master=self.plot_frame)
@@ -3034,7 +3137,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                     east_load = pg   # Leeward gets p_g
                     west_load = 0    # Windward gets 0
                 # For narrow roofs, skip all other calculations
-            else:
+        else:
                 # ASCE 7-22 Section 7.6.1: Wide roof (W > 20 ft)
                 # Windward gets 0.3 × p_s
                 if windward_plane == "north":
