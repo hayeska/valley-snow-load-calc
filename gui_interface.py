@@ -36,7 +36,6 @@ except ImportError:
     print("Warning: ReportLab not available. PDF reports will not be supported.")
 
 from slope_factors import calculate_cs
-from drift_calculator import valley_governing_drift
 from geometry import valley_rafter_length
 from beam_design import ValleyBeamInputs, ValleyBeamDesigner, create_beam_summary
 from jack_rafter_module import calculate_jack_rafters
@@ -370,7 +369,7 @@ APPLICABILITY:
 SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
 → Leeward side: Full ground snow load pg (windward unloaded)
 
-Note: Valley drifts use intersecting gable unbalanced drifts (Sec. 7.7.3)
+# Valley drift reference eliminated per user request
 Always verify member spanning conditions and consult licensed engineer"""
 
         asce_geom_label = ttk.Label(
@@ -831,7 +830,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         )
         self.output_text.insert(
             tk.END,
-            "Note: Valley drifts use intersecting gable unbalanced drifts (Sec. 7.7.3).\n",
+            "# Valley drift reference eliminated per user request.\n",
             "blue",
         )
         self.output_text.insert(
@@ -849,11 +848,13 @@ Always verify member spanning conditions and consult licensed engineer"""
             "Click 'Calculate' to analyze your specific roof geometry and see detailed results.\n",
         )
 
-    def draw_plan_view(self, north_span, south_span, ew_half_width, valley_offset):
-        fig = plt.Figure(figsize=(8, 8))
-        ax = fig.add_subplot(111)
-        ax.set_aspect("equal")
-
+    def _setup_roof_geometry(
+        self, ax, north_span, south_span, ew_half_width, valley_offset
+    ):
+        """
+        Standardized roof geometry setup for all diagram methods.
+        Returns: total_width, total_height, center_x
+        """
         total_width = 2 * ew_half_width
         total_height = north_span + south_span
         center_x = ew_half_width
@@ -898,6 +899,19 @@ Always verify member spanning conditions and consult licensed engineer"""
             [center_x + valley_offset, center_x], [0, south_span], "r--", linewidth=2
         )
 
+        return total_width, total_height, center_x
+
+    def _add_roof_labels(
+        self,
+        ax,
+        north_span,
+        south_span,
+        ew_half_width,
+        valley_offset,
+        total_width,
+        center_x,
+    ):
+        """Standardized roof labeling for all diagram methods."""
         # Labels - repositioned for 180 degree rotation with proper spacing
         ax.text(
             total_width / 2,
@@ -937,25 +951,79 @@ Always verify member spanning conditions and consult licensed engineer"""
             va="top",
         )
 
-        # North arrow – at top center, separated from 'N' text (reduced size)
+    def _add_north_arrow(self, ax, total_width, total_height):
+        """Standardized North arrow for all diagram methods."""
+        # North arrow – positioned below title area with proper spacing
         arrow_x = total_width / 2
-        arrow_y = total_height + 12
-        ax.arrow(arrow_x, arrow_y, 0, 6, head_width=3, head_length=6, fc="k", ec="k")
+        arrow_y = total_height + 8  # Position closer to roof geometry
+        ax.arrow(
+            arrow_x, arrow_y, 0, 4, head_width=2, head_length=4, fc="k", ec="k"
+        )  # Smaller arrow
         ax.text(
             arrow_x,
-            arrow_y + 15,
+            arrow_y + 8,  # Less vertical spacing for "N" text
             "N",
-            fontsize=12,
+            fontsize=10,
             ha="center",
             fontweight="bold",
             va="bottom",
         )
 
+    def _finalize_diagram(
+        self,
+        ax,
+        total_width,
+        total_height,
+        title,
+        load_legend_handles=None,
+        show_building_legend=True,
+    ):
+        """Standardized diagram finalization for all diagram methods."""
         ax.set_xlim(-10, total_width + 10)
-        ax.set_ylim(-15, total_height + 15)  # North at top, south at bottom
+        ax.set_ylim(
+            -15, total_height + 25
+        )  # Extended for North arrow with proper spacing
         ax.set_axis_off()
-        ax.set_title("Roof Plan View")
-        ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
+        ax.set_title(title)
+
+        # Building elements legend (at top-right, optional)
+        if show_building_legend:
+            building_legend = ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.08))
+
+        # Load elements legend (at bottom for diagrams with loads)
+        if load_legend_handles:
+            ax.legend(
+                handles=load_legend_handles,
+                loc="lower center",
+                bbox_to_anchor=(0.5, -0.1),
+                ncol=2,
+                fontsize=9,
+            )
+
+    def draw_plan_view(self, north_span, south_span, ew_half_width, valley_offset):
+        fig = plt.Figure(figsize=(8, 8))
+        ax = fig.add_subplot(111)
+        ax.set_aspect("equal")
+
+        # Use standardized template methods
+        total_width, total_height, center_x = self._setup_roof_geometry(
+            ax, north_span, south_span, ew_half_width, valley_offset
+        )
+        self._add_roof_labels(
+            ax,
+            north_span,
+            south_span,
+            ew_half_width,
+            valley_offset,
+            total_width,
+            center_x,
+        )
+        self._add_north_arrow(ax, total_width, total_height)
+        self._finalize_diagram(
+            ax, total_width, total_height, "Roof Plan View"
+        )  # No load legend for roof plan
+
+        return fig
 
         return fig
 
@@ -974,88 +1042,18 @@ Always verify member spanning conditions and consult licensed engineer"""
         ax = fig.add_subplot(111)
         ax.set_aspect("equal")
 
-        # Copy the exact same roof geometry as in the current draw_plan_view (do not change anything)
-        total_width = 2 * ew_half_width
-        total_height = north_span + south_span
-        center_x = ew_half_width
-
-        # Coordinate system: (0,0) at southwest corner (south eave left), Y increasing north (up page)
-        # South eave at y=0, north eave at y=total_height
-
-        # Building outline - rotated 180 degrees (south at bottom, north at top)
-        ax.plot(
-            [0, total_width, total_width, 0, 0],
-            [total_height, total_height, 0, 0, total_height],
-            "k-",
-            linewidth=2,
-            label="Building Outline",
+        # Use standardized template methods
+        total_width, total_height, center_x = self._setup_roof_geometry(
+            ax, north_span, south_span, ew_half_width, valley_offset
         )
-
-        # E-W ridge (horizontal at y = south_span from south eave)
-        ax.plot(
-            [0, total_width],
-            [south_span, south_span],
-            "k-",
-            linewidth=3,
-            label="E-W Ridge",
-        )
-
-        # N-S ridge (vertical, centered, from E-W ridge down to south eave)
-        ax.plot(
-            [center_x, center_x], [south_span, 0], "k-", linewidth=3, label="N-S Ridge"
-        )
-
-        # Valley lines – symmetric, using valley_offset
-        # Southwest valley: from south eave corner to ridge intersection
-        # Southeast valley: from south eave corner to ridge intersection
-        ax.plot(
-            [center_x - valley_offset, center_x],
-            [0, south_span],
-            "r--",
-            linewidth=2,
-            label="Valley Lines",
-        )
-        ax.plot(
-            [center_x + valley_offset, center_x], [0, south_span], "r--", linewidth=2
-        )
-
-        # Labels - repositioned for 180 degree rotation with proper spacing
-        ax.text(
-            total_width / 2,
-            south_span + north_span * 0.75,
-            f"North span\n{north_span:.1f} ft\n(lu_north)",
-            ha="center",
-            va="center",
-            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
-        )
-        ax.text(
-            total_width / 2,
-            south_span * 0.25,
-            f"South span\n{south_span:.1f} ft",
-            ha="center",
-            va="center",
-            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
-        )
-        ax.text(
-            center_x * 0.3,
-            -8,
-            f"{ew_half_width:.1f} ft\n(lu_west)",
-            ha="center",
-            va="top",
-        )
-        ax.text(
-            total_width - center_x * 0.3,
-            -8,
-            f"{ew_half_width:.1f} ft\n(lu_west)",
-            ha="center",
-            va="top",
-        )
-        ax.text(
+        self._add_roof_labels(
+            ax,
+            north_span,
+            south_span,
+            ew_half_width,
+            valley_offset,
+            total_width,
             center_x,
-            -8,
-            f"Valley offset ±{valley_offset:.1f} ft → lv = {math.sqrt(south_span**2 + valley_offset**2):.1f} ft",
-            ha="center",
-            va="top",
         )
 
         # === NEW: North-wind leeward drift on south roof plane ===
@@ -1071,10 +1069,10 @@ Always verify member spanning conditions and consult licensed engineer"""
             [center_x - ew_half_width, center_x + ew_half_width],
             drift_bottom,
             south_span,  # Fill from bottom up to ridge
-            color="lightblue",
+            color="silver",
             alpha=0.7,
             hatch="///",
-            edgecolor="navy",
+            edgecolor="dimgray",
             linewidth=1.5,
             label="North Wind Drift",
         )
@@ -1089,25 +1087,26 @@ Always verify member spanning conditions and consult licensed engineer"""
             bbox=dict(facecolor="white", alpha=0.9, edgecolor="blue"),
         )
 
-        # North arrow – at top center, separated from 'N' text (reduced size)
-        arrow_x = total_width / 2
-        arrow_y = total_height + 12
-        ax.arrow(arrow_x, arrow_y, 0, 6, head_width=3, head_length=6, fc="k", ec="k")
-        ax.text(
-            arrow_x,
-            arrow_y + 15,
-            "N",
-            fontsize=12,
-            ha="center",
-            fontweight="bold",
-            va="bottom",
-        )
+        # Collect load-specific legend handles for bottom legend
+        load_legend_handles = []
+        # Get the North Wind Drift handle from the current legend
+        handles, labels = ax.get_legend_handles_labels()
+        for handle, label in zip(handles, labels):
+            if "Drift" in label or any(
+                word in label.lower()
+                for word in ["psf", "windward", "leeward", "base", "surcharge"]
+            ):
+                load_legend_handles.append(handle)
 
-        ax.set_xlim(-10, total_width + 10)
-        ax.set_ylim(-15, total_height + 15)
-        ax.set_axis_off()
-        ax.set_title("North Wind - North & South Roof Planes (ASCE 7-22 Section 7.6.1)")
-        ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
+        # Use standardized template methods
+        self._add_north_arrow(ax, total_width, total_height)
+        self._finalize_diagram(
+            ax,
+            total_width,
+            total_height,
+            "North Wind - North & South Roof Planes (ASCE 7-22 Section 7.6.1)",
+            load_legend_handles,
+        )
 
         return fig
 
@@ -1194,7 +1193,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             [0, total_width],
             [south_span, south_span],
             [total_height, total_height],
-            color="lightgray" if north_load == 0 else "lightblue",
+            color="gainsboro" if north_load == 0 else "silver",
             alpha=0.5 if north_load == 0 else 0.7,
             hatch="//" if north_load == 0 else None,
             label=f"North Plane (Windward): {north_load:.1f} psf",
@@ -1207,7 +1206,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                 [0, total_width],
                 [0, 0],
                 [south_span, south_span],
-                color="lightcoral",
+                color="gray",
                 alpha=0.7,
                 label=f"South Base: {ps_balanced:.1f} psf",
             )
@@ -1222,10 +1221,10 @@ Always verify member spanning conditions and consult licensed engineer"""
                     south_span - surcharge_width_north,
                 ],
                 [south_span, south_span],
-                color="red",
+                color="gray",
                 alpha=0.7,
                 hatch="///",
-                edgecolor="darkred",
+                edgecolor="darkgray",
                 linewidth=1.5,
                 label=f"Surcharge: +{surcharge_intensity:.1f} psf (w={surcharge_width_north:.1f} ft)",
             )
@@ -1235,7 +1234,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                 [0, total_width],
                 [0, 0],
                 [south_span, south_span],
-                color="lightcoral",
+                color="gray",
                 alpha=0.7,
                 label=f"South Plane (Leeward): {south_load:.1f} psf",
             )
@@ -1270,7 +1269,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                 bbox=dict(
                     facecolor="white",
                     alpha=0.95,
-                    edgecolor="blue",
+                    edgecolor="slategray",
                     boxstyle="round,pad=0.5",
                 ),
             )
@@ -1285,30 +1284,38 @@ Always verify member spanning conditions and consult licensed engineer"""
                 bbox=dict(
                     facecolor="white",
                     alpha=0.95,
-                    edgecolor="blue",
+                    edgecolor="slategray",
                     boxstyle="round,pad=0.5",
                 ),
             )
 
-        # North arrow
-        arrow_x = total_width / 2
-        arrow_y = total_height + 12
-        ax.arrow(arrow_x, arrow_y, 0, 6, head_width=3, head_length=6, fc="k", ec="k")
-        ax.text(
-            arrow_x,
-            arrow_y + 15,
-            "N",
-            fontsize=12,
-            ha="center",
-            fontweight="bold",
-            va="bottom",
-        )
+        # Collect load-specific legend handles for bottom legend
+        load_legend_handles = []
+        handles, labels = ax.get_legend_handles_labels()
+        for handle, label in zip(handles, labels):
+            if any(
+                word in label.lower()
+                for word in [
+                    "psf",
+                    "windward",
+                    "leeward",
+                    "base",
+                    "surcharge",
+                    "north plane",
+                    "south plane",
+                ]
+            ):
+                load_legend_handles.append(handle)
 
-        ax.set_xlim(-10, total_width + 10)
-        ax.set_ylim(-15, total_height + 15)
-        ax.set_axis_off()
-        ax.set_title("North Wind - North & South Roof Planes (ASCE 7-22 Section 7.6.1)")
-        ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
+        # Use standardized template methods
+        self._add_north_arrow(ax, total_width, total_height)
+        self._finalize_diagram(
+            ax,
+            total_width,
+            total_height,
+            "North Wind - North & South Roof Planes (ASCE 7-22 Section 7.6.1)",
+            load_legend_handles,
+        )
 
         return fig
 
@@ -1318,15 +1325,21 @@ Always verify member spanning conditions and consult licensed engineer"""
         south_span,
         ew_half_width,
         valley_offset,
-        north_load,
-        south_load,
-        west_load,
-        east_load,
+        north_load_governing,
+        south_load_governing,
+        west_load_governing,
+        east_load_governing,
         ps_balanced,
         surcharge_width_north=0,
         surcharge_width_west=0,
     ):
         """Draw governing unbalanced load distribution showing maximum loads from both wind directions"""
+        # Use instance variables instead of parameters to avoid passing issues
+        north_load = getattr(self, "governing_north", north_load_governing)
+        south_load = getattr(self, "governing_south", south_load_governing)
+        west_load = getattr(self, "governing_west", west_load_governing)
+        east_load = getattr(self, "governing_east", east_load_governing)
+
         fig = plt.Figure(figsize=(8, 8))
         ax = fig.add_subplot(111)
         ax.set_aspect("equal")
@@ -1377,6 +1390,9 @@ Always verify member spanning conditions and consult licensed engineer"""
         # Check if unbalanced loads apply (any surcharge width > 0)
         unbalanced_applies = (surcharge_width_north > 0) or (surcharge_width_west > 0)
 
+        # Collect load-specific legend handles for bottom legend (do this after all fill_between calls)
+        load_legend_handles = []
+
         if unbalanced_applies:
             # Show unbalanced load distribution
             # North plane
@@ -1384,7 +1400,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                 [0, center_x],
                 [south_span, south_span],
                 [total_height, total_height],
-                color="lightblue",
+                color="silver",
                 alpha=0.7,
                 label=f"North: {north_load:.1f} psf",
             )
@@ -1398,7 +1414,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                         south_span - surcharge_width_north,
                         south_span - surcharge_width_north,
                     ],
-                    color="lightblue",
+                    color="silver",
                     alpha=0.7,
                 )
                 ax.fill_between(
@@ -1408,10 +1424,10 @@ Always verify member spanning conditions and consult licensed engineer"""
                         south_span - surcharge_width_north,
                     ],
                     [south_span, south_span],
-                    color="lightcoral",
+                    color="gray",
                     alpha=0.7,
                     hatch="///",
-                    edgecolor="red",
+                    edgecolor="darkgray",
                     linewidth=1.5,
                     label=f"South: {south_load:.1f} psf",
                 )
@@ -1420,7 +1436,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                     [0, total_width],
                     [0, 0],
                     [south_span, south_span],
-                    color="lightcoral",
+                    color="gray",
                     alpha=0.7,
                     label=f"South: {south_load:.1f} psf",
                 )
@@ -1430,7 +1446,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                 [0, 0],
                 [south_span, south_span],
                 [total_height, total_height],
-                color="lightgreen",
+                color="darkgray",
                 alpha=0.7,
                 label=f"West: {west_load:.1f} psf",
             )
@@ -1441,10 +1457,10 @@ Always verify member spanning conditions and consult licensed engineer"""
                     [center_x, center_x + surcharge_width_west],
                     [0, 0],
                     [south_span, south_span],
-                    color="gold",
+                    color="dimgray",
                     alpha=0.7,
                     hatch="///",
-                    edgecolor="red",
+                    edgecolor="darkgray",
                     linewidth=1.5,
                     label=f"East: {east_load:.1f} psf",
                 )
@@ -1453,7 +1469,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                         [center_x + surcharge_width_west, total_width],
                         [0, 0],
                         [south_span, south_span],
-                        color="lightblue",
+                        color="silver",
                         alpha=0.7,
                     )
             else:
@@ -1461,64 +1477,109 @@ Always verify member spanning conditions and consult licensed engineer"""
                     [total_width, total_width],
                     [south_span, south_span],
                     [total_height, total_height],
-                    color="gold",
+                    color="dimgray",
                     alpha=0.7,
                     label=f"East: {east_load:.1f} psf",
                 )
 
-            # Fill south planes uniformly
-            ax.fill_between(
-                [0, total_width],
-                [0, 0],
-                [south_span, south_span],
-                color="lightblue",
-                alpha=0.7,
-            )
+            # For valley roofs, show governing surcharge in south-east quadrant
+            # When drifts intersect, take the LARGER (governing) drift depth, not the sum
+            if surcharge_width_north > 0 and surcharge_width_west > 0:
+                # Determine which drift governs (larger surcharge)
+                north_surcharge = (
+                    south_load - ps_balanced
+                )  # North wind surcharge amount
+                west_surcharge = east_load - ps_balanced  # West wind surcharge amount
+                governing_surcharge = max(north_surcharge, west_surcharge)
+
+                # Valley area shows governing drift + balanced load
+                valley_total_load = ps_balanced + governing_surcharge
+
+                # Show governing surcharge zone in valley area
+                surcharge_width_governing = max(
+                    surcharge_width_north, surcharge_width_west
+                )
+                ax.fill_between(
+                    [center_x, min(center_x + surcharge_width_governing, total_width)],
+                    [
+                        max(0, south_span - surcharge_width_governing),
+                        max(0, south_span - surcharge_width_governing),
+                    ],
+                    [south_span, south_span],
+                    color="dimgray",  # Dark gray for governing surcharge
+                    alpha=0.8,
+                    hatch="////",
+                    edgecolor="black",
+                    linewidth=2,
+                    label=f"Valley Governing Load: {valley_total_load:.1f} psf",
+                )
+                # Fill remaining south area with balanced load
+                ax.fill_between(
+                    [0, center_x],
+                    [0, 0],
+                    [south_span, south_span],
+                    color="silver",
+                    alpha=0.7,
+                )
+                if center_x + surcharge_width_governing < total_width:
+                    ax.fill_between(
+                        [center_x + surcharge_width_governing, total_width],
+                        [0, 0],
+                        [south_span, south_span],
+                        color="silver",
+                        alpha=0.7,
+                    )
+            else:
+                # For unbalanced loads, don't do uniform fill - specific regions are already filled
+                # Only fill any remaining areas if needed
+                pass
         else:
             # No unbalanced loads - show governing loads on each plane
             # North plane
-            if north_load > 0:
+            if north_load >= 0:  # Allow zero and small positive loads
                 ax.fill_between(
                     [0, center_x],
                     [south_span, south_span],
                     [total_height, total_height],
-                    color="lightblue",
+                    color="silver",
                     alpha=0.7,
                     label=f"North: {north_load:.1f} psf",
                 )
 
             # South plane
-            if south_load > 0:
+            if south_load >= 0:  # Allow zero and small positive loads
                 ax.fill_between(
                     [0, center_x],
                     [0, 0],
                     [south_span, south_span],
-                    color="lightcoral",
+                    color="gray",
                     alpha=0.7,
                     label=f"South: {south_load:.1f} psf",
                 )
 
             # West plane
-            if west_load > 0:
+            if west_load >= 0:  # Allow zero and small positive loads
                 ax.fill_between(
                     [0, 0],
                     [south_span, south_span],
                     [total_height, total_height],
-                    color="lightgreen",
+                    color="darkgray",
                     alpha=0.7,
                     label=f"West: {west_load:.1f} psf",
                 )
 
             # East plane
-            if east_load > 0:
+            if east_load >= 0:
                 ax.fill_between(
                     [total_width, total_width],
                     [south_span, south_span],
                     [total_height, total_height],
-                    color="gold",
+                    color="dimgray",
                     alpha=0.7,
                     label=f"East: {east_load:.1f} psf",
                 )
+
+            # Legend will show the load values - no need for center text labels
 
             # Fill south planes with appropriate colors
             if north_load > 0:
@@ -1526,7 +1587,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                     [0, center_x],
                     [0, 0],
                     [south_span, south_span],
-                    color="lightblue",
+                    color="silver",
                     alpha=0.7,
                 )
             if south_load > 0:
@@ -1534,7 +1595,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                     [center_x, total_width],
                     [0, 0],
                     [south_span, south_span],
-                    color="lightcoral",
+                    color="gray",
                     alpha=0.7,
                 )
             if west_load > 0:
@@ -1542,7 +1603,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                     [0, center_x],
                     [0, 0],
                     [south_span, south_span],
-                    color="lightgreen",
+                    color="darkgray",
                     alpha=0.7,
                 )
             if east_load > 0:
@@ -1550,9 +1611,51 @@ Always verify member spanning conditions and consult licensed engineer"""
                     [center_x, total_width],
                     [0, 0],
                     [south_span, south_span],
-                    color="gold",
+                    color="dimgray",
                     alpha=0.7,
+                    label=f"East: {east_load:.1f} psf",
                 )
+
+        # Always show balanced load visualization (this ensures diagram always appears)
+        # North plane
+        ax.fill_between(
+            [0, center_x],
+            [south_span, south_span],
+            [total_height, total_height],
+            color="silver",
+            alpha=0.7,
+            label=f"North: {north_load:.1f} psf",
+        )
+
+        # South plane
+        ax.fill_between(
+            [0, center_x],
+            [0, 0],
+            [south_span, south_span],
+            color="silver",
+            alpha=0.7,
+            label=f"South: {south_load:.1f} psf",
+        )
+
+        # West plane
+        ax.fill_between(
+            [0, 0],
+            [south_span, south_span],
+            [total_height, total_height],
+            color="silver",
+            alpha=0.7,
+            label=f"West: {west_load:.1f} psf",
+        )
+
+        # East plane
+        ax.fill_between(
+            [center_x, center_x],
+            [south_span, south_span],
+            [total_height, total_height],
+            color="silver",
+            alpha=0.7,
+            label=f"East: {east_load:.1f} psf",
+        )
 
         # Labels
         ax.text(
@@ -1602,45 +1705,72 @@ Always verify member spanning conditions and consult licensed engineer"""
                 bbox=dict(
                     facecolor="white",
                     alpha=0.95,
-                    edgecolor="purple",
+                    edgecolor="dimgray",
                     boxstyle="round,pad=0.5",
                 ),
             )
         else:
-            ax.text(
-                total_width + 45,
-                total_height * 0.8,
-                f"Governing Loads - Balanced Only\nEntire Roof: {ps_balanced:.1f} psf\n(No unbalanced loads apply)",
-                ha="left",
-                va="center",
-                fontsize=8,
-                bbox=dict(
-                    facecolor="white",
-                    alpha=0.95,
-                    edgecolor="purple",
-                    boxstyle="round,pad=0.5",
-                ),
-            )
+            # Show governing load summary
+            if surcharge_width_north > 0 or surcharge_width_west > 0:
+                ax.text(
+                    total_width + 45,
+                    total_height * 0.8,
+                    f"Governing Loads (ASCE 7-22 Section 7.6.1)\nNorth Plane: {north_load:.1f} psf\nSouth Plane: {south_load:.1f} psf\nWest Plane: {west_load:.1f} psf\nEast Plane: {east_load:.1f} psf\nValley: Governing drift depth applied",
+                    ha="left",
+                    va="center",
+                    fontsize=8,
+                    bbox=dict(
+                        facecolor="white",
+                        alpha=0.95,
+                        edgecolor="dimgray",
+                        boxstyle="round,pad=0.5",
+                    ),
+                )
+            else:
+                ax.text(
+                    total_width + 45,
+                    total_height * 0.8,
+                    f"Governing Loads - Balanced Condition\nNorth Plane: {north_load:.1f} psf\nSouth Plane: {south_load:.1f} psf\nWest Plane: {west_load:.1f} psf\nEast Plane: {east_load:.1f} psf\n(No surcharge loads)",
+                    ha="left",
+                    va="center",
+                    fontsize=8,
+                    bbox=dict(
+                        facecolor="white",
+                        alpha=0.95,
+                        edgecolor="dimgray",
+                        boxstyle="round,pad=0.5",
+                    ),
+                )
 
-        # North arrow
-        arrow_x = total_width / 2
-        arrow_y = total_height + 12
-        ax.arrow(arrow_x, arrow_y, 0, 6, head_width=3, head_length=6, fc="k", ec="k")
-        ax.text(
-            arrow_x,
-            arrow_y + 15,
-            "N",
-            fontsize=12,
-            ha="center",
-            fontweight="bold",
-            va="bottom",
+        # Collect load-specific legend handles for bottom legend (after all fill_between calls)
+        handles, labels = ax.get_legend_handles_labels()
+        for handle, label in zip(handles, labels):
+            if any(
+                word in label.lower()
+                for word in [
+                    "psf",
+                    "windward",
+                    "leeward",
+                    "base",
+                    "surcharge",
+                    "north",
+                    "south",
+                    "west",
+                    "east",
+                ]
+            ):
+                load_legend_handles.append(handle)
+
+        # Use standardized template methods
+        self._add_north_arrow(ax, total_width, total_height)
+        self._finalize_diagram(
+            ax,
+            total_width,
+            total_height,
+            "Governing Valley Load Application",
+            load_legend_handles,
+            show_building_legend=False,
         )
-
-        ax.set_xlim(-10, total_width + 10)
-        ax.set_ylim(-15, total_height + 15)
-        ax.set_axis_off()
-        ax.set_title("Governing Unbalanced Loads (Max from North & West Winds)")
-        ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
 
         return fig
 
@@ -1735,7 +1865,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             [0, total_width],
             [south_span, south_span],
             [total_height, total_height],
-            color="lightgreen",
+            color="darkgray",
             alpha=0.6,
             label=f"Northern Plane (Balanced): {ps_balanced:.1f} psf",
         )
@@ -1746,7 +1876,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             [0, center_x],
             [0, 0],
             [south_span, south_span],
-            color="lightgray" if west_load == 0 else "lightblue",
+            color="gainsboro" if west_load == 0 else "silver",
             alpha=0.5 if west_load == 0 else 0.7,
             hatch="//" if west_load == 0 else None,
             label=f"Southern West (Windward): {west_load:.1f} psf",
@@ -1759,7 +1889,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                 [center_x, total_width],
                 [0, 0],
                 [south_span, south_span],
-                color="lightcoral",
+                color="gray",
                 alpha=0.7,
                 label=f"Southern East Base: {ps_balanced:.1f} psf",
             )
@@ -1774,7 +1904,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                 color="red",
                 alpha=0.7,
                 hatch="///",
-                edgecolor="darkred",
+                edgecolor="gray",
                 linewidth=1.5,
                 label=f"Surcharge: +{surcharge_intensity:.1f} psf (w={surcharge_width_west:.1f} ft)",
             )
@@ -1784,7 +1914,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                     [surcharge_end_x, total_width],
                     [0, 0],
                     [south_span, south_span],
-                    color="lightcoral",
+                    color="gray",
                     alpha=0.7,
                 )
         else:
@@ -1793,7 +1923,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                 [center_x, total_width],
                 [0, 0],
                 [south_span, south_span],
-                color="lightcoral",
+                color="gray",
                 alpha=0.7,
                 label=f"Southern East (Leeward): {east_load:.1f} psf",
             )
@@ -1810,7 +1940,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                 bbox=dict(
                     facecolor="white",
                     alpha=0.95,
-                    edgecolor="red",
+                    edgecolor="darkgray",
                     boxstyle="round,pad=0.5",
                 ),
             )
@@ -1825,30 +1955,40 @@ Always verify member spanning conditions and consult licensed engineer"""
                 bbox=dict(
                     facecolor="white",
                     alpha=0.95,
-                    edgecolor="red",
+                    edgecolor="darkgray",
                     boxstyle="round,pad=0.5",
                 ),
             )
 
-        # North arrow
-        arrow_x = total_width / 2
-        arrow_y = total_height + 12
-        ax.arrow(arrow_x, arrow_y, 0, 6, head_width=3, head_length=6, fc="k", ec="k")
-        ax.text(
-            arrow_x,
-            arrow_y + 15,
-            "N",
-            fontsize=12,
-            ha="center",
-            fontweight="bold",
-            va="bottom",
-        )
+        # Collect load-specific legend handles for bottom legend
+        load_legend_handles = []
+        handles, labels = ax.get_legend_handles_labels()
+        for handle, label in zip(handles, labels):
+            if any(
+                word in label.lower()
+                for word in [
+                    "psf",
+                    "windward",
+                    "leeward",
+                    "base",
+                    "surcharge",
+                    "north",
+                    "south",
+                    "west",
+                    "east",
+                ]
+            ):
+                load_legend_handles.append(handle)
 
-        ax.set_xlim(-10, total_width + 10)
-        ax.set_ylim(-15, total_height + 15)
-        ax.set_axis_off()
-        ax.set_title("West Wind - West & East Roof Planes (ASCE 7-22 Section 7.6.1)")
-        ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0))
+        # Use standardized template methods
+        self._add_north_arrow(ax, total_width, total_height)
+        self._finalize_diagram(
+            ax,
+            total_width,
+            total_height,
+            "West Wind - West & East Roof Planes (ASCE 7-22 Section 7.6.1)",
+            load_legend_handles,
+        )
 
         return fig
 
@@ -1910,6 +2050,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             north_load_north_wind_final,
             south_load_north_wind_final,
             ps_balanced,
+            surcharge_width_north,
         )
         self._current_figures.append(fig_north)
         canvas_north = FigureCanvasTkAgg(fig_north, master=self.plot_frame)
@@ -1938,11 +2079,13 @@ Always verify member spanning conditions and consult licensed engineer"""
             south_span,
             ew_half_width,
             valley_offset,
-            north_load_governing,
-            south_load_governing,
-            west_load_governing,
-            east_load_governing,
+            0,
+            0,
+            0,
+            0,  # Dummy values since we use instance variables
             ps_balanced,
+            surcharge_width_north,
+            surcharge_width_west,
         )
         self._current_figures.append(fig_governing)
         canvas_governing = FigureCanvasTkAgg(fig_governing, master=self.plot_frame)
@@ -1988,7 +2131,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             shear.append(v)
 
         ax1.plot(positions, shear, "b-", linewidth=2.5, label="Shear Force")
-        ax1.fill_between(positions, shear, alpha=0.2, color="lightblue")
+        ax1.fill_between(positions, shear, alpha=0.2, color="silver")
         ax1.set_ylabel("Shear Force (lb)", fontsize=11, fontweight="bold")
         ax1.set_xlabel("Distance from Eave (ft)", fontsize=11, fontweight="bold")
         ax1.set_title("Shear Force Diagram", fontsize=13, fontweight="bold")
@@ -2065,7 +2208,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             moment = [m + slope * x for m, x in zip(moment, positions)]
 
         ax2.plot(positions, moment, "r-", linewidth=2.5, label="Bending Moment")
-        ax2.fill_between(positions, moment, alpha=0.2, color="lightcoral")
+        ax2.fill_between(positions, moment, alpha=0.2, color="gray")
         ax2.set_ylabel("Bending Moment (ft-lb)", fontsize=11, fontweight="bold")
         ax2.set_xlabel("Distance from Eave (ft)", fontsize=11, fontweight="bold")
         ax2.set_title("Bending Moment Diagram", fontsize=13, fontweight="bold", pad=20)
@@ -2139,10 +2282,10 @@ Always verify member spanning conditions and consult licensed engineer"""
             [0] * len(x_positions),
             pd_profile,
             alpha=0.3,
-            color="lightcoral",
+            color="gray",
         )
         ax3.fill_between(
-            x_positions, ps_uniform, total_profile, alpha=0.2, color="lightblue"
+            x_positions, ps_uniform, total_profile, alpha=0.2, color="silver"
         )
 
         ax3.set_xlabel(
@@ -2580,10 +2723,10 @@ Always verify member spanning conditions and consult licensed engineer"""
             self.entries["north_span"].delete(0, tk.END)
             self.entries["north_span"].insert(0, geom_params.get("north_span", "16"))
             self.entries["south_span"].delete(0, tk.END)
-            self.entries["south_span"].insert(0, geom_params.get("south_span", "30"))
+            self.entries["south_span"].insert(0, geom_params.get("south_span", "16"))
             self.entries["ew_half_width"].delete(0, tk.END)
             self.entries["ew_half_width"].insert(
-                0, geom_params.get("ew_half_width", "21.125")
+                0, geom_params.get("ew_half_width", "42")
             )
             self.entries["valley_offset"].delete(0, tk.END)
             self.entries["valley_offset"].insert(
@@ -3402,6 +3545,21 @@ Always verify member spanning conditions and consult licensed engineer"""
         theta = math.degrees(math.atan(s))
         return s, theta, S
 
+    def test_6_pitch_logic(self):
+        """Test function to verify 6 pitch roof triggers unbalanced loads"""
+        pitch = 6.0
+        s, theta, S = self.compute_s_theta(pitch)
+        min_slope = theta  # For single pitch test
+        condition_met = 2.38 <= min_slope <= 30.2
+
+        print("=== 6 PITCH ROOF TEST ===")
+        print(f"Pitch: {pitch}/12")
+        print(f"Slope ratio s: {s}")
+        print(f"Slope angle theta: {theta:.2f} degrees")
+        print(f"ASCE range check: 2.38 <= {theta:.2f} <= 30.2 = {condition_met}")
+        print(f"Should trigger unbalanced loads: {condition_met}")
+        return condition_met
+
     def calculate_gable_drift(self, pg, lu, W2, Ce, ct, Cs, Is, s, S):
         gamma = min(0.13 * pg + 14, 30)
         hd = 1.5 * math.sqrt(pg**0.74 * lu**0.7 * W2**1.7 / gamma)
@@ -3421,6 +3579,12 @@ Always verify member spanning conditions and consult licensed engineer"""
 
     def calculate(self):
         print("Calculate button clicked - starting calculation")
+
+        # Optional debug output (uncomment if needed)
+        # print("Calculate function started")
+
+        # Test 6 pitch logic (for verification)
+        self.test_6_pitch_logic()
 
         # Validate all inputs before calculation
         validation_errors = self.validate_all_inputs()
@@ -3616,14 +3780,20 @@ Always verify member spanning conditions and consult licensed engineer"""
         # If slope outside 2.38°-30.2° range: BALANCED loads on ALL planes
         # If slope within range: UNBALANCED loads based on wind direction
 
+        # Optional debug output for unbalanced load condition
+        # min_calc_slope = min(theta_n, theta_w)
+        # print(f"DEBUG CALC: theta_n = {theta_n:.2f} degrees, theta_w = {theta_w:.2f} degrees, min_slope = {min_calc_slope:.2f} degrees")
+        # print(f"DEBUG CALC: Condition check: 2.38 <= {min_calc_slope:.2f} <= 30.2 = {2.38 <= min_calc_slope <= 30.2}")
+
         if 2.38 <= min(theta_n, theta_w) <= 30.2:
             # Calculate loads for BOTH wind directions and take maximums
 
             # ===== NORTH WIND ANALYSIS =====
-            # North wind blows parallel to N-S ridge, affecting North-South roof planes
+            # North wind blows parallel to North-South ridge, affecting North-South roof planes
             # Figure 7.6-2: North plane = windward, South plane = leeward
-            windward_span_north = north_span
-            is_narrow_north = windward_span_north <= 20
+            # Narrow/wide determination based on fetch lu (distance to upwind eave)
+            lu_north = north_span  # Fetch distance to north eave
+            is_narrow_north = lu_north <= 20
 
             if is_narrow_north:
                 # Narrow roof: p_g on leeward (south), 0 on windward (north)
@@ -3634,18 +3804,27 @@ Always verify member spanning conditions and consult licensed engineer"""
                 north_load_north_wind = 0.3 * ps_north if ps_north > 0 else 0
 
                 # Calculate surcharge for south plane
+                # Fetch lu = distance from ridge to upwind eave = north_span
+                lu_north = north_span
                 hd_north = 1.5 * math.sqrt(
-                    (pg**0.74 * windward_span_north**0.70 * w2**1.7) / gamma
+                    (pg**0.74 * lu_north**0.70 * w2**1.7) / gamma
                 )
                 surcharge_north = hd_north * gamma / math.sqrt(S_n)
                 surcharge_width_north = (8 * hd_north * math.sqrt(S_n)) / 3
+
+                # Limit surcharge width to available roof dimension (east-west width)
+                # For roofs wider than 20 ft, surcharge width should not exceed perpendicular dimension
+                roof_width_ew = 2 * ew_half_width  # Total east-west width
+                surcharge_width_north = min(surcharge_width_north, roof_width_ew)
+
                 south_load_north_wind = ps + surcharge_north
 
             # ===== WEST WIND ANALYSIS =====
-            # West wind blows perpendicular to N-S ridge, affecting East-West roof planes
+            # West wind blows parallel to East-West ridge, affecting East-West roof planes
             # Figure 7.6-2: West plane = windward, East plane = leeward
-            windward_span_west = ew_half_width
-            is_narrow_west = windward_span_west <= 20
+            # Narrow/wide determination based on fetch lu (distance to upwind eave)
+            lu_west = ew_half_width  # Fetch distance to west eave
+            is_narrow_west = lu_west <= 20
 
             if is_narrow_west:
                 # Narrow roof: p_g on leeward (east), 0 on windward (west)
@@ -3656,11 +3835,17 @@ Always verify member spanning conditions and consult licensed engineer"""
                 west_load_west_wind = 0.3 * ps_west if ps_west > 0 else 0
 
                 # Calculate surcharge for east plane
-                hd_west = 1.5 * math.sqrt(
-                    (pg**0.74 * windward_span_west**0.70 * w2**1.7) / gamma
-                )
+                # Fetch lu = distance from ridge to upwind eave = ew_half_width
+                lu_west = ew_half_width
+                hd_west = 1.5 * math.sqrt((pg**0.74 * lu_west**0.70 * w2**1.7) / gamma)
                 surcharge_west = hd_west * gamma / math.sqrt(S_w)
                 surcharge_width_west = (8 * hd_west * math.sqrt(S_w)) / 3
+
+                # Limit surcharge width to available roof dimension (north-south span)
+                # For roofs wider than 20 ft, surcharge width should not exceed perpendicular dimension
+                roof_span_ns = north_span + south_span  # Total north-south span
+                surcharge_width_west = min(surcharge_width_west, roof_span_ns)
+
                 east_load_west_wind = ps + surcharge_west
 
             # ===== STORE INDIVIDUAL WIND DIRECTION LOADS =====
@@ -3685,6 +3870,14 @@ Always verify member spanning conditions and consult licensed engineer"""
             east_load = max(
                 east_load, east_load_west_wind
             )  # East plane: max from balanced + west wind
+
+        # Set governing loads for diagram display (maximum from both wind directions)
+        # These are always the maximum loads regardless of whether unbalanced loads apply
+        self.governing_north = north_load
+        self.governing_south = south_load
+        self.governing_west = west_load
+        self.governing_east = east_load
+        print("DEBUG: About to call generate_diagrams")
 
         # Create result dictionaries for compatibility with existing code
         result_north = {
@@ -3719,18 +3912,12 @@ Always verify member spanning conditions and consult licensed engineer"""
             result_west["pd_max"] = pg - ps
             result_west["w"] = de_w
 
-        # Governing valley drift from intersection
-        gov_drift = valley_governing_drift(result_north, result_west)
+        # Valley drift calculations eliminated - using zero drift loads
+        gov_drift = {"governing_pd_max_psf": 0.0, "governing_hd_ft": 0.0}
+        gov_drift_width = 0.0
 
-        # Determine governing drift width (from the drift with max pd_max)
-        gov_drift_width = (
-            result_north["drift_width_ft"]
-            if result_north["pd_max_psf"] >= result_west["pd_max_psf"]
-            else result_west["drift_width_ft"]
-        )
-
-        # Max total load at valley corner
-        ps + gov_drift["governing_pd_max_psf"]
+        # Max total load at valley corner (no drift contribution)
+        ps
 
         # Jack Rafter Point Loads - calculate first since beam design needs these
         jacks_data = calculate_jack_rafters(
@@ -3741,8 +3928,8 @@ Always verify member spanning conditions and consult licensed engineer"""
             valley_angle_deg=valley_angle,
             jack_spacing_in=jack_spacing_inches,
             ps_psf=governing_roof_load,  # Use governing roof load
-            pd_max_psf=gov_drift["governing_pd_max_psf"],
-            w_drift_ft=gov_drift_width,
+            pd_max_psf=0.0,  # No valley drift load
+            w_drift_ft=0.0,  # No drift width
             dead_load_psf_horizontal=dead_load_horizontal,
         )
 
@@ -4142,34 +4329,142 @@ Always verify member spanning conditions and consult licensed engineer"""
             else 0
         )
 
-        # Output
+        # Output - Restructured per user request
         self.output_text.delete(1.0, tk.END)
-        self.output_text.insert(tk.END, "=== CALCULATION RESULTS ===\n\n")
-        self.output_text.insert(tk.END, f"Ground Snow Load (pg): {pg} psf\n")
+
+        # === REFERENCES AND METHODOLOGY ===
+        self.output_text.insert(tk.END, "=== REFERENCES AND METHODOLOGY ===\n\n")
+        self.output_text.insert(tk.END, "CALCULATION BASED ON:\n")
         self.output_text.insert(
             tk.END,
-            f"Applied Importance Factor Is = {is_factor} (Risk Category {risk_category})\n",
+            "• ASCE 7-22: Minimum Design Loads for Buildings and Other Structures\n",
         )
-        self.output_text.insert(tk.END, f"Winter Wind Parameter (W2): {w2}\n")
-        self.output_text.insert(tk.END, f"Flat Roof Snow Load (pf): {pf:.1f} psf\n\n")
+        self.output_text.insert(tk.END, "• Chapter 7: Snow Loads\n")
+        self.output_text.insert(
+            tk.END,
+            "• Ground snow loads from ASCE Design Ground Snow Load Geodatabase (2022-1.0)\n",
+        )
+        self.output_text.insert(
+            tk.END, "• Risk-targeted ground snow loads (pg) for Risk Categories I-IV\n"
+        )
+        self.output_text.insert(
+            tk.END, "• Winter wind parameter W2 (percent time wind >10 mph Oct-Apr)\n\n"
+        )
 
-        # Low-slope roof check per ASCE 7-22 Sec. 7.3
-        self.output_text.insert(tk.END, "MINIMUM SNOW LOAD CHECK (Sec. 7.3)\n")
-        self.output_text.insert(tk.END, f"Minimum slope = {min_slope_deg:.1f}°\n")
+        self.output_text.insert(tk.END, "METHODOLOGY:\n")
+        self.output_text.insert(
+            tk.END,
+            "• Determine ground snow load pg from geodatabase based on site location\n",
+        )
+        self.output_text.insert(
+            tk.END,
+            "• Apply importance factor Is based on Risk Category (Table 1.5-2)\n",
+        )
+        self.output_text.insert(
+            tk.END,
+            "• Calculate flat roof snow load pf using exposure and thermal factors\n",
+        )
+        self.output_text.insert(
+            tk.END, "• Calculate sloped roof snow load ps using slope factor Cs\n"
+        )
+        self.output_text.insert(
+            tk.END, "• Apply minimum snow load pm for low-slope roofs (Sec. 7.3)\n"
+        )
+        self.output_text.insert(
+            tk.END,
+            "• Determine balanced vs unbalanced loads based on roof geometry (Sec. 7.6)\n\n",
+        )
+
+        # === GROUND SNOW LOAD ===
+        self.output_text.insert(tk.END, "=== GROUND SNOW LOAD ===\n")
+        self.output_text.insert(tk.END, "ASCE 7-22 Section 7.2: Ground Snow Loads\n\n")
+        self.output_text.insert(
+            tk.END, f"pg = {pg} psf (from geodatabase based on site location)\n"
+        )
+        self.output_text.insert(
+            tk.END,
+            f"Is = {is_factor} (Importance Factor - Risk Category {risk_category})\n",
+        )
+        self.output_text.insert(
+            tk.END,
+            f"W2 = {w2} (Winter wind parameter - % time wind >10 mph Oct-Apr)\n\n",
+        )
+
+        # === FLAT ROOF SNOW LOAD ===
+        self.output_text.insert(tk.END, "=== FLAT ROOF SNOW LOAD ===\n")
+        self.output_text.insert(tk.END, "ASCE 7-22 Section 7.3.1 & Equation 7.3-1\n\n")
+        self.output_text.insert(tk.END, "pf = 0.7 × Ce × Ct × pg × Is\n")
+        self.output_text.insert(
+            tk.END, f"pf = 0.7 × {ce} × {ct} × {pg} × {is_factor}\n"
+        )
+        self.output_text.insert(tk.END, f"pf = {pf:.1f} psf\n\n")
+
+        # === MINIMUM SNOW LOAD ===
+        self.output_text.insert(tk.END, "=== MINIMUM SNOW LOAD ===\n")
+        self.output_text.insert(tk.END, "ASCE 7-22 Section 7.3.3 & Equation 7.3-2\n\n")
+        self.output_text.insert(tk.END, "pm = 0.7 × Ce × Ct × pg × Is × 0.6\n")
+        self.output_text.insert(
+            tk.END, f"pm = 0.7 × {ce} × {ct} × {pg} × {is_factor} × 0.6\n"
+        )
+        self.output_text.insert(tk.END, f"pm = {pm:.1f} psf\n\n")
+
+        # === SLOPED ROOF SNOW LOAD ===
+        self.output_text.insert(tk.END, "=== SLOPED ROOF SNOW LOAD ===\n")
+        self.output_text.insert(tk.END, "ASCE 7-22 Section 7.4.1 & Equation 7.4-1\n\n")
+        self.output_text.insert(tk.END, "ps = pf × Cs\n")
+        self.output_text.insert(tk.END, f"ps = {pf:.1f} × {cs:.3f}\n")
+        self.output_text.insert(tk.END, f"ps = {ps:.1f} psf\n\n")
+
+        # === LOAD DETERMINATIONS ===
+        self.output_text.insert(tk.END, "=== LOAD DETERMINATIONS ===\n")
+        self.output_text.insert(
+            tk.END, "ASCE 7-22 Section 7.3: Minimum Snow Load Check\n\n"
+        )
+
+        # Roof slope analysis
+        self.output_text.insert(
+            tk.END,
+            f"Roof slopes: North = {pitch_n:.1f}/12 ({theta_n:.1f}°), West = {pitch_w:.1f}/12 ({theta_w:.1f}°)\n",
+        )
+        self.output_text.insert(tk.END, f"Minimum slope = {min_slope_deg:.1f}°\n\n")
+
+        # Balanced vs Unbalanced Load Determination
+        self.output_text.insert(tk.END, "BALANCED vs UNBALANCED LOAD DETERMINATION:\n")
+        self.output_text.insert(
+            tk.END, "ASCE 7-22 Section 7.6.1: Unbalanced snow loads apply when:\n"
+        )
+        self.output_text.insert(
+            tk.END, "• Roof slope ≥ 2.38° (0.5/12) AND ≤ 30.2° (7/12)\n"
+        )
+        self.output_text.insert(tk.END, "• Outside this range: Balanced loads only\n\n")
+
         if low_slope:
             self.output_text.insert(
-                tk.END, "Slope < 15° (monoslope/hip/gable) — pm applies\n"
+                tk.END, "✓ Slope < 15° → Minimum snow load pm applies\n"
             )
-            self.output_text.insert(tk.END, f"pm = {pm:.1f} psf\n")
             self.output_text.insert(
                 tk.END,
-                f"Governing roof snow load = max(ps, pm) = {governing_roof_load:.1f} psf\n\n",
+                f"Governing balanced load = max(ps, pm) = max({ps:.1f}, {pm:.1f}) = {governing_roof_load:.1f} psf\n\n",
             )
         else:
-            self.output_text.insert(tk.END, "Slope ≥ 15° — pm does not apply\n")
-            self.output_text.insert(tk.END, f"pm (for reference) = {pm:.1f} psf\n")
             self.output_text.insert(
-                tk.END, f"Governing roof snow load = ps = {ps:.1f} psf\n\n"
+                tk.END, "✗ Slope ≥ 15° → Minimum snow load pm does not apply\n"
+            )
+            self.output_text.insert(
+                tk.END, f"Governing balanced load = ps = {ps:.1f} psf\n\n"
+            )
+
+        # Check if unbalanced loads apply
+        unbalanced_applies = 2.38 <= min_slope_deg <= 30.2
+        if unbalanced_applies:
+            self.output_text.insert(
+                tk.END,
+                "✓ Roof slope in unbalanced range → Calculate unbalanced loads per Section 7.6\n\n",
+            )
+        else:
+            self.output_text.insert(
+                tk.END,
+                "✗ Roof slope outside unbalanced range → Balanced loads only\n\n",
             )
         self.output_text.insert(
             tk.END, "pf = 0.7 × Ce × Ct × pg   (ASCE 7-22 Equation 7.3-1)\n"
@@ -4183,162 +4478,199 @@ Always verify member spanning conditions and consult licensed engineer"""
             tk.END, "γ = min(0.13 × pg + 14, 30) pcf   (ASCE 7-22 Equation 7.7-1)\n\n"
         )
 
-        # ASCE 7-22 Chapter 7 Calculations with Symbols
-        self.output_text.insert(
-            tk.END, "=== CALCULATIONS WITH ASCE 7-22 SYMBOLS (Chapter 7) ===\n\n"
-        )
-        self.output_text.insert(tk.END, f"pf = 0.7 × Ce × Ct × pg = {pf:.1f} psf\n")
-        # Determine Figure 7.4-1 part and roof classification
-        if ct == 1.1:
-            pass
-        elif 1.1 < ct < 1.2:
-            pass
-        else:  # ct >= 1.2
-            pass
-
+        # Additional parameters for reference
         surface_type = "slippery" if slippery else "non-slippery"
         self.output_text.insert(
             tk.END,
-            f"Cs automatically calculated from Figure 7.4-1 based on Ct and slippery/non-slippery surface = {cs:.3f}\n",
-        )
-        self.output_text.insert(tk.END, f"ps = pf × Cs = {ps:.1f} psf\n")
-        self.output_text.insert(
-            tk.END, f"hb = ps / γ = {hb:.2f} ft   (ASCE 7-22 Section 7.7.1)\n"
+            f"Slope factors: Cs = {cs:.3f} (based on Ct = {ct} and {surface_type} surface per Figure 7.4-1)\n",
         )
         self.output_text.insert(
-            tk.END, f"γ = min(0.13 × pg + 14, 30) = {gamma:.1f} pcf (Eq. 7.7-1)\n"
+            tk.END,
+            f"Snow density: γ = min(0.13 × pg + 14, 30) = {gamma:.1f} pcf (Eq. 7.7-1)\n",
+        )
+        self.output_text.insert(
+            tk.END,
+            f"Balanced snow height: hb = ps / γ = {hb:.2f} ft (Section 7.7.1)\n\n",
         )
 
-        # Add unbalanced load information per ASCE 7-22 Section 7.6.1
+        # === SECTION 7.6: UNBALANCED SNOW LOADS ===
+        self.output_text.insert(tk.END, "=== SECTION 7.6: UNBALANCED SNOW LOADS ===\n")
+        self.output_text.insert(
+            tk.END,
+            "ASCE 7-22 Section 7.6.1: Unbalanced Snow Loads for Hip and Gable Roofs\n\n",
+        )
+
         min_slope = min(theta_n, theta_w)
+        # Optional debug output in results (uncomment if needed)
+        # self.output_text.insert(tk.END, f"DEBUG: theta_n = {theta_n:.2f}°, theta_w = {theta_w:.2f}°, min_slope = {min_slope:.2f}°\n")
         if 2.38 <= min_slope <= 30.2:
+            self.output_text.insert(tk.END, "UNBALANCED LOAD APPLICABILITY:\n")
             self.output_text.insert(
-                tk.END, "\n=== GABLE UNBALANCED LOADS (ASCE 7-22 Section 7.6.1) ===\n"
+                tk.END, f"Roof slope range check: 2.38° ≤ {min_slope:.1f}° ≤ 30.2° ✓\n"
             )
             self.output_text.insert(
-                tk.END,
-                f"Roof Slope Range: 2.38° ≤ {min_slope:.1f}° ≤ 30.2° ✓ (Unbalanced loads apply)\n",
-            )
-            self.output_text.insert(
-                tk.END,
-                "Analysis: Both North & West wind directions evaluated, governing loads used\n\n",
+                tk.END, "→ Unbalanced loads apply per Section 7.6.1\n\n"
             )
 
-            # Show North wind analysis
-            windward_span_north = north_span
-            is_narrow_north = windward_span_north <= 20
+            self.output_text.insert(tk.END, "CALCULATION METHODOLOGY:\n")
+            self.output_text.insert(
+                tk.END, "• Evaluate both North and West wind directions\n"
+            )
             self.output_text.insert(
                 tk.END,
-                f"NORTH WIND (W = {windward_span_north:.1f} ft {'Narrow' if is_narrow_north else 'Wide'}):\n",
+                "• Use maximum loads from both directions (conservative approach)\n",
             )
+            self.output_text.insert(
+                tk.END, "• Windward span W = dimension perpendicular to ridge\n"
+            )
+            self.output_text.insert(tk.END, "• Narrow roof: W ≤ 20 ft (special case)\n")
+            self.output_text.insert(
+                tk.END, "• Wide roof: W > 20 ft (standard unbalanced calculation)\n\n"
+            )
+
+            # North Wind Analysis
+            self.output_text.insert(tk.END, "NORTH WIND ANALYSIS:\n")
+            lu_north = north_span  # Fetch distance to north eave
+            is_narrow_north = lu_north <= 20
+            self.output_text.insert(
+                tk.END,
+                f"Fetch lu = {lu_north:.1f} ft ({'Narrow' if is_narrow_north else 'Wide'} roof)\n",
+            )
+
             if is_narrow_north:
-                self.output_text.insert(tk.END, "  Windward (North): 0 psf\n")
+                self.output_text.insert(tk.END, "Narrow roof case (W ≤ 20 ft):\n")
+                self.output_text.insert(tk.END, "• Windward (North): 0 psf\n")
                 self.output_text.insert(
-                    tk.END, f"  Leeward (South): {pg:.1f} psf (p_g)\n"
+                    tk.END, f"• Leeward (South): pg = {pg:.1f} psf\n"
                 )
             else:
+                self.output_text.insert(tk.END, "Wide roof case (W > 20 ft):\n")
+                self.output_text.insert(tk.END, "• Windward (North): 0.3 × ps\n")
                 north_load_north = 0.3 * ps_north if ps_north > 0 else 0
-                hd_north = 1.5 * math.sqrt(
-                    (pg**0.74 * windward_span_north**0.70 * w2**1.7) / gamma
+                self.output_text.insert(
+                    tk.END,
+                    f"• Windward (North): 0.3 × {ps_north:.1f} = {north_load_north:.1f} psf\n",
                 )
+
+                self.output_text.insert(tk.END, "• Leeward surcharge calculation:\n")
+                self.output_text.insert(
+                    tk.END, "  Fetch lu = distance from ridge to upwind eave\n"
+                )
+                lu_north = north_span
+                self.output_text.insert(tk.END, f"  lu = {lu_north:.1f} ft\n")
+                self.output_text.insert(
+                    tk.END,
+                    "  hd = 1.5 × √[(pg^0.74 × lu^0.70 × W2^1.7) / γ]  (Eq. 7.6-1)\n",
+                )
+                hd_calc_north = (pg**0.74 * lu_north**0.70 * w2**1.7) / gamma
+                hd_north = 1.5 * math.sqrt(hd_calc_north)
+                self.output_text.insert(
+                    tk.END,
+                    f"  hd = 1.5 × √[({pg}^{0.74} × {lu_north}^{0.70} × {w2}^{1.7}) / {gamma}] = {hd_north:.2f} ft\n",
+                )
+
+                self.output_text.insert(tk.END, "  pd = hd × γ / √S  (Eq. 7.6-2)\n")
                 surcharge_north = hd_north * gamma / math.sqrt(S_n)
+                self.output_text.insert(
+                    tk.END,
+                    f"  pd = {hd_north:.2f} × {gamma:.1f} / √{S_n:.2f} = {surcharge_north:.1f} psf\n",
+                )
+
                 south_load_north = ps + surcharge_north
                 self.output_text.insert(
                     tk.END,
-                    f"  Windward (North): {north_load_north:.1f} psf (0.3 × p_s)\n",
-                )
-                self.output_text.insert(
-                    tk.END,
-                    f"  Leeward (South): {south_load_north:.1f} psf (p_s + surcharge)\n",
+                    f"• Leeward (South): ps + pd = {ps:.1f} + {surcharge_north:.1f} = {south_load_north:.1f} psf\n",
                 )
 
-            # Show West wind analysis
-            windward_span_west = ew_half_width
-            is_narrow_west = windward_span_west <= 20
+                surcharge_width_north = (8 * hd_north * math.sqrt(S_n)) / 3
+
+            self.output_text.insert(tk.END, "\n")
+
+            # West Wind Analysis
+            self.output_text.insert(tk.END, "WEST WIND ANALYSIS:\n")
+            lu_west = ew_half_width  # Fetch distance to west eave
+            is_narrow_west = lu_west <= 20
             self.output_text.insert(
                 tk.END,
-                f"\nWEST WIND (W = {windward_span_west:.1f} ft {'Narrow' if is_narrow_west else 'Wide'}):\n",
+                f"Fetch lu = {lu_west:.1f} ft ({'Narrow' if is_narrow_west else 'Wide'} roof)\n",
             )
+
             if is_narrow_west:
-                self.output_text.insert(tk.END, "  Windward (West): 0 psf\n")
+                self.output_text.insert(tk.END, "Narrow roof case (W ≤ 20 ft):\n")
+                self.output_text.insert(tk.END, "• Windward (West): 0 psf\n")
                 self.output_text.insert(
-                    tk.END, f"  Leeward (East): {pg:.1f} psf (p_g)\n"
+                    tk.END, f"• Leeward (East): pg = {pg:.1f} psf\n"
                 )
             else:
+                self.output_text.insert(tk.END, "Wide roof case (W > 20 ft):\n")
+                self.output_text.insert(tk.END, "• Windward (West): 0.3 × ps\n")
                 west_load_west = 0.3 * ps_west if ps_west > 0 else 0
-                hd_west = 1.5 * math.sqrt(
-                    (pg**0.74 * windward_span_west**0.70 * w2**1.7) / gamma
-                )
-                surcharge_west = hd_west * gamma / math.sqrt(S_w)
-                east_load_west = ps + surcharge_west
-                self.output_text.insert(
-                    tk.END, f"  Windward (West): {west_load_west:.1f} psf (0.3 × p_s)\n"
-                )
                 self.output_text.insert(
                     tk.END,
-                    f"  Leeward (East): {east_load_west:.1f} psf (p_s + surcharge)\n",
+                    f"• Windward (West): 0.3 × {ps_west:.1f} = {west_load_west:.1f} psf\n",
                 )
 
-            # Show governing loads
-            self.output_text.insert(
-                tk.END, "\nGOVERNING LOADS (Maximum from both wind directions):\n"
-            )
-            self.output_text.insert(tk.END, f"  North Plane: {north_load:.1f} psf\n")
-            self.output_text.insert(tk.END, f"  South Plane: {south_load:.1f} psf\n")
-            self.output_text.insert(tk.END, f"  West Plane: {west_load:.1f} psf\n")
-            self.output_text.insert(tk.END, f"  East Plane: {east_load:.1f} psf\n")
+                self.output_text.insert(tk.END, "• Leeward surcharge calculation:\n")
+                self.output_text.insert(
+                    tk.END, "  Fetch lu = distance from ridge to upwind eave\n"
+                )
+                lu_west = ew_half_width
+                self.output_text.insert(tk.END, f"  lu = {lu_west:.1f} ft\n")
+                self.output_text.insert(
+                    tk.END,
+                    "  hd = 1.5 × √[(pg^0.74 × lu^0.70 × W2^1.7) / γ]  (Eq. 7.6-1)\n",
+                )
+                hd_calc_west = (pg**0.74 * lu_west**0.70 * w2**1.7) / gamma
+                hd_west = 1.5 * math.sqrt(hd_calc_west)
+                self.output_text.insert(
+                    tk.END,
+                    f"  hd = 1.5 × √[({pg}^{0.74} × {lu_west}^{0.70} × {w2}^{1.7}) / {gamma}] = {hd_west:.2f} ft\n",
+                )
+
+                self.output_text.insert(tk.END, "  pd = hd × γ / √S  (Eq. 7.6-2)\n")
+                surcharge_west = hd_west * gamma / math.sqrt(S_w)
+                self.output_text.insert(
+                    tk.END,
+                    f"  pd = {hd_west:.2f} × {gamma:.1f} / √{S_w:.2f} = {surcharge_west:.1f} psf\n",
+                )
+
+                east_load_west = ps + surcharge_west
+                self.output_text.insert(
+                    tk.END,
+                    f"• Leeward (East): ps + pd = {ps:.1f} + {surcharge_west:.1f} = {east_load_west:.1f} psf\n",
+                )
+
+                surcharge_width_west = (8 * hd_west * math.sqrt(S_w)) / 3
+
+            self.output_text.insert(tk.END, "\n")
+
+            # Governing loads summary eliminated per user request
+
         else:
-            self.output_text.insert(tk.END, "\n=== NO GABLE UNBALANCED LOADS ===\n")
+            self.output_text.insert(tk.END, "NO UNBALANCED LOADS REQUIRED:\n")
             self.output_text.insert(
-                tk.END, f"Roof Slope: {min_slope:.1f}° outside 2.38°-30.2° range\n"
+                tk.END, f"Roof slope {min_slope:.1f}° outside 2.38°-30.2° range\n"
             )
             self.output_text.insert(
-                tk.END, f"Uniform balanced load: {ps:.1f} psf on all planes\n"
+                tk.END, "ASCE 7-22 Section 7.6.1: Balanced loads only\n"
+            )
+            self.output_text.insert(
+                tk.END, f"Uniform balanced load: {ps:.1f} psf on all planes\n\n"
             )
 
-        self.output_text.insert(
-            tk.END, "\n=== VALLEY DRIFT LOADS (ASCE 7-22 Section 7.7.3) ===\n"
-        )
-        self.output_text.insert(tk.END, f"hd = drift height = {hd_governing:.2f} ft\n")
-        self.output_text.insert(
-            tk.END, f"pd = drift surcharge = {pd_max_governing:.1f} psf\n"
-        )
-        self.output_text.insert(tk.END, f"w = drift width = {w_governing:.1f} ft\n")
-        self.output_text.insert(
-            tk.END, f"θ = roof slope = {min(theta_n, theta_w):.1f}°\n"
-        )
-        self.output_text.insert(
-            tk.END, f"lv = horizontal valley length = {lv:.2f} ft\n"
-        )
-        self.output_text.insert(
-            tk.END, f"L = sloped valley rafter length = {rafter_len:.2f} ft\n\n"
-        )
+        # Valley drift load calculations eliminated per user request
 
-        # Beam ASD formulas
+        # Beam ASD formulas (no drift load)
         self.output_text.insert(
             tk.END,
-            f"ASD Snow Load = 0.7 × (ps + pd) per IBC/ASCE serviceability = 0.7 × ({ps:.1f} + {pd_max_governing:.1f}) = {0.7 * (ps + pd_max_governing):.1f} psf\n",
+            f"ASD Snow Load = 0.7 × ps per IBC/ASCE serviceability = 0.7 × {ps:.1f} = {0.7 * ps:.1f} psf\n",
         )
         self.output_text.insert(
             tk.END, f"Mu = maximum moment (exact point loads) = {mu_ftlb:.0f} ft-lb\n"
         )
         self.output_text.insert(tk.END, f"Vu = maximum shear = {vu_lb:.0f} lb\n\n")
 
-        # Symbol definitions
-        self.output_text.insert(
-            tk.END,
-            "Symbols per ASCE 7-22 Sec. 7.1.2: pf (flat roof snow), ps (sloped roof snow), hd (drift height), pd (drift surcharge), w (drift width), γ (snow density), θ (roof slope), Ce, Ct, Is, pg, etc.\n\n",
-        )
-        self.output_text.insert(
-            tk.END,
-            f"Pitch North: {pitch_n}/12 → S_n = {S_n:.2f}, θ_n = {theta_n:.2f}°\n",
-        )
-        self.output_text.insert(
-            tk.END,
-            f"Pitch West: {pitch_w}/12 → S_w = {S_w:.2f}, θ_w = {theta_w:.2f}°\n",
-        )
-        self.output_text.insert(tk.END, f"Slope Factor North (Cs_n): {cs_n:.3f}\n")
-        self.output_text.insert(tk.END, f"Slope Factor West (Cs_w): {cs_w:.3f}\n")
+        # References and methodology notes after unbalanced snow load cases eliminated per user request
 
         self.output_text.insert(
             tk.END, "\n=== UNBALANCED LOAD APPLICABILITY (Sec. 7.6.1) ===\n"
@@ -4465,7 +4797,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         self.output_text.insert(tk.END, "\n", "blue")
         self.output_text.insert(
             tk.END,
-            "Note: Valley drifts use intersecting gable unbalanced drifts (Sec. 7.7.3).\n",
+            "# Valley drift reference eliminated per user request.\n",
             "blue",
         )
         self.output_text.insert(
@@ -4479,105 +4811,6 @@ Always verify member spanning conditions and consult licensed engineer"""
             "blue",
         )
 
-        self.output_text.insert(
-            tk.END, "\n=== NORTH WIND LEEWARD DRIFT (on south roof) ===\n"
-        )
-        self.output_text.insert(
-            tk.END, f"lu_north = {lu_north:.1f} ft (north fetch distance)\n"
-        )
-        self.output_text.insert(
-            tk.END, f"hd = {result_north['hd_ft']:.2f} ft (drift height)\n"
-        )
-        effective_w_north = min(result_north["drift_width_ft"], south_span)
-        self.output_text.insert(
-            tk.END,
-            f"w = {effective_w_north:.1f} ft (drift width, limited to south_span if needed)\n",
-        )
-        self.output_text.insert(
-            tk.END, f"Max drift surcharge pd = {result_north['pd_max_psf']:.0f} psf\n"
-        )
-
-        self.output_text.insert(
-            tk.END,
-            f"North wind drift: hd = {result_north['hd_ft']:.2f} ft, pd_max = {result_north['pd_max_psf']:.1f} psf, w = {result_north['drift_width_ft']:.1f} ft\n",
-        )
-        self.output_text.insert(
-            tk.END,
-            f"West wind drift: hd = {result_west['hd_ft']:.2f} ft, pd_max = {result_west['pd_max_psf']:.1f} psf, w = {result_west['drift_width_ft']:.1f} ft\n",
-        )
-        self.output_text.insert(
-            tk.END,
-            "Drift height (hd) calculated per ASCE 7-22 Section 7.7.1 incorporating winter wind parameter W2 (Figure 7.6-1)\n",
-        )
-        self.output_text.insert(
-            tk.END,
-            "Drift surcharge intensity pd_max = 2 × (hd × γ / √s) triangular approximation   (ASCE 7-22 Section 7.7)\n",
-        )
-        self.output_text.insert(
-            tk.END,
-            "Intersecting valley drifts: larger individual drift surcharge governs in overlap region   (ASCE 7-22 Section 7.7.3)\n",
-        )
-        self.output_text.insert(
-            tk.END,
-            "Valley drift methodology consistent with FEMA Roof Snowdrift Design Guide (2020)\n\n",
-        )
-        self.output_text.insert(
-            tk.END,
-            f"Governing valley drift surcharge: {gov_drift['governing_pd_max_psf']:.1f} psf\n",
-        )
-        self.output_text.insert(
-            tk.END, "\n=== UNBALANCED SNOW LOAD CASES (ASCE 7-22 Sec. 7.6.1) ===\n"
-        )
-        surface_text = "Slippery" if slippery else "Non-slippery"
-        if unbalanced_applies_n:
-            self.output_text.insert(
-                tk.END,
-                f"North roof plane (θ_n = {theta_n:.1f}°): {surface_text} surface – Unbalanced load case APPLIES (slope between 2.38° and 30.2°). Verify Figure 7.6-1 for exact surcharge.\n",
-            )
-        else:
-            self.output_text.insert(
-                tk.END,
-                f"North roof plane (θ_n = {theta_n:.1f}°): {surface_text} surface – Unbalanced load case does NOT apply (slope outside 2.38°–30.2° range).\n",
-            )
-        if unbalanced_applies_w:
-            self.output_text.insert(
-                tk.END,
-                f"West roof plane (θ_w = {theta_w:.1f}°): {surface_text} surface – Unbalanced load case APPLIES (slope between 2.38° and 30.2°). Verify Figure 7.6-1 for exact surcharge.\n",
-            )
-        else:
-            self.output_text.insert(
-                tk.END,
-                f"West roof plane (θ_w = {theta_w:.1f}°): {surface_text} surface – Unbalanced load case does NOT apply (slope outside 2.38°–30.2° range).\n",
-            )
-        self.output_text.insert(
-            tk.END,
-            "Note: Unbalanced cases are separate from drifts and must be considered for rafter/purlin design if applicable.\n\n",
-        )
-        self.output_text.insert(tk.END, "=== REFERENCES & METHODOLOGY NOTES ===\n")
-        self.output_text.insert(
-            tk.END,
-            "• pg and W2 shall be obtained from the ASCE 7 Hazard Tool: https://asce7hazardtool.online\n",
-        )
-        self.output_text.insert(
-            tk.END,
-            "• Ground snow load pg from ASCE 7-22 Figures 7.2-1A–D or ASCE Hazard Tool\n",
-        )
-        self.output_text.insert(tk.END, "• Exposure factor Ce from Table 7.3-1\n")
-        self.output_text.insert(
-            tk.END, "• Thermal factor Ct from Table 7.3-2 or 7.3-3\n"
-        )
-        self.output_text.insert(tk.END, "• Importance factor Is from Table 1.5-2\n")
-        self.output_text.insert(tk.END, "• Slope factor Cs from Figure 7.4-1\n")
-        self.output_text.insert(
-            tk.END, "• Winter wind parameter W2 from Figure 7.6-1 or ASCE Hazard Tool\n"
-        )
-        self.output_text.insert(
-            tk.END,
-            "• Unbalanced snow loads for hip/gable roofs per Section 7.6.1 and Figure 7.6-1\n",
-        )
-        self.output_text.insert(
-            tk.END, "• All drift calculations per Chapter 7 Snow Loads, ASCE 7-22\n\n"
-        )
         # === VALLEY RAFTER BEAM DESIGN ANALYSIS (FULL DEAD + SNOW LOADS) ===
         self.output_text.insert(
             tk.END, "\n============================================================\n"
