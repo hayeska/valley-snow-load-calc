@@ -46,14 +46,13 @@ from validation import (
     validate_pitch,
     validate_exposure_factor,
     validate_thermal_factor,
-    validate_importance_factor,
 )
 
 
 class ValleySnowCalculator:
     def __init__(self, master: tk.Tk):
         self.master = master
-        master.title("ASCE 7-22 Valley Snow Load Calculator")
+        master.title("ASCE 7-22 Valley Snow Load Calculator and Beam Design")
         master.geometry("950x700")
 
         # Create menu bar - ensure it's properly attached
@@ -134,15 +133,14 @@ class ValleySnowCalculator:
 
         print("Canvas and scrollable frame created")  # Debug print
 
-        # Life-safety banner (neutral color)
+        # Title banner
         banner = tk.Label(
             self.scrollable_frame,
-            text="LIFE-SAFETY CRITICAL: Service-level loads only. Verify all inputs per ASCE 7-22 & Hazard Tool.\n"
-            "Consult licensed structural engineer.",
+            text="ASCE 7-22 Valley Snow Load Calculator and Beam Design",
             fg="black",
             bg="#f0f0f0",
-            font=("Helvetica", 10),
-            pady=5,
+            font=("Helvetica", 14, "bold"),
+            pady=10,
         )
         banner.pack(fill=tk.X)
 
@@ -199,52 +197,6 @@ class ValleySnowCalculator:
             )
             self.entries[key] = entry
 
-        # Add Is factor Combobox
-        ttk.Label(snow_frame, text="Is – Importance factor, Table 1.5-2").grid(
-            row=3, column=0, sticky="w", pady=3, padx=5
-        )
-        is_options = [
-            "1.0 - Risk Cat II (default)",
-            "0.8 - Risk Cat I",
-            "1.1 - Risk Cat III",
-            "1.2 - Risk Cat IV",
-        ]
-        self.is_combobox = ttk.Combobox(
-            snow_frame, values=is_options, width=40, state="readonly"
-        )
-        self.is_combobox.set(is_options[0])  # Default to Risk Category II
-        self.is_combobox.grid(row=3, column=1, sticky="ew", pady=3, padx=5)
-
-        # Add tooltip on hover
-        def show_tooltip(event):
-            tooltip_text = {
-                "1.0 - Risk Cat II (default)": "Risk Category II: Standard buildings, residential; pg reliability-targeted for this category",
-                "0.8 - Risk Cat I": "Risk Category I: Low hazard to human life",
-                "1.1 - Risk Cat III": "Risk Category III: Substantial hazard, schools, large assembly",
-                "1.2 - Risk Cat IV": "Risk Category IV: Essential facilities, hospitals, emergency",
-            }
-            current_selection = self.is_combobox.get()
-            if current_selection in tooltip_text:
-                # Create a simple tooltip
-                tooltip = tk.Toplevel()
-                tooltip.wm_overrideredirect(True)
-                tooltip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
-                tk.Label(
-                    tooltip,
-                    text=tooltip_text[current_selection],
-                    bg="yellow",
-                    relief="solid",
-                    borderwidth=1,
-                ).pack()
-                self.tooltip = tooltip
-
-        def hide_tooltip(event):
-            if hasattr(self, "tooltip"):
-                self.tooltip.destroy()
-
-        self.is_combobox.bind("<Enter>", show_tooltip)
-        self.is_combobox.bind("<Leave>", hide_tooltip)
-
         # Add Slippery surface checkbox
         self.slippery_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(
@@ -275,10 +227,10 @@ class ValleySnowCalculator:
         )
         cs_note_label.grid(row=5, column=0, columnspan=4, sticky="w", pady=3, padx=5)
 
-        # Add explanatory note with Freezer definition
+        # Add explanatory note with Risk Category and Freezer definition
         note_label = ttk.Label(
             snow_frame,
-            text="NOTE: Ground snow loads (pg) from ASCE Hazard Tool/Geodatabase are reliability-targeted for Risk Category II (Is=1.0 built-in).\nFor other categories, explicitly apply Is from Table 1.5-2.\n\nFREEZER BUILDINGS: Buildings in which the inside temperature is kept at or below freezing. Buildings with an air space between the roof insulation layer above and a ceiling of the freezer area below are not considered freezer buildings.\n\nCt from ASCE 7-22 Table 7.3-2 (Other Structures).\nFor Heated Unventilated Roofs (Table 7.3-3), use separate R-value input if added later.\nCt = 1.2 is conservative for most structures (cold roof, maximum snow retention).\nLower Ct reduces pf/ps (less snow accumulation).",
+            text="NOTE: In ASCE 7-22, Risk Category is not applied as a separate importance factor (Is) in snow load calculations. Ground snow loads (pg) from ASCE Hazard Tool/Geodatabase are Risk Category-specific and already incorporate the appropriate reliability level.\n\nFREEZER BUILDINGS: Buildings in which the inside temperature is kept at or below freezing. Buildings with an air space between the roof insulation layer above and a ceiling of the freezer area below are not considered freezer buildings.\n\nCt from ASCE 7-22 Table 7.3-2 (Other Structures).\nFor Heated Unventilated Roofs (Table 7.3-3), use separate R-value input if added later.\nCt = 1.2 is conservative for most structures (cold roof, maximum snow retention).\nLower Ct reduces pf/ps (less snow accumulation).",
             foreground="darkblue",
             wraplength=700,
             font=("Helvetica", 10, "italic"),
@@ -326,7 +278,7 @@ class ValleySnowCalculator:
                 "ew_half_width",
             ),
             (
-                "Valley horizontal offset (ft) – distance from N-S ridge projection on south eave to valley low point (symmetric both sides)",
+                "Valley horizontal offset (ft) – distance from N-S ridge projection on south eave to valley low point (intersection of two gable roofs, symmetric both sides)",
                 "16",
                 "valley_offset",
             ),
@@ -367,15 +319,12 @@ APPLICABILITY:
 • Outside this range: Unbalanced loads and drifts are NOT required
 
 SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
-→ Leeward side: Full ground snow load pg (windward unloaded)
-
-# Valley drift reference eliminated per user request
-Always verify member spanning conditions and consult licensed engineer"""
+→ Leeward side: Full ground snow load pg (windward unloaded)"""
 
         asce_geom_label = ttk.Label(
             geom_frame,
             text=asce_geom_text,
-            foreground="navy",
+            foreground="black",
             font=("Helvetica", 9, "bold"),
             wraplength=600,
             justify="left",
@@ -405,24 +354,27 @@ Always verify member spanning conditions and consult licensed engineer"""
             row=0, column=0, sticky="w", pady=3, padx=5
         )
         self.material_combobox = ttk.Combobox(beam_frame, state="readonly", width=50)
-        self.material_combobox["values"] = (
+        material_values = [
             "Douglas Fir #2 Sawn Lumber (Fb=875 psi)",
             "Glulam 24F-V4 DF (Fb=2400 psi)",
             "LVL 2.0E (Fb=2650 psi)",
             "3100Fb-2.1E (PWT) (Fb=3100 psi)",
             "2850Fb-1.9E (Global) (Fb=2850 psi)",
-        )
+        ]
+        self.material_combobox["values"] = material_values
         self.material_combobox.current(1)  # default Glulam
         self.material_combobox.grid(row=0, column=1, sticky="ew", pady=5)
+        # Bind the event AFTER grid placement to ensure combobox is fully initialized
         self.material_combobox.bind("<<ComboboxSelected>>", self.on_material_change)
-        # Initialize default material properties
-        self.on_material_change(None)
-        print("Material dropdown created")  # Debug print
+        print(
+            f"Material dropdown created with {len(material_values)} options"
+        )  # Debug print
+        print(f"Current selection: {self.material_combobox.get()}")  # Debug print
 
         beam_inputs = [
             ("DL horizontal (psf; default 15)", "15", "dead_load_horizontal"),
             ("Beam width b (in; default 3.5)", "3.5", "beam_width"),
-            ("Trial beam depth d (in; default 9.5)", "9.5", "beam_depth_trial"),
+            ("Beam depth D (in; default 16)", "16", "beam_depth_trial"),
             (
                 "Allowable bending stress Fb (psi)",
                 str(self.fb_allowable_value),
@@ -467,6 +419,97 @@ Always verify member spanning conditions and consult licensed engineer"""
                 )
             self.entries[key] = entry
 
+        # Initialize default material properties after entries are created
+        self.on_material_change(None)
+
+        # ===== N-S RIDGE BEAM DESIGN PARAMETERS (INDEPENDENT SECTION) =====
+        ns_ridge_beam_frame = ttk.LabelFrame(
+            self.scrollable_frame, text="N-S Ridge Beam Design Parameters", padding=10
+        )
+        ns_ridge_beam_frame.pack(pady=5, padx=20, fill=tk.X, expand=False)
+
+        # Configure column weights
+        ns_ridge_beam_frame.columnconfigure(1, weight=1)
+        ns_ridge_beam_frame.columnconfigure(3, weight=1)
+
+        # Initialize N-S ridge beam material properties
+        self.ns_ridge_fb_allowable_value = 2400
+        self.ns_ridge_fv_allowable_value = 265
+        self.ns_ridge_modulus_e_value = 1800000
+
+        # N-S Ridge Beam Material selection
+        ttk.Label(ns_ridge_beam_frame, text="N-S Ridge Beam Material:").grid(
+            row=0, column=0, sticky="w", pady=3, padx=5
+        )
+        self.ns_ridge_material_combobox = ttk.Combobox(
+            ns_ridge_beam_frame, state="readonly", width=50
+        )
+        self.ns_ridge_material_combobox["values"] = material_values
+        self.ns_ridge_material_combobox.current(1)  # default Glulam
+        self.ns_ridge_material_combobox.grid(row=0, column=1, sticky="ew", pady=5)
+        self.ns_ridge_material_combobox.bind(
+            "<<ComboboxSelected>>", self.on_ns_ridge_material_change
+        )
+
+        # N-S Ridge Beam inputs (independent from valley beam)
+        ns_ridge_beam_inputs = [
+            ("N-S Ridge Beam width b (in; default 3.5)", "3.5", "ns_ridge_beam_width"),
+            (
+                "N-S Ridge Beam depth D (in; default 16)",
+                "16",
+                "ns_ridge_beam_depth_trial",
+            ),
+            (
+                "Allowable bending stress Fb (psi)",
+                str(self.ns_ridge_fb_allowable_value),
+                "ns_ridge_fb_allowable",
+            ),
+            (
+                "Allowable shear stress Fv (psi)",
+                str(self.ns_ridge_fv_allowable_value),
+                "ns_ridge_fv_allowable",
+            ),
+            (
+                "Modulus of elasticity E (psi)",
+                str(self.ns_ridge_modulus_e_value),
+                "ns_ridge_modulus_e",
+            ),
+            (
+                "Total deflection limit (L/n; default 240)",
+                "240",
+                "ns_ridge_deflection_total_limit",
+            ),
+            (
+                "Snow deflection limit (L/n; default 360)",
+                "360",
+                "ns_ridge_deflection_snow_limit",
+            ),
+        ]
+
+        for i, (label_text, default, key) in enumerate(ns_ridge_beam_inputs):
+            row = (i // 2) + 1  # Start from row 1 since material dropdown is in row 0
+            col = (i % 2) * 2
+            ttk.Label(ns_ridge_beam_frame, text=label_text).grid(
+                row=row, column=col, sticky="w", pady=3, padx=5
+            )
+            if isinstance(default, tk.DoubleVar):
+                entry = ttk.Entry(ns_ridge_beam_frame, width=15, textvariable=default)
+            else:
+                entry = ttk.Entry(ns_ridge_beam_frame, width=15)
+            entry.insert(0, default)
+            entry.grid(row=row, column=col + 1, sticky="ew", pady=3, padx=5)
+            # Add real-time validation (skip for material properties that use DoubleVar)
+            if not isinstance(default, tk.DoubleVar):
+                entry.bind(
+                    "<KeyRelease>",
+                    lambda e, k=key: self.validate_input_realtime(e.widget.get(), k),
+                )
+            self.entries[key] = entry
+
+        # Initialize N-S ridge beam material properties after entries are created
+        self.on_ns_ridge_material_change(None)
+        print("N-S Ridge Beam independent input section created")
+
         # Beam Design Summary Frame - prominent dedicated section
         summary_frame = ttk.LabelFrame(
             self.scrollable_frame, text="Beam Design Summary", padding=15
@@ -481,11 +524,34 @@ Always verify member spanning conditions and consult licensed engineer"""
         self.summary_label.config(state="disabled")  # Make it read-only
 
         # Calculate button
+        # Create calculate button with error handling wrapper
+        def calculate_wrapper():
+            print("=" * 60)
+            print("BUTTON CLICKED - WRAPPER CALLED")
+            print("=" * 60)
+            try:
+                self.calculate()
+            except Exception as e:
+                import traceback
+
+                full_traceback = traceback.format_exc()
+                error_msg = f"Exception in calculate:\n\nType: {type(e).__name__}\nMessage: {str(e)}\n\nFull traceback:\n{full_traceback}"
+                # Show in both dialog and console
+                messagebox.showerror("Calculation Error", error_msg)
+                print("=" * 60)
+                print("EXCEPTION CAUGHT:")
+                print(error_msg)
+                print("=" * 60)
+                # Also write to output text
+                self.output_text.insert(tk.END, f"\n\n!!! ERROR !!!\n{error_msg}\n")
+
         self.calc_button = ttk.Button(
-            self.scrollable_frame, text="CALCULATE SNOW LOADS", command=self.calculate
+            self.scrollable_frame,
+            text="CALCULATE SNOW LOADS",
+            command=calculate_wrapper,
         )
         self.calc_button.pack(pady=20)
-        print("Calculate button created")  # Debug print
+        print("Calculate button created with wrapper")
 
         # Output area - results with expanded height
         output_frame = ttk.LabelFrame(
@@ -640,7 +706,6 @@ Always verify member spanning conditions and consult licensed engineer"""
                         "w2": self.entries["w2"].get(),
                         "ce": self.entries["ce"].get(),
                         "ct": self.entries["ct"].get(),
-                        "is_factor": self.is_combobox.get(),
                     },
                     "building_geometry": {
                         "pitch_north": self.entries["pitch_north"].get(),
@@ -658,6 +723,22 @@ Always verify member spanning conditions and consult licensed engineer"""
                         "material": self.material_combobox.get(),
                         "beam_width": self.entries["beam_width"].get(),
                         "beam_depth_trial": self.entries["beam_depth_trial"].get(),
+                    },
+                    "ns_ridge_beam_design": {
+                        "material": self.ns_ridge_material_combobox.get(),
+                        "beam_width": self.entries["ns_ridge_beam_width"].get(),
+                        "beam_depth_trial": self.entries[
+                            "ns_ridge_beam_depth_trial"
+                        ].get(),
+                        "fb_allowable": self.entries["ns_ridge_fb_allowable"].get(),
+                        "fv_allowable": self.entries["ns_ridge_fv_allowable"].get(),
+                        "modulus_e": self.entries["ns_ridge_modulus_e"].get(),
+                        "deflection_total_limit": self.entries[
+                            "ns_ridge_deflection_total_limit"
+                        ].get(),
+                        "deflection_snow_limit": self.entries[
+                            "ns_ridge_deflection_snow_limit"
+                        ].get(),
                     },
                 },
                 "results": {
@@ -698,10 +779,6 @@ Always verify member spanning conditions and consult licensed engineer"""
             self.entries["ce"].insert(0, snow_params.get("ce", "1.0"))
             self.entries["ct"].delete(0, tk.END)
             self.entries["ct"].insert(0, snow_params.get("ct", "1.2"))
-            self.is_combobox.set(
-                snow_params.get("is_factor", "1.0 - Risk Cat II (default)")
-            )
-
             # Building geometry
             geom_params = inputs.get("building_geometry", {})
             self.entries["pitch_north"].delete(0, tk.END)
@@ -732,14 +809,56 @@ Always verify member spanning conditions and consult licensed engineer"""
             # Beam design
             beam_params = inputs.get("beam_design", {})
             self.material_combobox.set(
-                beam_params.get("material", "Southern Pine No. 2")
+                beam_params.get("material", "Glulam 24F-V4 DF (Fb=2400 psi)")
             )
             self.entries["beam_width"].delete(0, tk.END)
-            self.entries["beam_width"].insert(0, beam_params.get("beam_width", "1.5"))
+            self.entries["beam_width"].insert(0, beam_params.get("beam_width", "3.5"))
             self.entries["beam_depth_trial"].delete(0, tk.END)
             self.entries["beam_depth_trial"].insert(
-                0, beam_params.get("beam_depth_trial", "9.25")
+                0, beam_params.get("beam_depth_trial", "16")
             )
+
+            # N-S Ridge Beam design
+            ns_ridge_params = inputs.get("ns_ridge_beam_design", {})
+            if ns_ridge_params:
+                self.ns_ridge_material_combobox.set(
+                    ns_ridge_params.get("material", "Glulam 24F-V4 DF (Fb=2400 psi)")
+                )
+                self.entries["ns_ridge_beam_width"].delete(0, tk.END)
+                self.entries["ns_ridge_beam_width"].insert(
+                    0, ns_ridge_params.get("beam_width", "3.5")
+                )
+                self.entries["ns_ridge_beam_depth_trial"].delete(0, tk.END)
+                self.entries["ns_ridge_beam_depth_trial"].insert(
+                    0, ns_ridge_params.get("beam_depth_trial", "16")
+                )
+                if "fb_allowable" in self.entries:
+                    self.entries["ns_ridge_fb_allowable"].delete(0, tk.END)
+                    self.entries["ns_ridge_fb_allowable"].insert(
+                        0, ns_ridge_params.get("fb_allowable", "2400")
+                    )
+                if "fv_allowable" in self.entries:
+                    self.entries["ns_ridge_fv_allowable"].delete(0, tk.END)
+                    self.entries["ns_ridge_fv_allowable"].insert(
+                        0, ns_ridge_params.get("fv_allowable", "265")
+                    )
+                if "modulus_e" in self.entries:
+                    self.entries["ns_ridge_modulus_e"].delete(0, tk.END)
+                    self.entries["ns_ridge_modulus_e"].insert(
+                        0, ns_ridge_params.get("modulus_e", "1800000")
+                    )
+                if "deflection_total_limit" in self.entries:
+                    self.entries["ns_ridge_deflection_total_limit"].delete(0, tk.END)
+                    self.entries["ns_ridge_deflection_total_limit"].insert(
+                        0, ns_ridge_params.get("deflection_total_limit", "240")
+                    )
+                if "deflection_snow_limit" in self.entries:
+                    self.entries["ns_ridge_deflection_snow_limit"].delete(0, tk.END)
+                    self.entries["ns_ridge_deflection_snow_limit"].insert(
+                        0, ns_ridge_params.get("deflection_snow_limit", "360")
+                    )
+                # Update material properties
+                self.on_ns_ridge_material_change(None)
 
             # Restore results if available
             results = backup_data.get("results", {})
@@ -768,10 +887,8 @@ Always verify member spanning conditions and consult licensed engineer"""
             entry.bind("<FocusOut>", self.on_data_changed)
 
         # Bind to comboboxes
-        if hasattr(self, "is_combobox"):
-            self.is_combobox.bind("<<ComboboxSelected>>", self.on_data_changed)
-        if hasattr(self, "material_combobox"):
-            self.material_combobox.bind("<<ComboboxSelected>>", self.on_data_changed)
+        # Note: material_combobox is already bound to on_material_change in __init__
+        # and on_material_change handles data change tracking internally
 
     def on_data_changed(self, event=None):
         """Called when any input data changes."""
@@ -830,17 +947,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         )
         self.output_text.insert(
             tk.END,
-            "# Valley drift reference eliminated per user request.\n",
-            "blue",
-        )
-        self.output_text.insert(
-            tk.END,
             "If unbalanced loads do not apply on either plane, drift surcharge = 0.\n",
-            "blue",
-        )
-        self.output_text.insert(
-            tk.END,
-            "Always verify member spanning conditions and consult a licensed engineer.\n\n",
             "blue",
         )
         self.output_text.insert(
@@ -1200,8 +1307,14 @@ Always verify member spanning conditions and consult licensed engineer"""
         )
 
         # South roof plane (bottom half, leeward)
-        if surcharge_width_north > 0:
-            # Show base load (ps) over entire south plane
+        # Check if narrow roof case: surcharge width covers full span (approximately)
+        # For narrow roofs: south_load = pg uniformly, not ps + surcharge
+        is_narrow_roof_north = (surcharge_width_north >= south_span * 0.99) or (
+            north_load == 0 and south_load > ps_balanced * 1.5
+        )
+
+        if surcharge_width_north > 0 and not is_narrow_roof_north:
+            # Wide roof case: Show base load (ps) over entire south plane
             ax.fill_between(
                 [0, total_width],
                 [0, 0],
@@ -1227,6 +1340,16 @@ Always verify member spanning conditions and consult licensed engineer"""
                 edgecolor="darkgray",
                 linewidth=1.5,
                 label=f"Surcharge: +{surcharge_intensity:.1f} psf (w={surcharge_width_north:.1f} ft)",
+            )
+        elif is_narrow_roof_north:
+            # Narrow roof case: uniform pg on entire south plane (leeward)
+            ax.fill_between(
+                [0, total_width],
+                [0, 0],
+                [south_span, south_span],
+                color="gray",
+                alpha=0.7,
+                label=f"South Plane (Leeward - Narrow Roof): {south_load:.1f} psf (pg)",
             )
         else:
             # No surcharge - uniform load on south plane
@@ -1259,20 +1382,36 @@ Always verify member spanning conditions and consult licensed engineer"""
 
         # Annotations
         if surcharge_width_north > 0:
-            ax.text(
-                total_width + 35,
-                total_height * 0.75,
-                f"North Wind - Surcharge South of E-W Ridge\nWindward (North): {north_load:.1f} psf\nLeeward Surcharge (South): {south_load:.1f} psf\nBalanced: {ps_balanced:.1f} psf",
-                ha="left",
-                va="center",
-                fontsize=9,
-                bbox=dict(
-                    facecolor="white",
-                    alpha=0.95,
-                    edgecolor="slategray",
-                    boxstyle="round,pad=0.5",
-                ),
-            )
+            if is_narrow_roof_north:
+                ax.text(
+                    total_width + 35,
+                    total_height * 0.75,
+                    f"North Wind - Narrow Roof Case (W ≤ 20 ft)\nWindward (North): {north_load:.1f} psf\nLeeward (South): {south_load:.1f} psf (pg)\nBalanced: {ps_balanced:.1f} psf",
+                    ha="left",
+                    va="center",
+                    fontsize=9,
+                    bbox=dict(
+                        facecolor="white",
+                        alpha=0.95,
+                        edgecolor="slategray",
+                        boxstyle="round,pad=0.5",
+                    ),
+                )
+            else:
+                ax.text(
+                    total_width + 35,
+                    total_height * 0.75,
+                    f"North Wind - Surcharge South of E-W Ridge\nWindward (North): {north_load:.1f} psf\nLeeward Surcharge (South): {south_load:.1f} psf\nBalanced: {ps_balanced:.1f} psf",
+                    ha="left",
+                    va="center",
+                    fontsize=9,
+                    bbox=dict(
+                        facecolor="white",
+                        alpha=0.95,
+                        edgecolor="slategray",
+                        boxstyle="round,pad=0.5",
+                    ),
+                )
         else:
             ax.text(
                 total_width + 35,
@@ -1393,315 +1532,135 @@ Always verify member spanning conditions and consult licensed engineer"""
         # Collect load-specific legend handles for bottom legend (do this after all fill_between calls)
         load_legend_handles = []
 
-        if unbalanced_applies:
-            # Show unbalanced load distribution
-            # North plane
-            ax.fill_between(
-                [0, center_x],
-                [south_span, south_span],
-                [total_height, total_height],
-                color="silver",
-                alpha=0.7,
-                label=f"North: {north_load:.1f} psf",
-            )
+        # Show ONLY governing loads in southeast quadrant
+        # All other roof quadrants are not displayed per user request
 
-            # South plane (may include surcharge)
-            if surcharge_width_north > 0:
-                ax.fill_between(
-                    [0, total_width],
-                    [0, 0],
-                    [
-                        south_span - surcharge_width_north,
-                        south_span - surcharge_width_north,
-                    ],
-                    color="silver",
-                    alpha=0.7,
-                )
-                ax.fill_between(
-                    [0, total_width],
-                    [
-                        south_span - surcharge_width_north,
-                        south_span - surcharge_width_north,
-                    ],
-                    [south_span, south_span],
-                    color="gray",
-                    alpha=0.7,
-                    hatch="///",
-                    edgecolor="darkgray",
-                    linewidth=1.5,
-                    label=f"South: {south_load:.1f} psf",
+        # Check if unbalanced loads apply
+        has_unbalanced = unbalanced_applies and (
+            surcharge_width_north > 0 or surcharge_width_west > 0
+        )
+
+        if has_unbalanced:
+            # Get individual wind direction loads for valley governing load determination
+            south_load_north_wind = getattr(self, "south_load_north_wind", south_load)
+            east_load_west_wind = getattr(self, "east_load_west_wind", east_load)
+
+            # Determine which wind direction governs (larger total load)
+            # North wind: total load on south plane = south_load_north_wind
+            # West wind: total load on east plane = east_load_west_wind
+            governing_valley_load = max(south_load_north_wind, east_load_west_wind)
+
+            # Determine which wind direction governs and use ITS distance for BOTH ridges
+            if south_load_north_wind >= east_load_west_wind:
+                governing_wind = "North"
+                governing_surcharge = south_load_north_wind - ps_balanced
+                governing_distance = (
+                    surcharge_width_north  # Use north wind distance for both ridges
                 )
             else:
-                ax.fill_between(
-                    [0, total_width],
-                    [0, 0],
-                    [south_span, south_span],
-                    color="gray",
-                    alpha=0.7,
-                    label=f"South: {south_load:.1f} psf",
+                governing_wind = "West"
+                governing_surcharge = east_load_west_wind - ps_balanced
+                governing_distance = (
+                    surcharge_width_west  # Use west wind distance for both ridges
                 )
 
-            # West plane
+            # Show TWO overlapping hatched areas from BOTH ridges in SE quadrant ONLY:
+            # Both use the GOVERNING load value and the SAME distance (from governing wind)
+            # 1. From E-W ridge: using governing_distance (perpendicular to E-W ridge)
+            # 2. From N-S ridge: using governing_distance (perpendicular to N-S ridge)
+
+            # First hatched area: From E-W ridge southward (limited to SE quadrant)
+            x_start_ew = center_x  # Start at N-S ridge (SE quadrant only)
+            x_end_ew = total_width  # Extend to east edge
+            y_start_ew = max(
+                0, south_span - governing_distance
+            )  # Distance from E-W ridge
+            y_end_ew = south_span  # At E-W ridge
+
             ax.fill_between(
-                [0, 0],
-                [south_span, south_span],
-                [total_height, total_height],
-                color="darkgray",
-                alpha=0.7,
-                label=f"West: {west_load:.1f} psf",
+                [x_start_ew, x_end_ew],
+                [y_start_ew, y_start_ew],
+                [y_end_ew, y_end_ew],
+                color="dimgray",  # Dark gray for governing surcharge
+                alpha=0.6,  # Slightly transparent for overlap visibility
+                hatch="////",
+                edgecolor="black",
+                linewidth=2,
+                label=f"From E-W Ridge: {governing_valley_load:.1f} psf\nDist: {governing_distance:.1f} ft",
             )
 
-            # East plane (may include surcharge)
-            if surcharge_width_west > 0:
-                ax.fill_between(
-                    [center_x, center_x + surcharge_width_west],
-                    [0, 0],
-                    [south_span, south_span],
-                    color="dimgray",
-                    alpha=0.7,
-                    hatch="///",
-                    edgecolor="darkgray",
-                    linewidth=1.5,
-                    label=f"East: {east_load:.1f} psf",
-                )
-                if center_x + surcharge_width_west < total_width:
-                    ax.fill_between(
-                        [center_x + surcharge_width_west, total_width],
-                        [0, 0],
-                        [south_span, south_span],
-                        color="silver",
-                        alpha=0.7,
-                    )
-            else:
-                ax.fill_between(
-                    [total_width, total_width],
-                    [south_span, south_span],
-                    [total_height, total_height],
-                    color="dimgray",
-                    alpha=0.7,
-                    label=f"East: {east_load:.1f} psf",
-                )
+            # Second hatched area: From N-S ridge eastward (limited to SE quadrant)
+            x_start_ns = center_x  # Start at N-S ridge
+            x_end_ns = min(
+                center_x + governing_distance, total_width
+            )  # Distance from N-S ridge
+            y_start_ns = 0  # Start at south edge
+            y_end_ns = south_span  # Extend to E-W ridge
 
-            # For valley roofs, show governing surcharge in south-east quadrant
-            # When drifts intersect, take the LARGER (governing) drift depth, not the sum
-            if surcharge_width_north > 0 and surcharge_width_west > 0:
-                # Determine which drift governs (larger surcharge)
-                north_surcharge = (
-                    south_load - ps_balanced
-                )  # North wind surcharge amount
-                west_surcharge = east_load - ps_balanced  # West wind surcharge amount
-                governing_surcharge = max(north_surcharge, west_surcharge)
+            ax.fill_between(
+                [x_start_ns, x_end_ns],
+                [y_start_ns, y_start_ns],
+                [y_end_ns, y_end_ns],
+                color="dimgray",  # Dark gray for governing surcharge
+                alpha=0.6,  # Slightly transparent for overlap visibility
+                hatch="\\\\\\",  # Different hatch pattern for second area
+                edgecolor="black",
+                linewidth=2,
+                label=f"From N-S Ridge: {governing_valley_load:.1f} psf\nDist: {governing_distance:.1f} ft",
+            )
 
-                # Valley area shows governing drift + balanced load
-                valley_total_load = ps_balanced + governing_surcharge
+            # Third hatched area: Remaining SE quadrant area with balanced load only
+            # This is the area NOT covered by either surcharge zone
+            # Area beyond governing_distance from both ridges
+            remaining_x_start = min(
+                center_x + governing_distance, total_width
+            )  # Beyond N-S surcharge
+            remaining_x_end = total_width  # To east edge
+            remaining_y_start = 0  # From south edge
+            remaining_y_end = max(
+                0, south_span - governing_distance
+            )  # Below E-W surcharge
 
-                # Show governing surcharge zone in valley area
-                surcharge_width_governing = max(
-                    surcharge_width_north, surcharge_width_west
-                )
+            # Only show if there's actually a remaining area
+            if remaining_x_start < total_width and remaining_y_end > 0:
                 ax.fill_between(
-                    [center_x, min(center_x + surcharge_width_governing, total_width)],
-                    [
-                        max(0, south_span - surcharge_width_governing),
-                        max(0, south_span - surcharge_width_governing),
-                    ],
-                    [south_span, south_span],
-                    color="dimgray",  # Dark gray for governing surcharge
-                    alpha=0.8,
-                    hatch="////",
+                    [remaining_x_start, remaining_x_end],
+                    [remaining_y_start, remaining_y_start],
+                    [remaining_y_end, remaining_y_end],
+                    color="lightgray",  # Light gray for balanced load
+                    alpha=0.5,
+                    hatch="...",  # Dotted hatch pattern for balanced load area
                     edgecolor="black",
-                    linewidth=2,
-                    label=f"Valley Governing Load: {valley_total_load:.1f} psf",
-                )
-                # Fill remaining south area with balanced load
-                ax.fill_between(
-                    [0, center_x],
-                    [0, 0],
-                    [south_span, south_span],
-                    color="silver",
-                    alpha=0.7,
-                )
-                if center_x + surcharge_width_governing < total_width:
-                    ax.fill_between(
-                        [center_x + surcharge_width_governing, total_width],
-                        [0, 0],
-                        [south_span, south_span],
-                        color="silver",
-                        alpha=0.7,
-                    )
-            else:
-                # For unbalanced loads, don't do uniform fill - specific regions are already filled
-                # Only fill any remaining areas if needed
-                pass
-        else:
-            # No unbalanced loads - show governing loads on each plane
-            # North plane
-            if north_load >= 0:  # Allow zero and small positive loads
-                ax.fill_between(
-                    [0, center_x],
-                    [south_span, south_span],
-                    [total_height, total_height],
-                    color="silver",
-                    alpha=0.7,
-                    label=f"North: {north_load:.1f} psf",
+                    linewidth=1.5,
+                    label=f"Balanced Load: {ps_balanced:.1f} psf\n(Remaining SE area)",
                 )
 
-            # South plane
-            if south_load >= 0:  # Allow zero and small positive loads
-                ax.fill_between(
-                    [0, center_x],
-                    [0, 0],
-                    [south_span, south_span],
-                    color="gray",
-                    alpha=0.7,
-                    label=f"South: {south_load:.1f} psf",
-                )
+            # Add annotation showing governing load details
+            annotation_text = (
+                f"Governing Valley Load (Southeast Quadrant)\n"
+                f"(ASCE 7-22 Section 7.6.1)\n\n"
+                f"Load Comparison:\n"
+                f"  North Wind Load: {south_load_north_wind:.1f} psf\n"
+                f"  West Wind Load: {east_load_west_wind:.1f} psf\n\n"
+                f"Governing Wind: {governing_wind}\n\n"
+                f"Applied Load: {governing_valley_load:.1f} psf\n"
+                f"  = Balanced: {ps_balanced:.1f} psf\n"
+                f"  + Surcharge: {governing_surcharge:.1f} psf\n\n"
+                f"Overlapping Surcharge Areas (SE Quadrant Only):\n"
+                f"  From E-W Ridge: {governing_distance:.1f} ft\n"
+                f"    (perpendicular to E-W ridge)\n"
+                f"  From N-S Ridge: {governing_distance:.1f} ft\n"
+                f"    (perpendicular to N-S ridge)\n\n"
+                f"Formula: w = (8 × hd × √s) / 3"
+            )
 
-            # West plane
-            if west_load >= 0:  # Allow zero and small positive loads
-                ax.fill_between(
-                    [0, 0],
-                    [south_span, south_span],
-                    [total_height, total_height],
-                    color="darkgray",
-                    alpha=0.7,
-                    label=f"West: {west_load:.1f} psf",
-                )
-
-            # East plane
-            if east_load >= 0:
-                ax.fill_between(
-                    [total_width, total_width],
-                    [south_span, south_span],
-                    [total_height, total_height],
-                    color="dimgray",
-                    alpha=0.7,
-                    label=f"East: {east_load:.1f} psf",
-                )
-
-            # Legend will show the load values - no need for center text labels
-
-            # Fill south planes with appropriate colors
-            if north_load > 0:
-                ax.fill_between(
-                    [0, center_x],
-                    [0, 0],
-                    [south_span, south_span],
-                    color="silver",
-                    alpha=0.7,
-                )
-            if south_load > 0:
-                ax.fill_between(
-                    [center_x, total_width],
-                    [0, 0],
-                    [south_span, south_span],
-                    color="gray",
-                    alpha=0.7,
-                )
-            if west_load > 0:
-                ax.fill_between(
-                    [0, center_x],
-                    [0, 0],
-                    [south_span, south_span],
-                    color="darkgray",
-                    alpha=0.7,
-                )
-            if east_load > 0:
-                ax.fill_between(
-                    [center_x, total_width],
-                    [0, 0],
-                    [south_span, south_span],
-                    color="dimgray",
-                    alpha=0.7,
-                    label=f"East: {east_load:.1f} psf",
-                )
-
-        # Always show balanced load visualization (this ensures diagram always appears)
-        # North plane
-        ax.fill_between(
-            [0, center_x],
-            [south_span, south_span],
-            [total_height, total_height],
-            color="silver",
-            alpha=0.7,
-            label=f"North: {north_load:.1f} psf",
-        )
-
-        # South plane
-        ax.fill_between(
-            [0, center_x],
-            [0, 0],
-            [south_span, south_span],
-            color="silver",
-            alpha=0.7,
-            label=f"South: {south_load:.1f} psf",
-        )
-
-        # West plane
-        ax.fill_between(
-            [0, 0],
-            [south_span, south_span],
-            [total_height, total_height],
-            color="silver",
-            alpha=0.7,
-            label=f"West: {west_load:.1f} psf",
-        )
-
-        # East plane
-        ax.fill_between(
-            [center_x, center_x],
-            [south_span, south_span],
-            [total_height, total_height],
-            color="silver",
-            alpha=0.7,
-            label=f"East: {east_load:.1f} psf",
-        )
-
-        # Labels
-        ax.text(
-            center_x * 0.3,
-            south_span + north_span * 0.75,
-            f"North span\n{north_span:.1f} ft",
-            ha="center",
-            va="center",
-            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
-        )
-        ax.text(
-            total_width - center_x * 0.3,
-            south_span + north_span * 0.75,
-            f"East span\n{ew_half_width:.1f} ft",
-            ha="center",
-            va="center",
-            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
-        )
-        ax.text(
-            center_x * 0.3,
-            south_span * 0.25,
-            f"West span\n{ew_half_width:.1f} ft",
-            ha="center",
-            va="center",
-            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
-        )
-        ax.text(
-            total_width - center_x * 0.3,
-            south_span * 0.25,
-            f"South span\n{south_span:.1f} ft",
-            ha="center",
-            va="center",
-            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8),
-        )
-
-        # Annotations
-        if unbalanced_applies:
             ax.text(
                 total_width + 45,
-                total_height * 0.8,
-                f"Governing Loads (Max from North & West Winds)\n(ASCE 7-22 Section 7.6.1)\n"
-                f"North Plane: {north_load:.1f} psf\nSouth Plane: {south_load:.1f} psf\n"
-                f"West Plane: {west_load:.1f} psf\nEast Plane: {east_load:.1f} psf",
+                total_height * 0.5,
+                annotation_text,
                 ha="left",
                 va="center",
-                fontsize=8,
+                fontsize=9,
                 bbox=dict(
                     facecolor="white",
                     alpha=0.95,
@@ -1710,37 +1669,64 @@ Always verify member spanning conditions and consult licensed engineer"""
                 ),
             )
         else:
-            # Show governing load summary
-            if surcharge_width_north > 0 or surcharge_width_west > 0:
-                ax.text(
-                    total_width + 45,
-                    total_height * 0.8,
-                    f"Governing Loads (ASCE 7-22 Section 7.6.1)\nNorth Plane: {north_load:.1f} psf\nSouth Plane: {south_load:.1f} psf\nWest Plane: {west_load:.1f} psf\nEast Plane: {east_load:.1f} psf\nValley: Governing drift depth applied",
-                    ha="left",
-                    va="center",
-                    fontsize=8,
-                    bbox=dict(
-                        facecolor="white",
-                        alpha=0.95,
-                        edgecolor="dimgray",
-                        boxstyle="round,pad=0.5",
-                    ),
-                )
-            else:
-                ax.text(
-                    total_width + 45,
-                    total_height * 0.8,
-                    f"Governing Loads - Balanced Condition\nNorth Plane: {north_load:.1f} psf\nSouth Plane: {south_load:.1f} psf\nWest Plane: {west_load:.1f} psf\nEast Plane: {east_load:.1f} psf\n(No surcharge loads)",
-                    ha="left",
-                    va="center",
-                    fontsize=8,
-                    bbox=dict(
-                        facecolor="white",
-                        alpha=0.95,
-                        edgecolor="dimgray",
-                        boxstyle="round,pad=0.5",
-                    ),
-                )
+            # Balanced load governs - show TWO overlapping shaded areas from BOTH ridges
+            # covering the entire southeast quadrant
+
+            # First shaded area: From E-W ridge covering entire SE quadrant
+            x_start_ew = 0  # Start at west edge
+            x_end_ew = total_width  # Extend full width
+            y_start_ew = 0  # Start at south edge
+            y_end_ew = south_span  # Extend to E-W ridge
+
+            ax.fill_between(
+                [x_start_ew, x_end_ew],
+                [y_start_ew, y_start_ew],
+                [y_end_ew, y_end_ew],
+                color="lightgray",  # Light gray for balanced load
+                alpha=0.5,  # Transparent for overlap visibility
+                hatch="////",  # Diagonal hatch pattern
+                edgecolor="black",
+                linewidth=1.5,
+                label=f"From E-W Ridge: {ps_balanced:.1f} psf\n(Entire SE Quadrant)",
+            )
+
+            # Second shaded area: From N-S ridge covering entire SE quadrant
+            x_start_ns = center_x  # Start at N-S ridge
+            x_end_ns = total_width  # Extend to east edge
+            y_start_ns = 0  # Start at south edge
+            y_end_ns = south_span  # Extend to E-W ridge
+
+            ax.fill_between(
+                [x_start_ns, x_end_ns],
+                [y_start_ns, y_start_ns],
+                [y_end_ns, y_end_ns],
+                color="lightgray",  # Light gray for balanced load
+                alpha=0.5,  # Transparent for overlap visibility
+                hatch="\\\\\\",  # Opposite diagonal hatch pattern
+                edgecolor="black",
+                linewidth=1.5,
+                label=f"From N-S Ridge: {ps_balanced:.1f} psf\n(Entire SE Quadrant)",
+            )
+
+            # Add annotation showing balanced load details
+            ax.text(
+                total_width + 45,
+                total_height * 0.5,
+                f"Governing Valley Load (Southeast Quadrant)\n(ASCE 7-22 Section 7.6.1)\n\n"
+                f"Balanced Load Condition\n"
+                f"No unbalanced loads apply\n\n"
+                f"Applied Load: {ps_balanced:.1f} psf\n"
+                f"(Covering entire SE quadrant from both ridges)",
+                ha="left",
+                va="center",
+                fontsize=9,
+                bbox=dict(
+                    facecolor="white",
+                    alpha=0.95,
+                    edgecolor="dimgray",
+                    boxstyle="round,pad=0.5",
+                ),
+            )
 
         # Collect load-specific legend handles for bottom legend (after all fill_between calls)
         handles, labels = ax.get_legend_handles_labels()
@@ -2430,31 +2416,16 @@ Always verify member spanning conditions and consult licensed engineer"""
                 0,
                 -1,
                 head_width=0.5,
-                fc="darkred",
-                ec="darkred",
-                linewidth=2,
-                alpha=0.9,
-                label="Jack Rafter Point Loads (down)",
-            ),
-            plt.arrow(
-                0,
-                0,
-                0,
-                1,
-                head_width=0.5,
                 fc="darkgreen",
                 ec="darkgreen",
                 linewidth=2,
-                alpha=0.9,
-                label="Support Reactions (up)",
+                label="Reactions (upward)",
+            ),
+            plt.Line2D(
+                [0], [0], color="darkred", linewidth=2, label="Point Loads (downward)"
             ),
         ]
-        ax4.legend(
-            handles=legend_elements,
-            loc="upper left",
-            bbox_to_anchor=(0.0, 1.0),
-            fontsize=10,
-        )
+        ax4.legend(handles=legend_elements, loc="upper left")
 
         # Create a container frame for the four remaining diagrams
         diagram_container = ttk.Frame(self.plot_frame)
@@ -2478,6 +2449,172 @@ Always verify member spanning conditions and consult licensed engineer"""
 
             toolbar = NavigationToolbar2Tk(canvas, diagram_container)
             toolbar.update()
+
+        # ===== N-S RIDGE BEAM POINT LOADS DIAGRAM (LAST DIAGRAM) =====
+        # Create diagram for N-S ridge beam (if loads are available)
+        # This diagram is placed LAST, after all other diagrams
+        if (
+            hasattr(self, "ns_ridge_snow_point_loads")
+            and hasattr(self, "ns_ridge_beam_length")
+            and self.ns_ridge_snow_point_loads
+        ):
+            fig5, ax5 = plt.subplots(1, 1, figsize=(12, 7), dpi=100)
+            self._current_figures.append(fig5)
+
+            # N-S ridge beam runs horizontally (south of E-W ridge)
+            ns_ridge_length = (
+                self.ns_ridge_beam_length
+            )  # Horizontal length = south_span
+            beam_x_ns = [0, ns_ridge_length]
+            beam_y_ns = [0, 0]  # Horizontal beam at elevation 0
+
+            # Draw horizontal beam line
+            ax5.plot(
+                beam_x_ns,
+                beam_y_ns,
+                "b-",
+                linewidth=6,
+                alpha=0.9,
+                solid_capstyle="round",
+                label="N-S Ridge Beam",
+            )
+
+            # Get N-S ridge beam loads and reactions
+            ns_total_loads = [
+                (pos, snow + dead)
+                for (pos, snow), (_, dead) in zip(
+                    self.ns_ridge_snow_point_loads, self.ns_ridge_dead_point_loads
+                )
+            ]
+
+            if ns_total_loads:
+                max_load_ns = max([abs(load) for _, load in ns_total_loads])
+                load_scale_ns = 1.5 / max_load_ns if max_load_ns > 0 else 1
+
+                # Calculate reactions
+                ns_total = sum(load for _, load in ns_total_loads)
+                ns_moment = sum(load * pos for pos, load in ns_total_loads)
+                ns_r_bottom = ns_moment / ns_ridge_length if ns_ridge_length > 0 else 0
+                ns_r_top = ns_total - ns_r_bottom
+                max_reaction_ns = max(abs(ns_r_top), abs(ns_r_bottom))
+                reaction_scale_ns = 1.5 / max_reaction_ns if max_reaction_ns > 0 else 1
+
+                # Add support reactions (upward green arrows)
+                ax5.arrow(
+                    0,
+                    0,
+                    0,
+                    ns_r_top * reaction_scale_ns,
+                    head_width=0.5,
+                    fc="darkgreen",
+                    ec="darkgreen",
+                    linewidth=2,
+                    alpha=0.9,
+                )
+                ax5.text(
+                    0,
+                    ns_r_top * reaction_scale_ns + 0.8,
+                    f"R_top = {int(ns_r_top)} lb",
+                    ha="center",
+                    va="bottom",
+                    fontsize=10,
+                    fontweight="bold",
+                    color="darkgreen",
+                )
+
+                ax5.arrow(
+                    ns_ridge_length,
+                    0,
+                    0,
+                    ns_r_bottom * reaction_scale_ns,
+                    head_width=0.5,
+                    fc="darkgreen",
+                    ec="darkgreen",
+                    linewidth=2,
+                    alpha=0.9,
+                )
+                ax5.text(
+                    ns_ridge_length,
+                    ns_r_bottom * reaction_scale_ns + 0.8,
+                    f"R_bottom = {int(ns_r_bottom)} lb",
+                    ha="center",
+                    va="bottom",
+                    fontsize=10,
+                    fontweight="bold",
+                    color="darkgreen",
+                )
+
+                # Add point loads (downward red arrows)
+                for pos, load in ns_total_loads:
+                    arrow_length = -load * load_scale_ns
+                    ax5.arrow(
+                        pos,
+                        0,
+                        0,
+                        arrow_length,
+                        head_width=0.5,
+                        fc="darkred",
+                        ec="darkred",
+                        linewidth=2,
+                        alpha=0.9,
+                    )
+                    ax5.text(
+                        pos,
+                        arrow_length - 0.8,
+                        f"{int(load)} lb",
+                        ha="center",
+                        va="top",
+                        fontsize=9,
+                        fontweight="bold",
+                        color="darkred",
+                    )
+
+            ax5.set_xlabel("Distance from Eave (ft)", fontsize=11, fontweight="bold")
+            ax5.set_ylabel("Load Magnitude (scaled)", fontsize=11, fontweight="bold")
+            ax5.set_title(
+                "Point Load Reactions on N-S Ridge Beam", fontsize=13, fontweight="bold"
+            )
+            ax5.grid(True, linestyle="--", alpha=0.6)
+            ax5.set_xlim(-ns_ridge_length * 0.05, ns_ridge_length * 1.05)
+
+            # Set y-limits to accommodate all arrows
+            if ns_total_loads:
+                min_y_ns = min(0, -max_load_ns * load_scale_ns - 1)
+                max_y_ns = max(0, max_reaction_ns * reaction_scale_ns + 1)
+                ax5.set_ylim(bottom=min_y_ns, top=max_y_ns)
+
+            # Custom legend
+            legend_elements_ns = [
+                plt.Line2D(
+                    [0],
+                    [0],
+                    color="blue",
+                    linewidth=6,
+                    alpha=0.9,
+                    label="N-S Ridge Beam",
+                ),
+                plt.Line2D(
+                    [0], [0], color="darkgreen", linewidth=2, label="Reactions (upward)"
+                ),
+                plt.Line2D(
+                    [0],
+                    [0],
+                    color="darkred",
+                    linewidth=2,
+                    label="Point Loads (downward)",
+                ),
+            ]
+            ax5.legend(handles=legend_elements_ns, loc="upper right")
+
+            canvas_ns = FigureCanvasTkAgg(fig5, master=self.plot_frame)
+            canvas_ns.draw()
+            canvas_ns.get_tk_widget().pack(
+                side=tk.TOP, pady=5, padx=10, fill=tk.BOTH, expand=True
+            )
+
+            # Add toolbar for N-S ridge diagram
+            toolbar_ns = NavigationToolbar2Tk(canvas_ns, self.plot_frame)
+            toolbar_ns.update()
 
     def get_float(self, key: str) -> Optional[float]:
         try:
@@ -2612,6 +2749,21 @@ Always verify member spanning conditions and consult licensed engineer"""
         except ValueError:
             errors.append("Beam depth must be a valid number")
 
+        # Validate N-S Ridge Beam parameters
+        try:
+            ns_ridge_beam_width = self.get_float("ns_ridge_beam_width")
+            if ns_ridge_beam_width is not None and ns_ridge_beam_width <= 0:
+                errors.append("N-S Ridge Beam width must be positive")
+        except ValueError:
+            errors.append("N-S Ridge Beam width must be a valid number")
+
+        try:
+            ns_ridge_beam_depth = self.get_float("ns_ridge_beam_depth_trial")
+            if ns_ridge_beam_depth is not None and ns_ridge_beam_depth <= 0:
+                errors.append("N-S Ridge Beam depth must be positive")
+        except ValueError:
+            errors.append("N-S Ridge Beam depth must be a valid number")
+
         return errors
 
     def save_project(self):
@@ -2639,7 +2791,6 @@ Always verify member spanning conditions and consult licensed engineer"""
                         "w2": self.entries["w2"].get(),
                         "ce": self.entries["ce"].get(),
                         "ct": self.entries["ct"].get(),
-                        "is_factor": self.is_combobox.get(),
                     },
                     "building_geometry": {
                         "pitch_north": self.entries["pitch_north"].get(),
@@ -2695,9 +2846,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             self.entries["ce"].insert(0, snow_params.get("ce", "1.0"))
             self.entries["ct"].delete(0, tk.END)
             self.entries["ct"].insert(0, snow_params.get("ct", "1.2"))
-            self.is_combobox.set(
-                snow_params.get("is_factor", "1.0 - Risk Cat II (default)")
-            )
+
             # Handle both old and new field names for backward compatibility
             north_span_value = snow_params.get("north_span") or snow_params.get(
                 "lu_north", "16"
@@ -2752,7 +2901,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             self.entries["beam_width"].insert(0, beam_params.get("beam_width", "3.5"))
             self.entries["beam_depth_trial"].delete(0, tk.END)
             self.entries["beam_depth_trial"].insert(
-                0, beam_params.get("beam_depth_trial", "9.5")
+                0, beam_params.get("beam_depth_trial", "16")
             )
 
             messagebox.showinfo("Load Successful", f"Project loaded from {filename}")
@@ -2984,11 +3133,7 @@ Always verify member spanning conditions and consult licensed engineer"""
                     self.entries["ct"].get(),
                     "Thermal factor from Table 7.3-2",
                 ],
-                [
-                    "Importance Factor (Is)",
-                    self.is_combobox.get(),
-                    "Risk category importance factor",
-                ],
+                [],
                 [
                     "North Span (lu_north)",
                     f"{self.entries['north_span'].get()} ft",
@@ -3378,7 +3523,6 @@ Always verify member spanning conditions and consult licensed engineer"""
         <tr><td>Winter Wind Parameter (W2)</td><td>{self.entries["w2"].get()}</td><td>Percentage of heating season with winds >10 mph</td></tr>
         <tr><td>Exposure Factor (Ce)</td><td>{self.entries["ce"].get()}</td><td>Exposure factor from Table 7.3-1</td></tr>
         <tr><td>Thermal Factor (Ct)</td><td>{self.entries["ct"].get()}</td><td>Thermal factor from Table 7.3-2</td></tr>
-        <tr><td>Importance Factor (Is)</td><td>{self.is_combobox.get()}</td><td>Risk category importance factor</td></tr>
         <tr><td>North Span (lu_north)</td><td>{self.entries["north_span"].get()} ft</td><td>Distance from E-W ridge to north eave</td></tr>
         <tr><td>South Span</td><td>{self.entries["south_span"].get()} ft</td><td>Distance from E-W ridge to south eave</td></tr>
         <tr><td>E-W Half-Width (lu_west)</td><td>{self.entries["ew_half_width"].get()} ft</td><td>Half-width from ridge to eave</td></tr>
@@ -3480,65 +3624,118 @@ Always verify member spanning conditions and consult licensed engineer"""
                     "Report Error", f"Failed to generate HTML report: {error_msg}"
                 )
 
-    def get_is_factor(self) -> tuple[Optional[float], str]:
-        """Get the numeric Is factor and description from the combobox."""
-        selected = self.is_combobox.get()
-        if not selected:
-            messagebox.showerror(
-                "Input Error", "Please select an Importance factor (Is)"
-            )
-            return None, ""
-
-        # Extract numeric value from the beginning of the string
-        try:
-            is_value = float(selected.split()[0])
-            # Extract risk category (e.g., "II", "I", "III", "IV")
-            parts = selected.split()
-            cat = parts[3] if len(parts) > 3 else "Unknown"
-            return is_value, cat
-        except (ValueError, IndexError):
-            messagebox.showerror("Input Error", "Invalid Importance factor selection")
-            return None, ""
-
     def on_material_change(self, event):
         """Update material properties when material selection changes."""
-        selected = self.material_combobox.get()
+        try:
+            selected = self.material_combobox.get()
+            print(f"Material changed to: {selected}")  # Debug output
 
-        if "Sawn Lumber" in selected:
-            self.fb_allowable_value = 875
-            self.fv_allowable_value = 180
-            self.modulus_e_value = 1600000
-        elif "Glulam" in selected:
-            self.fb_allowable_value = 2400
-            self.fv_allowable_value = 265
-            self.modulus_e_value = 1800000
-        elif "3100Fb-2.1E (PWT)" in selected:
-            self.fb_allowable_value = 3100
-            self.fv_allowable_value = 265  # Using typical LVL shear value
-            self.modulus_e_value = 2100000
-        elif "2850Fb-1.9E (Global)" in selected:
-            self.fb_allowable_value = 2850
-            self.fv_allowable_value = 265  # Using typical LVL shear value
-            self.modulus_e_value = 1900000
-        else:  # LVL 2.0E
-            self.fb_allowable_value = 2650
-            self.fv_allowable_value = 285
-            self.modulus_e_value = 2000000
+            if "Sawn Lumber" in selected:
+                self.fb_allowable_value = 875
+                self.fv_allowable_value = 180
+                self.modulus_e_value = 1600000
+            elif "Glulam" in selected:
+                self.fb_allowable_value = 2400
+                self.fv_allowable_value = 265
+                self.modulus_e_value = 1800000
+            elif "3100Fb-2.1E (PWT)" in selected:
+                self.fb_allowable_value = 3100
+                self.fv_allowable_value = 265  # Using typical LVL shear value
+                self.modulus_e_value = 2100000
+            elif "2850Fb-1.9E (Global)" in selected:
+                self.fb_allowable_value = 2850
+                self.fv_allowable_value = 265  # Using typical LVL shear value
+                self.modulus_e_value = 1900000
+            else:  # LVL 2.0E
+                self.fb_allowable_value = 2650
+                self.fv_allowable_value = 285
+                self.modulus_e_value = 2000000
 
-        # Update the Entry widgets with new values
-        if hasattr(self, "entries"):
-            if "fb_allowable" in self.entries:
-                self.entries["fb_allowable"].delete(0, tk.END)
-                self.entries["fb_allowable"].insert(0, str(self.fb_allowable_value))
-            if "fv_allowable" in self.entries:
-                self.entries["fv_allowable"].delete(0, tk.END)
-                self.entries["fv_allowable"].insert(0, str(self.fv_allowable_value))
-            if "modulus_e" in self.entries:
-                self.entries["modulus_e"].delete(0, tk.END)
-                self.entries["modulus_e"].insert(0, str(self.modulus_e_value))
+            # Update the Entry widgets with new values
+            if hasattr(self, "entries"):
+                if "fb_allowable" in self.entries:
+                    self.entries["fb_allowable"].delete(0, tk.END)
+                    self.entries["fb_allowable"].insert(0, str(self.fb_allowable_value))
+                if "fv_allowable" in self.entries:
+                    self.entries["fv_allowable"].delete(0, tk.END)
+                    self.entries["fv_allowable"].insert(0, str(self.fv_allowable_value))
+                if "modulus_e" in self.entries:
+                    self.entries["modulus_e"].delete(0, tk.END)
+                    self.entries["modulus_e"].insert(0, str(self.modulus_e_value))
+
+            # Mark data as changed for auto-save
+            if hasattr(self, "data_changed"):
+                self.data_changed = True
+
+            # Trigger data change event
+            self.on_data_changed()
+
+        except Exception as e:
+            print(f"Error in on_material_change: {e}")  # Debug output
+            import traceback
+
+            traceback.print_exc()
+
+    def on_ns_ridge_material_change(self, event):
+        """Update N-S ridge beam material properties when material selection changes."""
+        try:
+            selected = self.ns_ridge_material_combobox.get()
+            print(f"N-S Ridge Beam material changed to: {selected}")
+
+            if "Sawn Lumber" in selected:
+                self.ns_ridge_fb_allowable_value = 875
+                self.ns_ridge_fv_allowable_value = 180
+                self.ns_ridge_modulus_e_value = 1600000
+            elif "Glulam" in selected:
+                self.ns_ridge_fb_allowable_value = 2400
+                self.ns_ridge_fv_allowable_value = 265
+                self.ns_ridge_modulus_e_value = 1800000
+            elif "3100Fb-2.1E (PWT)" in selected:
+                self.ns_ridge_fb_allowable_value = 3100
+                self.ns_ridge_fv_allowable_value = 265
+                self.ns_ridge_modulus_e_value = 2100000
+            elif "2850Fb-1.9E (Global)" in selected:
+                self.ns_ridge_fb_allowable_value = 2850
+                self.ns_ridge_fv_allowable_value = 265
+                self.ns_ridge_modulus_e_value = 1900000
+            else:  # LVL 2.0E
+                self.ns_ridge_fb_allowable_value = 2650
+                self.ns_ridge_fv_allowable_value = 285
+                self.ns_ridge_modulus_e_value = 2000000
+
+            # Update the Entry widgets with new values
+            if hasattr(self, "entries"):
+                if "ns_ridge_fb_allowable" in self.entries:
+                    self.entries["ns_ridge_fb_allowable"].delete(0, tk.END)
+                    self.entries["ns_ridge_fb_allowable"].insert(
+                        0, str(self.ns_ridge_fb_allowable_value)
+                    )
+                if "ns_ridge_fv_allowable" in self.entries:
+                    self.entries["ns_ridge_fv_allowable"].delete(0, tk.END)
+                    self.entries["ns_ridge_fv_allowable"].insert(
+                        0, str(self.ns_ridge_fv_allowable_value)
+                    )
+                if "ns_ridge_modulus_e" in self.entries:
+                    self.entries["ns_ridge_modulus_e"].delete(0, tk.END)
+                    self.entries["ns_ridge_modulus_e"].insert(
+                        0, str(self.ns_ridge_modulus_e_value)
+                    )
+
+            # Mark data as changed for auto-save
+            if hasattr(self, "data_changed"):
+                self.data_changed = True
+
+            # Trigger data change event
+            self.on_data_changed()
+
+        except Exception as e:
+            print(f"Error in on_ns_ridge_material_change: {e}")
+            import traceback
+
+            traceback.print_exc()
 
     def compute_s_theta(self, pitch):
-        if pitch <= 0:
+        if pitch is None or pitch <= 0:
             return 0.0, 0.0, 0.0
         s = pitch / 12.0  # rise/run
         S = 12.0 / pitch  # Correct ASCE S: run for rise of 1
@@ -3578,22 +3775,38 @@ Always verify member spanning conditions and consult licensed engineer"""
         }
 
     def calculate(self):
-        print("Calculate button clicked - starting calculation")
+        print("=" * 60)
+        print("CALCULATE METHOD CALLED")
+        print("=" * 60)
 
-        # Optional debug output (uncomment if needed)
-        # print("Calculate function started")
+        # Clear output first to show we're running
+        self.output_text.delete(1.0, tk.END)
+        self.output_text.insert(tk.END, "CALCULATION STARTED...\n\n")
+        self.master.update()  # Force GUI update
 
         # Test 6 pitch logic (for verification)
-        self.test_6_pitch_logic()
+        try:
+            self.test_6_pitch_logic()
+        except Exception as e:
+            print(f"test_6_pitch_logic error (continuing): {e}")
 
         # Validate all inputs before calculation
+        print("Validating inputs...")
         validation_errors = self.validate_all_inputs()
         if validation_errors:
             error_message = "Please fix the following input errors:\n\n" + "\n".join(
                 f"• {error}" for error in validation_errors
             )
             messagebox.showerror("Input Validation Errors", error_message)
+            self.output_text.insert(tk.END, f"\nVALIDATION ERRORS:\n{error_message}\n")
+            print(f"VALIDATION ERRORS: {validation_errors}")
             return
+
+        print("Validation passed, continuing...")
+        self.output_text.insert(
+            tk.END, "All inputs validated. Proceeding with calculation...\n\n"
+        )
+        self.master.update()  # Force GUI update
 
         pg = self.get_float("pg")
         north_span = self.get_float("north_span")  # = lu_north
@@ -3613,7 +3826,6 @@ Always verify member spanning conditions and consult licensed engineer"""
         w2 = self.get_float("w2")
         ce = self.get_float("ce")
         ct = self.get_float("ct")
-        is_factor, risk_category = self.get_is_factor()
         pitch_n = self.get_float("pitch_north")
         pitch_w = self.get_float("pitch_west")
         valley_angle = self.get_float("valley_angle")
@@ -3631,7 +3843,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             "beam_depth_trial"
         )  # Can be None for back-calculation
         if beam_depth_trial is None:
-            beam_depth_trial = 9.5  # Default value
+            beam_depth_trial = 16  # Default value
         jack_spacing_inches = self.get_float("jack_spacing_inches")
         dead_load_horizontal = self.get_float("dead_load_horizontal")
         slippery = self.slippery_var.get()
@@ -3639,48 +3851,85 @@ Always verify member spanning conditions and consult licensed engineer"""
         # Validate beam design inputs
         if beam_width is None or beam_width <= 0:
             beam_width = 3.125  # Default
-        if modulus_e <= 0:
+        if modulus_e is None or modulus_e <= 0:
             modulus_e = 1800000.0  # Default Glulam
-        if fb_allowable <= 0:
+        if fb_allowable is None or fb_allowable <= 0:
             fb_allowable = 2400.0  # Default Glulam
-        if fv_allowable <= 0:
+        if fv_allowable is None or fv_allowable <= 0:
             fv_allowable = 265.0  # Default Glulam
 
-        if None in (
-            pg,
-            lu_north,
-            lu_west,
-            w2,
-            ce,
-            ct,
-            is_factor,
-            pitch_n,
-            pitch_w,
-            de_n,
-            de_w,
-            valley_angle,
-            beam_width,
-            modulus_e,
-            fb_allowable,
-            fv_allowable,
-            deflection_snow_limit,
-            deflection_total_limit,
-            jack_spacing_inches,
-            dead_load_horizontal,
-        ):
+        # Check for missing required inputs and show error message
+        missing = []
+        if pg is None:
+            missing.append("Ground snow load (pg)")
+        if lu_north is None:
+            missing.append("North span")
+        if lu_west is None:
+            missing.append("E-W half-width")
+        if w2 is None:
+            missing.append("Winter wind parameter (W2)")
+        if ce is None:
+            missing.append("Exposure factor (Ce)")
+        if ct is None:
+            missing.append("Thermal factor (Ct)")
+        if pitch_n is None:
+            missing.append("Pitch north")
+        if pitch_w is None:
+            missing.append("Pitch west")
+        if valley_angle is None:
+            missing.append("Valley angle")
+        if beam_width is None:
+            missing.append("Beam width")
+        if modulus_e is None:
+            missing.append("Modulus E")
+        if fb_allowable is None:
+            missing.append("Fb allowable")
+        if fv_allowable is None:
+            missing.append("Fv allowable")
+        if deflection_snow_limit is None:
+            missing.append("Deflection snow limit")
+        if deflection_total_limit is None:
+            missing.append("Deflection total limit")
+        if jack_spacing_inches is None:
+            missing.append("Jack spacing")
+        if dead_load_horizontal is None:
+            missing.append("Dead load horizontal")
+
+        if missing:
+            error_msg = "Please fill in the following required inputs:\n\n" + "\n".join(
+                f"• {name}" for name in missing
+            )
+            messagebox.showerror("Missing Required Inputs", error_msg)
+            self.output_text.insert(
+                tk.END, f"\nERROR: Missing inputs: {', '.join(missing)}\n"
+            )
+            print(f"ERROR: Missing inputs: {missing}")
             return
 
+        print("All required inputs present, starting calculations...")
+
         # Calculate slopes for unbalanced load check
-        s_n, theta_n, S_n = self.compute_s_theta(pitch_n)
-        s_w, theta_w, S_w = self.compute_s_theta(pitch_w)
+        print(f"DEBUG: Computing slopes - pitch_n={pitch_n}, pitch_w={pitch_w}")
+        try:
+            s_n, theta_n, S_n = self.compute_s_theta(pitch_n)
+            s_w, theta_w, S_w = self.compute_s_theta(pitch_w)
+            print(f"DEBUG: Slopes computed - theta_n={theta_n}, theta_w={theta_w}")
+        except Exception as e:
+            error_msg = (
+                f"Error computing slopes: {e}\npitch_n={pitch_n}, pitch_w={pitch_w}"
+            )
+            raise Exception(error_msg) from e
 
         # ASCE 7-22 Sec. 7.6.1 Unbalanced applicability
         unbalanced_applies_n = (
             0.5 / 12 <= s_n <= 7 / 12
         )  # 0.5 on 12 to 7 on 12 (2.38° to 30.2°)
         unbalanced_applies_w = 0.5 / 12 <= s_w <= 7 / 12
-        narrow_roof_n = de_n <= 20
-        narrow_roof_w = de_w <= 20
+        # Narrow roof check: W = dimension perpendicular to ridge
+        # For North Wind: perpendicular to N-S ridge = north_span
+        # For West Wind: perpendicular to E-W ridge = ew_half_width
+        narrow_roof_n = north_span <= 20
+        narrow_roof_w = ew_half_width <= 20
 
         # Validation
         errors = []
@@ -3692,7 +3941,6 @@ Always verify member spanning conditions and consult licensed engineer"""
         errors.append(validate_pitch(pitch_w, "West"))
         errors.append(validate_exposure_factor(ce))
         errors.append(validate_thermal_factor(ct))
-        errors.append(validate_importance_factor(is_factor))
 
         errors = [e for e in errors if e is not None]
         if errors:
@@ -3724,8 +3972,9 @@ Always verify member spanning conditions and consult licensed engineer"""
         min_slope_deg = min(theta_n, theta_w)
         low_slope = min_slope_deg < 15.0
 
-        # Calculate minimum snow load pm
-        pm = is_factor * pg if pg <= 20 else 20 * is_factor
+        # Calculate minimum snow load pm - ASCE 7-22 Equation 7.3-2
+        # pm = 0.7 × Ce × Ct × pg × 0.6 (no Is factor in ASCE 7-22)
+        pm = 0.7 * ce * ct * pg * 0.6
 
         # Determine governing roof snow load
         if low_slope:
@@ -3734,7 +3983,11 @@ Always verify member spanning conditions and consult licensed engineer"""
             governing_roof_load = ps
 
         # Valley geometry - rectangular cross-gable roof
-        lv = math.sqrt(south_span**2 + valley_offset**2)  # Horizontal valley length
+        # Valley Rafter: High point = Ridge intersection (N-S & E-W ridges meet)
+        #               Low point = Eave intersection (where two gable roofs meet)
+        lv = math.sqrt(
+            south_span**2 + valley_offset**2
+        )  # Horizontal valley length from low point to high point
 
         # Compute valley angle for display (optional)
         (
@@ -3799,6 +4052,9 @@ Always verify member spanning conditions and consult licensed engineer"""
                 # Narrow roof: p_g on leeward (south), 0 on windward (north)
                 north_load_north_wind = 0
                 south_load_north_wind = pg
+                # For narrow roofs, surcharge extends full span (measured along valley)
+                # Already measured along valley, so no projection needed
+                surcharge_width_north = lv  # Full valley length for narrow roofs
             else:
                 # Wide roof: 0.3p_s on windward (north), p_s + surcharge on leeward (south)
                 north_load_north_wind = 0.3 * ps_north if ps_north > 0 else 0
@@ -3830,6 +4086,9 @@ Always verify member spanning conditions and consult licensed engineer"""
                 # Narrow roof: p_g on leeward (east), 0 on windward (west)
                 west_load_west_wind = 0
                 east_load_west_wind = pg
+                # For narrow roofs, surcharge extends full span (measured along valley)
+                # Already measured along valley, so no projection needed
+                surcharge_width_west = lv  # Full valley length for narrow roofs
             else:
                 # Wide roof: 0.3p_s on windward (west), p_s + surcharge on leeward (east)
                 west_load_west_wind = 0.3 * ps_west if ps_west > 0 else 0
@@ -3877,6 +4136,16 @@ Always verify member spanning conditions and consult licensed engineer"""
         self.governing_south = south_load
         self.governing_west = west_load
         self.governing_east = east_load
+
+        # Store individual wind direction loads for valley governing load determination
+        if 2.38 <= min(theta_n, theta_w) <= 30.2:
+            self.south_load_north_wind = south_load_north_wind_final
+            self.east_load_west_wind = east_load_west_wind_final
+        else:
+            # Balanced loads only - no individual wind direction loads
+            self.south_load_north_wind = south_load
+            self.east_load_west_wind = east_load
+
         print("DEBUG: About to call generate_diagrams")
 
         # Create result dictionaries for compatibility with existing code
@@ -3920,6 +4189,36 @@ Always verify member spanning conditions and consult licensed engineer"""
         ps
 
         # Jack Rafter Point Loads - calculate first since beam design needs these
+        # Determine governing load and distance for jack rafter calculations
+        # This matches the diagram: use governing load and governing distance for both ridges
+        if 2.38 <= min(theta_n, theta_w) <= 30.2:
+            # Determine which wind direction governs (larger total load)
+            governing_valley_load_psf = max(
+                south_load_north_wind_final, east_load_west_wind_final
+            )
+
+            # Use the governing wind direction's distance for BOTH ridges
+            if south_load_north_wind_final >= east_load_west_wind_final:
+                # North wind governs: use north wind distance for both ridges
+                governing_surcharge_width_ft = surcharge_width_north
+            else:
+                # West wind governs: use west wind distance for both ridges
+                governing_surcharge_width_ft = surcharge_width_west
+
+            # Pass governing load and distance for both ridges (matching diagram)
+            north_wind_load_for_jacks = governing_valley_load_psf
+            west_wind_load_for_jacks = governing_valley_load_psf
+            surcharge_width_north_for_jacks = governing_surcharge_width_ft
+            surcharge_width_west_for_jacks = governing_surcharge_width_ft
+            unbalanced_applies_for_jacks = True
+        else:
+            # Balanced loads only
+            north_wind_load_for_jacks = None
+            west_wind_load_for_jacks = None
+            surcharge_width_north_for_jacks = 0.0
+            surcharge_width_west_for_jacks = 0.0
+            unbalanced_applies_for_jacks = False
+
         jacks_data = calculate_jack_rafters(
             de_north=de_n,
             de_west=de_w,
@@ -3927,7 +4226,7 @@ Always verify member spanning conditions and consult licensed engineer"""
             pitch_west=pitch_w,
             valley_angle_deg=valley_angle,
             jack_spacing_in=jack_spacing_inches,
-            ps_psf=governing_roof_load,  # Use governing roof load
+            ps_psf=ps,  # Balanced snow load
             pd_max_psf=0.0,  # No valley drift load
             w_drift_ft=0.0,  # No drift width
             dead_load_psf_horizontal=dead_load_horizontal,
@@ -3953,26 +4252,27 @@ Always verify member spanning conditions and consult licensed engineer"""
         beam = ValleyBeamDesigner(beam_inputs)
 
         # Extract point loads from jack rafters - separate snow and dead loads
+        # j_n = North-South Valley Rafters (frame from Valley Beam to East-West Ridge)
+        # j_w = East-West Valley Rafters (frame from Valley Beam to North-South Ridge)
+        # For reactions to match ridge beam: use j_w_total (assuming j_n = j_w for symmetric geometry)
         snow_point_loads = []
         dead_point_loads = []
         for i, (j_n, j_w) in enumerate(
             zip(jacks_data["jacks"]["north_side"], jacks_data["jacks"]["west_side"])
         ):
-            # Position from eave (horizontal distance)
-            pos_horizontal_from_eave = j_n["location_from_eave_ft"]
+            # Position from low point (eave intersection) measured horizontally
+            # Valley rafter runs from low point (eave) to high point (ridge intersection)
+            pos_horizontal_from_low_point = j_n["location_from_eave_ft"]
             # Convert to sloped position along the beam
-            pos_sloped = pos_horizontal_from_eave * (rafter_len / lv)
+            pos_sloped = pos_horizontal_from_low_point * (rafter_len / lv)
 
-            # Snow loads (balanced + drift) - these are the reaction loads already
-            snow_load_at_pos = (
-                j_n["total_snow_lb"] + j_w["total_snow_lb"]
-            ) / 2  # Half reaction
+            # Use j_w_total to match ridge beam reactions (j_n should equal j_w for symmetric geometry)
+            # This ensures reactions are identical at corresponding points
+            snow_load_at_pos = j_w["total_snow_lb"]  # Use j_w_total to match ridge beam
             snow_point_loads.append((pos_sloped, snow_load_at_pos))
 
-            # Dead loads - these are the reaction loads already
-            dead_load_at_pos = (
-                j_n["dead_load_lb"] + j_w["dead_load_lb"]
-            ) / 2  # Half reaction
+            # Dead loads - use j_w_total to match ridge beam
+            dead_load_at_pos = j_w["dead_load_lb"]  # Use j_w_total to match ridge beam
             dead_point_loads.append((pos_sloped, dead_load_at_pos))
 
         # Design beam with separate snow and dead point loads
@@ -4016,6 +4316,73 @@ Always verify member spanning conditions and consult licensed engineer"""
                 traceback.print_exc()
                 beam_results = {"error": f"Beam calculation failed: {str(e)}"}
 
+        # === N-S RIDGE BEAM DESIGN (Calculate before diagrams) ===
+        # N-S Ridge Beam: Runs along north-south ridge line, south of E-W ridge
+        ns_ridge_beam_length = south_span  # Horizontal length of N-S ridge beam
+
+        # Extract point loads from j_w jack rafters for N-S Ridge Beam
+        # Use actual horizontal positions from j_n (location_from_eave_ft) - these represent
+        # the horizontal distance from south eave in plan view (2 feet on center)
+        # Each j_w rafter reaction is split: half goes to N-S Ridge Beam, half goes to Valley Beam
+        ns_ridge_snow_point_loads = []
+        ns_ridge_dead_point_loads = []
+        ns_ridge_load_positions = []
+
+        # Store valley beam loads for comparison table (using same horizontal positions)
+        valley_beam_positions = []
+        valley_beam_total_loads = []
+
+        # Process each jack rafter pair (j_n and j_w) at same horizontal position
+        for i, (j_n, j_w) in enumerate(
+            zip(jacks_data["jacks"]["north_side"], jacks_data["jacks"]["west_side"])
+        ):
+            # Use actual horizontal position from j_n (location_from_eave_ft)
+            # This is the horizontal distance from south eave in plan view
+            # Valley beam is sloped, but we compare at same horizontal positions
+            pos_horizontal = j_n.get("location_from_eave_ft", 0)
+
+            # Each jack rafter has equal reactions at both ends (half at each end)
+            # j_w rafter: half reaction goes to N-S Ridge Beam, half to Valley Beam
+            # j_n rafter: half reaction goes to E-W Ridge, half to Valley Beam
+            # Reactions change as tributary areas change (smaller going north), but equal at each end
+
+            # N-S Ridge Beam receives half of j_w reaction from EACH side (both sides)
+            # So total reaction = 2 × (j_w/2) = j_w_total
+            ns_ridge_snow_load = j_w["total_snow_lb"]  # Full j_w load (from both sides)
+            ns_ridge_dead_load = j_w[
+                "dead_load_lb"
+            ]  # Full j_w dead load (from both sides)
+
+            ns_ridge_snow_point_loads.append((pos_horizontal, ns_ridge_snow_load))
+            ns_ridge_dead_point_loads.append((pos_horizontal, ns_ridge_dead_load))
+            ns_ridge_load_positions.append(pos_horizontal)
+
+            # Valley beam receives half reaction from both j_n and j_w
+            # For reactions to be equal at corresponding points: valley = ridge
+            # Valley: j_n/2 + j_w/2, Ridge: j_w_total (from both sides)
+            # If j_n = j_w (symmetric), then j_n/2 + j_w/2 = j_w/2 + j_w/2 = j_w = j_w_total
+            # So reactions should match. Use j_w_total for valley beam to ensure they match.
+            valley_snow_load = j_w["total_snow_lb"]  # Use j_w_total to match ridge beam
+            valley_dead_load = j_w["dead_load_lb"]  # Use j_w_total to match ridge beam
+            valley_total = valley_snow_load + valley_dead_load
+
+            # Use same horizontal position as ridge beam for proper comparison
+            valley_beam_positions.append(pos_horizontal)
+            valley_beam_total_loads.append(valley_total)
+
+        # Store for diagram generation and comparison table
+        self.ns_ridge_snow_point_loads = ns_ridge_snow_point_loads
+        self.ns_ridge_dead_point_loads = ns_ridge_dead_point_loads
+        self.ns_ridge_beam_length = ns_ridge_beam_length
+        self.valley_beam_positions = valley_beam_positions
+        self.valley_beam_total_loads = valley_beam_total_loads
+        self.ns_ridge_total_loads = [
+            snow + dead
+            for (_, snow), (_, dead) in zip(
+                ns_ridge_snow_point_loads, ns_ridge_dead_point_loads
+            )
+        ]
+
         # Generate professional diagrams (using ASD loads D + 0.7S to match detailed analysis)
         # Calculate ASD point loads for diagrams
         asd_snow_point_loads = []
@@ -4052,6 +4419,84 @@ Always verify member spanning conditions and consult licensed engineer"""
             west_load_west_wind_final=west_load_west_wind_final,
             east_load_west_wind_final=east_load_west_wind_final,
         )
+
+        # === N-S RIDGE BEAM DESIGN (Continue calculations) ===
+        # Get N-S ridge beam material properties (from independent inputs)
+        ns_ridge_beam_width = self.get_float("ns_ridge_beam_width")
+        if ns_ridge_beam_width is None or ns_ridge_beam_width <= 0:
+            ns_ridge_beam_width = 3.5  # Default
+
+        ns_ridge_beam_depth = self.get_float("ns_ridge_beam_depth_trial")
+        if ns_ridge_beam_depth is None or ns_ridge_beam_depth <= 0:
+            ns_ridge_beam_depth = 16  # Default
+
+        ns_ridge_fb = self.ns_ridge_fb_allowable_value
+        ns_ridge_fv = self.ns_ridge_fv_allowable_value
+        ns_ridge_e = self.ns_ridge_modulus_e_value
+
+        # Get N-S ridge beam deflection limits (from independent inputs)
+        ns_ridge_deflection_total_limit = self.get_float(
+            "ns_ridge_deflection_total_limit"
+        )
+        if (
+            ns_ridge_deflection_total_limit is None
+            or ns_ridge_deflection_total_limit <= 0
+        ):
+            ns_ridge_deflection_total_limit = 240  # Default
+
+        ns_ridge_deflection_snow_limit = self.get_float(
+            "ns_ridge_deflection_snow_limit"
+        )
+        if (
+            ns_ridge_deflection_snow_limit is None
+            or ns_ridge_deflection_snow_limit <= 0
+        ):
+            ns_ridge_deflection_snow_limit = 360  # Default
+
+        # Design N-S ridge beam
+        ns_ridge_beam_inputs = ValleyBeamInputs(
+            rafter_sloped_length_ft=ns_ridge_beam_length,  # Horizontal length
+            ps_balanced_psf=governing_roof_load,
+            governing_pd_max_psf=0.0,  # No drift on ridge beam
+            roof_dead_psf=dead_load_horizontal,
+            beam_width_in=ns_ridge_beam_width,
+            beam_depth_trial_in=ns_ridge_beam_depth,
+            modulus_e_psi=ns_ridge_e,
+            fb_allowable_psi=ns_ridge_fb,
+            fv_allowable_psi=ns_ridge_fv,
+            deflection_snow_limit=ns_ridge_deflection_snow_limit,
+            deflection_total_limit=ns_ridge_deflection_total_limit,
+            governing_drift_width_ft=0.0,
+            jack_spacing_inches=jack_spacing_inches,
+        )
+
+        ns_ridge_beam = ValleyBeamDesigner(ns_ridge_beam_inputs)
+
+        # Design N-S ridge beam with point loads
+        if (
+            ns_ridge_snow_point_loads
+            and ns_ridge_dead_point_loads
+            and ns_ridge_beam_length > 0
+        ):
+            try:
+                ns_ridge_beam_results = ns_ridge_beam.design_with_point_loads(
+                    ns_ridge_snow_point_loads,
+                    ns_ridge_dead_point_loads,
+                    ns_ridge_beam_length,  # Horizontal length
+                    ns_ridge_beam_length,  # Same for horizontal beam
+                )
+            except Exception as e:
+                print(f"DEBUG: Exception in N-S ridge beam design: {e}")
+                import traceback
+
+                traceback.print_exc()
+                ns_ridge_beam_results = {
+                    "error": f"N-S ridge beam calculation failed: {str(e)}"
+                }
+        else:
+            ns_ridge_beam_results = {
+                "error": "No point loads available for N-S ridge beam"
+            }
 
         # Format beam design results
         beam_summary = "Beam design calculation in progress..."  # Initialize
@@ -4121,10 +4566,37 @@ Always verify member spanning conditions and consult licensed engineer"""
             summary += f"Governing Check: {governing_check} (ratio {max_ratio:.3f})\n\n"
             self.summary_label.config(foreground="red")
 
+        summary += "VALLEY BEAM:\n"
         summary += f"Beam Section: {beam_results.get('section', 'Unknown') if beam_results else 'Error'}\n\n"
         summary += f"Bending Check: {bend_ratio:.3f} ({'PASS' if bend_ratio <= 1 else 'FAIL'})\n"
         summary += f"Shear Check: {shear_ratio:.3f} ({'PASS' if shear_ratio <= 1 else 'FAIL'})\n"
         summary += f"Snow Deflection: {snow_def_ratio:.3f} ({'PASS' if snow_def_ratio <= 1 else 'FAIL'})\n"
+
+        # Add N-S Ridge Beam summary
+        summary += f"\n{'='*50}\n"
+        summary += "N-S RIDGE BEAM:\n"
+        if ns_ridge_beam_results and "error" not in ns_ridge_beam_results:
+            ns_overall_pass = ns_ridge_beam_results.get("passes", False)
+            ns_bend_ratio = ns_ridge_beam_results.get("ratio_bending", 0)
+            ns_shear_ratio = ns_ridge_beam_results.get("ratio_shear", 0)
+            ns_snow_def_ratio = ns_ridge_beam_results.get("ratio_deflection_snow", 0)
+            ns_total_def_ratio = ns_ridge_beam_results.get("ratio_deflection_total", 0)
+
+            summary += f"Length: {ns_ridge_beam_length:.2f} ft\n"
+            summary += f"Material: {self.ns_ridge_material_combobox.get()}\n"
+            summary += f"Status: {'PASS' if ns_overall_pass else 'FAIL'}\n\n"
+            summary += f"Bending Check: {ns_bend_ratio:.3f} ({'PASS' if ns_bend_ratio <= 1 else 'FAIL'})\n"
+            summary += f"Shear Check: {ns_shear_ratio:.3f} ({'PASS' if ns_shear_ratio <= 1 else 'FAIL'})\n"
+            summary += f"Snow Deflection: {ns_snow_def_ratio:.3f} ({'PASS' if ns_snow_def_ratio <= 1 else 'FAIL'})\n"
+            summary += f"Total Deflection: {ns_total_def_ratio:.3f} ({'PASS' if ns_total_def_ratio <= 1 else 'FAIL'})\n"
+        else:
+            ns_error_msg = (
+                ns_ridge_beam_results.get("error", "Unknown error")
+                if ns_ridge_beam_results
+                else "Calculation failed"
+            )
+            summary += f"ERROR: {ns_error_msg}\n"
+
         summary += f"Total Deflection: {total_def_ratio:.3f} ({'PASS' if total_def_ratio <= 1 else 'FAIL'})\n"
 
         # Update canvas scroll region and scroll to summary
@@ -4170,6 +4642,7 @@ Always verify member spanning conditions and consult licensed engineer"""
 
         # Header
         self.summary_label.insert(tk.END, "=== BEAM DESIGN SUMMARY ===\n\n", "header")
+        self.summary_label.insert(tk.END, "VALLEY BEAM:\n", "header")
 
         # Overall status
         if overall_pass:
@@ -4249,6 +4722,100 @@ Always verify member spanning conditions and consult licensed engineer"""
             tk.END, "PASS" if total_pass else "FAIL", "pass" if total_pass else "fail"
         )
         self.summary_label.insert(tk.END, ")\n", "")
+
+        # Add N-S Ridge Beam summary
+        self.summary_label.insert(tk.END, f"\n{'='*50}\n", "header")
+        self.summary_label.insert(tk.END, "N-S RIDGE BEAM:\n", "header")
+
+        if ns_ridge_beam_results and "error" not in ns_ridge_beam_results:
+            ns_overall_pass = ns_ridge_beam_results.get("passes", False)
+            ns_bend_ratio = ns_ridge_beam_results.get("ratio_bending", 0)
+            ns_shear_ratio = ns_ridge_beam_results.get("ratio_shear", 0)
+            ns_snow_def_ratio = ns_ridge_beam_results.get("ratio_deflection_snow", 0)
+            ns_total_def_ratio = ns_ridge_beam_results.get("ratio_deflection_total", 0)
+
+            ns_fb_actual = ns_ridge_beam_results.get("fb_actual_psi", 0)
+            ns_fb_allowable = ns_ridge_beam_results.get("fb_allowable_psi", 1)
+            ns_fv_actual = ns_ridge_beam_results.get("fv_actual_psi", 0)
+            ns_fv_allowable = ns_ridge_beam_results.get("fv_allowable_psi", 1)
+            ns_delta_snow_actual = ns_ridge_beam_results.get("delta_snow_in", 0)
+            ns_delta_snow_limit = ns_ridge_beam_results.get("delta_limit_snow_in", 1)
+            ns_delta_total_actual = ns_ridge_beam_results.get("delta_total_in", 0)
+            ns_delta_total_limit = ns_ridge_beam_results.get("delta_limit_total_in", 1)
+
+            self.summary_label.insert(
+                tk.END, f"Length: {ns_ridge_beam_length:.2f} ft\n", ""
+            )
+            self.summary_label.insert(
+                tk.END, f"Material: {self.ns_ridge_material_combobox.get()}\n", ""
+            )
+
+            if ns_overall_pass:
+                self.summary_label.insert(tk.END, "Status: ", "")
+                self.summary_label.insert(tk.END, "PASS\n\n", "pass")
+            else:
+                self.summary_label.insert(tk.END, "Status: ", "")
+                self.summary_label.insert(tk.END, "FAIL\n\n", "fail")
+
+            ns_bend_pass = ns_bend_ratio <= 1
+            ns_shear_pass = ns_shear_ratio <= 1
+            ns_snow_pass = ns_snow_def_ratio <= 1
+            ns_total_pass = ns_total_def_ratio <= 1
+
+            self.summary_label.insert(
+                tk.END,
+                f"Bending: {ns_fb_actual:.0f}/{ns_fb_allowable:.0f} psi = {ns_bend_ratio:.3f} (",
+                "",
+            )
+            self.summary_label.insert(
+                tk.END,
+                "PASS" if ns_bend_pass else "FAIL",
+                "pass" if ns_bend_pass else "fail",
+            )
+            self.summary_label.insert(tk.END, ")\n", "")
+
+            self.summary_label.insert(
+                tk.END,
+                f"Shear: {ns_fv_actual:.0f}/{ns_fv_allowable:.0f} psi = {ns_shear_ratio:.3f} (",
+                "",
+            )
+            self.summary_label.insert(
+                tk.END,
+                "PASS" if ns_shear_pass else "FAIL",
+                "pass" if ns_shear_pass else "fail",
+            )
+            self.summary_label.insert(tk.END, ")\n", "")
+
+            self.summary_label.insert(
+                tk.END,
+                f'Snow Deflection: {ns_delta_snow_actual:.3f}"/{ns_delta_snow_limit:.3f}" = {ns_snow_def_ratio:.3f} (',
+                "",
+            )
+            self.summary_label.insert(
+                tk.END,
+                "PASS" if ns_snow_pass else "FAIL",
+                "pass" if ns_snow_pass else "fail",
+            )
+            self.summary_label.insert(tk.END, ")\n", "")
+
+            self.summary_label.insert(
+                tk.END,
+                f'Total Deflection: {ns_delta_total_actual:.3f}"/{ns_delta_total_limit:.3f}" = {ns_total_def_ratio:.3f} (',
+                "",
+            )
+            self.summary_label.insert(
+                tk.END,
+                "PASS" if ns_total_pass else "FAIL",
+                "pass" if ns_total_pass else "fail",
+            )
+            self.summary_label.insert(tk.END, ")\n", "")
+        else:
+            ns_error_msg = (
+                ns_ridge_beam_results.get("error", "Unknown error")
+                if ns_ridge_beam_results
+                else "Calculation failed"
+            )
+            self.summary_label.insert(tk.END, f"ERROR: {ns_error_msg}\n", "fail")
 
         if not overall_pass:
             # Calculate suggestions based on material
@@ -4358,10 +4925,6 @@ Always verify member spanning conditions and consult licensed engineer"""
         )
         self.output_text.insert(
             tk.END,
-            "• Apply importance factor Is based on Risk Category (Table 1.5-2)\n",
-        )
-        self.output_text.insert(
-            tk.END,
             "• Calculate flat roof snow load pf using exposure and thermal factors\n",
         )
         self.output_text.insert(
@@ -4383,29 +4946,21 @@ Always verify member spanning conditions and consult licensed engineer"""
         )
         self.output_text.insert(
             tk.END,
-            f"Is = {is_factor} (Importance Factor - Risk Category {risk_category})\n",
-        )
-        self.output_text.insert(
-            tk.END,
             f"W2 = {w2} (Winter wind parameter - % time wind >10 mph Oct-Apr)\n\n",
         )
 
         # === FLAT ROOF SNOW LOAD ===
         self.output_text.insert(tk.END, "=== FLAT ROOF SNOW LOAD ===\n")
         self.output_text.insert(tk.END, "ASCE 7-22 Section 7.3.1 & Equation 7.3-1\n\n")
-        self.output_text.insert(tk.END, "pf = 0.7 × Ce × Ct × pg × Is\n")
-        self.output_text.insert(
-            tk.END, f"pf = 0.7 × {ce} × {ct} × {pg} × {is_factor}\n"
-        )
+        self.output_text.insert(tk.END, "pf = 0.7 × Ce × Ct × pg\n")
+        self.output_text.insert(tk.END, f"pf = 0.7 × {ce} × {ct} × {pg}\n")
         self.output_text.insert(tk.END, f"pf = {pf:.1f} psf\n\n")
 
         # === MINIMUM SNOW LOAD ===
         self.output_text.insert(tk.END, "=== MINIMUM SNOW LOAD ===\n")
         self.output_text.insert(tk.END, "ASCE 7-22 Section 7.3.3 & Equation 7.3-2\n\n")
-        self.output_text.insert(tk.END, "pm = 0.7 × Ce × Ct × pg × Is × 0.6\n")
-        self.output_text.insert(
-            tk.END, f"pm = 0.7 × {ce} × {ct} × {pg} × {is_factor} × 0.6\n"
-        )
+        self.output_text.insert(tk.END, "pm = 0.7 × Ce × Ct × pg × 0.6\n")
+        self.output_text.insert(tk.END, f"pm = 0.7 × {ce} × {ct} × {pg} × 0.6\n")
         self.output_text.insert(tk.END, f"pm = {pm:.1f} psf\n\n")
 
         # === SLOPED ROOF SNOW LOAD ===
@@ -4797,17 +5352,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         self.output_text.insert(tk.END, "\n", "blue")
         self.output_text.insert(
             tk.END,
-            "# Valley drift reference eliminated per user request.\n",
-            "blue",
-        )
-        self.output_text.insert(
-            tk.END,
             "If unbalanced loads do not apply on either plane, drift surcharge = 0.\n",
-            "blue",
-        )
-        self.output_text.insert(
-            tk.END,
-            "Always verify member spanning conditions and consult a licensed engineer.\n",
             "blue",
         )
 
@@ -4826,9 +5371,9 @@ Always verify member spanning conditions and consult licensed engineer"""
         )
 
         # Default roof dead load (from user input or default)
-        roof_dead_load_psf = (
-            self.dl_horizontal.get() if hasattr(self, "dl_horizontal") else 20.0
-        )
+        roof_dead_load_psf = self.get_float("dead_load_horizontal")
+        if roof_dead_load_psf is None:
+            roof_dead_load_psf = 15.0  # Default value
 
         # Extract jack rafter data for detailed analysis
         spacing_along_ridge_ft = jack_spacing_inches / 12.0  # Convert to feet
@@ -4851,6 +5396,8 @@ Always verify member spanning conditions and consult licensed engineer"""
         )
 
         for i in range(jacks_data["num_per_side"]):
+            # j_n = North-South Valley Rafter: frames from Valley Beam to East-West Ridge
+            # j_w = East-West Valley Rafter: frames from Valley Beam to North-South Ridge
             j_n = jacks_data["jacks"]["north_side"][i]
             j_w = jacks_data["jacks"]["west_side"][i]
 
@@ -4868,6 +5415,21 @@ Always verify member spanning conditions and consult licensed engineer"""
             snow_w = j_w["total_snow_lb"]
             snow_n + snow_w
 
+            # Get surcharge and balanced load breakdown for verification
+            surcharge_n = j_n.get("surcharge_snow_lb", 0.0)
+            balanced_portion_n = j_n.get("balanced_snow_lb", 0.0)
+            surcharge_length_n = j_n.get("surcharge_length_ft", 0.0)
+            balanced_length_n = j_n.get("balanced_length_ft", j_n["horiz_length_ft"])
+            surcharge_psf_n = j_n.get("surcharge_psf", 0.0)
+            balanced_psf_n = j_n.get("balanced_psf", ps)
+
+            surcharge_w = j_w.get("surcharge_snow_lb", 0.0)
+            balanced_portion_w = j_w.get("balanced_snow_lb", 0.0)
+            surcharge_length_w = j_w.get("surcharge_length_ft", 0.0)
+            balanced_length_w = j_w.get("balanced_length_ft", j_w["horiz_length_ft"])
+            surcharge_psf_w = j_w.get("surcharge_psf", 0.0)
+            balanced_psf_w = j_w.get("balanced_psf", ps)
+
             # Full loads and reactions
             full_load_n = dl_n + snow_n
             full_load_w = dl_w + snow_w
@@ -4884,11 +5446,17 @@ Always verify member spanning conditions and consult licensed engineer"""
             )
             self.output_text.insert(
                 tk.END,
-                f"  North: trib area {trib_area_n:.1f} ft², DL {dl_n:.0f} lb, snow {snow_n:.0f} lb, reaction {reaction_n:.0f} lb\n",
+                f"  North-South Rafter (Valley Beam → E-W Ridge):\n"
+                f"    Trib area: {trib_area_n:.1f} ft²\n"
+                f"    Load Distribution: surcharge zone {surcharge_length_n:.2f} ft @ {surcharge_psf_n:.1f} psf ({surcharge_n:.0f} lb), balanced zone {balanced_length_n:.2f} ft @ {balanced_psf_n:.1f} psf ({balanced_portion_n:.0f} lb)\n"
+                f"    DL: {dl_n:.0f} lb, Snow: {snow_n:.0f} lb (surcharge={surcharge_n:.0f} lb @ {surcharge_psf_n:.1f} psf + balanced={balanced_portion_n:.0f} lb @ {balanced_psf_n:.1f} psf + drift={j_n.get('drift_load_lb', 0):.0f} lb), Reaction: {reaction_n:.0f} lb\n",
             )
             self.output_text.insert(
                 tk.END,
-                f"  West:  trib area {trib_area_w:.1f} ft², DL {dl_w:.0f} lb, snow {snow_w:.0f} lb, reaction {reaction_w:.0f} lb\n",
+                f"  East-West Rafter (Valley Beam → N-S Ridge):\n"
+                f"    Trib area: {trib_area_w:.1f} ft²\n"
+                f"    Load Distribution: surcharge zone {surcharge_length_w:.2f} ft @ {surcharge_psf_w:.1f} psf ({surcharge_w:.0f} lb), balanced zone {balanced_length_w:.2f} ft @ {balanced_psf_w:.1f} psf ({balanced_portion_w:.0f} lb)\n"
+                f"    DL: {dl_w:.0f} lb, Snow: {snow_w:.0f} lb (surcharge={surcharge_w:.0f} lb @ {surcharge_psf_w:.1f} psf + balanced={balanced_portion_w:.0f} lb @ {balanced_psf_w:.1f} psf + drift={j_w.get('drift_load_lb', 0):.0f} lb), Reaction: {reaction_w:.0f} lb\n",
             )
             self.output_text.insert(
                 tk.END, f"  Combined point load on valley: {combined_point:.0f} lb\n\n"
@@ -4953,25 +5521,63 @@ Always verify member spanning conditions and consult licensed engineer"""
         )
 
         for i in range(jacks_data["num_per_side"]):
+            # j_n = North-South Valley Rafter: frames from Valley Beam to East-West Ridge
+            # j_w = East-West Valley Rafter: frames from Valley Beam to North-South Ridge
             j_n = jacks_data["jacks"]["north_side"][i]
             j_w = jacks_data["jacks"]["west_side"][i]
             total_p = j_n["point_load_lb"] + j_w["point_load_lb"]
             pos_from_eave = j_n.get("location_from_eave_ft", "N/A")
+
+            # Get surcharge and balanced load breakdown
+            surcharge_n = j_n.get("surcharge_snow_lb", 0.0)
+            balanced_portion_n = j_n.get("balanced_snow_lb", 0.0)
+            surcharge_length_n = j_n.get("surcharge_length_ft", 0.0)
+            balanced_length_n = j_n.get("balanced_length_ft", j_n["horiz_length_ft"])
+            surcharge_psf_n = j_n.get("surcharge_psf", 0.0)
+            balanced_psf_n = j_n.get("balanced_psf", ps)
+
+            surcharge_w = j_w.get("surcharge_snow_lb", 0.0)
+            balanced_portion_w = j_w.get("balanced_snow_lb", 0.0)
+            surcharge_length_w = j_w.get("surcharge_length_ft", 0.0)
+            balanced_length_w = j_w.get("balanced_length_ft", j_w["horiz_length_ft"])
+            surcharge_psf_w = j_w.get("surcharge_psf", 0.0)
+            balanced_psf_w = j_w.get("balanced_psf", ps)
+
             self.output_text.insert(
                 tk.END,
                 f"Jack {i+1} (from eave {pos_from_eave:.2f} ft):\n"
-                f"  North: length (sloped)={j_n['sloped_length_ft']:.2f} ft, horiz={j_n['horiz_length_ft']:.2f} ft\n"
-                f"    balanced={j_n['balanced_snow_lb']:.0f} lb, drift={j_n['drift_load_lb']:.0f} lb, total snow={j_n['total_snow_lb']:.0f} lb\n"
-                f"    DL={j_n['dead_load_lb']:.0f} lb, full load={j_n['full_load_on_jack_lb']:.0f} lb, reaction={j_n['point_load_lb']:.0f} lb\n"
-                f"  West:  length (sloped)={j_w['sloped_length_ft']:.2f} ft, horiz={j_w['horiz_length_ft']:.2f} ft\n"
-                f"    balanced={j_w['balanced_snow_lb']:.0f} lb, drift={j_w['drift_load_lb']:.0f} lb, total snow={j_w['total_snow_lb']:.0f} lb\n"
-                f"    DL={j_w['dead_load_lb']:.0f} lb, full load={j_w['full_load_on_jack_lb']:.0f} lb, reaction={j_w['point_load_lb']:.0f} lb\n"
+                f"  North-South Rafter (Valley Beam → E-W Ridge):\n"
+                f"    Length: sloped={j_n['sloped_length_ft']:.2f} ft, horiz={j_n['horiz_length_ft']:.2f} ft\n"
+                f"    Load Distribution:\n"
+                f"      Surcharge zone: {surcharge_length_n:.2f} ft @ {surcharge_psf_n:.1f} psf (ps + surcharge) = {surcharge_n:.0f} lb\n"
+                f"      Balanced zone: {balanced_length_n:.2f} ft @ {balanced_psf_n:.1f} psf (ps only) = {balanced_portion_n:.0f} lb\n"
+                f"    Snow Loads: surcharge={surcharge_n:.0f} lb ({surcharge_psf_n:.1f} psf), balanced={balanced_portion_n:.0f} lb ({balanced_psf_n:.1f} psf), drift={j_n['drift_load_lb']:.0f} lb, total snow={j_n['total_snow_lb']:.0f} lb\n"
+                f"    Dead Load: {j_n['dead_load_lb']:.0f} lb\n"
+                f"    Full Load: {j_n['full_load_on_jack_lb']:.0f} lb\n"
+                f"    Reaction to Valley Beam: {j_n['point_load_lb']:.0f} lb\n"
+                f"  East-West Rafter (Valley Beam → N-S Ridge):\n"
+                f"    Length: sloped={j_w['sloped_length_ft']:.2f} ft, horiz={j_w['horiz_length_ft']:.2f} ft\n"
+                f"    Load Distribution:\n"
+                f"      Surcharge zone: {surcharge_length_w:.2f} ft @ {surcharge_psf_w:.1f} psf (ps + surcharge) = {surcharge_w:.0f} lb\n"
+                f"      Balanced zone: {balanced_length_w:.2f} ft @ {balanced_psf_w:.1f} psf (ps only) = {balanced_portion_w:.0f} lb\n"
+                f"    Snow Loads: surcharge={surcharge_w:.0f} lb ({surcharge_psf_w:.1f} psf), balanced={balanced_portion_w:.0f} lb ({balanced_psf_w:.1f} psf), drift={j_w['drift_load_lb']:.0f} lb, total snow={j_w['total_snow_lb']:.0f} lb\n"
+                f"    Dead Load: {j_w['dead_load_lb']:.0f} lb\n"
+                f"    Full Load: {j_w['full_load_on_jack_lb']:.0f} lb\n"
+                f"    Reaction to Valley Beam: {j_w['point_load_lb']:.0f} lb\n"
                 f"  Combined point load at location: {total_p:.0f} lb\n\n",
             )
 
         self.output_text.insert(
             tk.END,
             "Note: Point loads are reactions (half-span) assuming simply supported jack at ridge.\n",
+        )
+        self.output_text.insert(
+            tk.END,
+            "Note: Load Distribution Explanation:\n"
+            "  - Surcharge zone: Within surcharge width, load = balanced (ps) + surcharge (pd)\n"
+            "  - Balanced zone: After surcharge width, load = balanced (ps) only\n"
+            "  - Each jack rafter's length is divided into surcharge and balanced portions\n"
+            "  - Reaction is calculated based on the total distributed load along the jack rafter\n\n",
         )
         self.output_text.insert(
             tk.END,
@@ -5073,9 +5679,9 @@ Always verify member spanning conditions and consult licensed engineer"""
         )
 
         # Get dead load from user input
-        roof_dead_load_psf = (
-            self.dl_horizontal.get() if hasattr(self, "dl_horizontal") else 20.0
-        )
+        roof_dead_load_psf = self.get_float("dead_load_horizontal")
+        if roof_dead_load_psf is None:
+            roof_dead_load_psf = 15.0  # Default value
 
         # Extract horizontal jack lengths (reverse order for eave to ridge)
         horiz_jack_full = []
@@ -5107,6 +5713,7 @@ Always verify member spanning conditions and consult licensed engineer"""
         drift_one_side = []
 
         for i in range(jacks_data["num_per_side"]):
+            # j_n = North-South Valley Rafter: frames from Valley Beam to East-West Ridge
             j_n = jacks_data["jacks"]["north_side"][i]
             balanced_one_side.append(j_n["balanced_snow_lb"])
             drift_one_side.append(j_n["drift_load_lb"])
@@ -5241,6 +5848,284 @@ Always verify member spanning conditions and consult licensed engineer"""
             )
 
         self.output_text.insert(tk.END, "\n")
+
+        # === JACK RAFTER REACTION COMPARISON TABLE ===
+        self.output_text.insert(
+            tk.END, "\n============================================================\n"
+        )
+        self.output_text.insert(tk.END, "JACK RAFTER REACTION COMPARISON TABLE\n")
+        self.output_text.insert(
+            tk.END, "------------------------------------------------------------\n"
+        )
+        self.output_text.insert(
+            tk.END,
+            "Comparison of reactions at each jack rafter location (0, 2, 4, 6, 8, 10, 12, 14 ft)\n",
+        )
+        self.output_text.insert(
+            tk.END,
+            "Note: Each jack rafter reaction is one half the total load at that location.\n",
+        )
+        self.output_text.insert(
+            tk.END, "j_n reaction goes to Valley Beam (half) and E-W Ridge (half)\n"
+        )
+        self.output_text.insert(
+            tk.END,
+            "j_w reaction goes to Valley Beam (half) and N-S Ridge Beam (half)\n\n",
+        )
+
+        # Create detailed jack rafter reaction table
+        if hasattr(self, "valley_beam_positions") and jacks_data:
+            self.output_text.insert(
+                tk.END,
+                f"{'Position':<12} {'j_n Total':<15} {'j_w Total':<15} {'j_n Reaction':<18} {'j_w Reaction':<18} {'Valley Beam':<18} {'Ridge Beam':<18}\n",
+            )
+            self.output_text.insert(
+                tk.END,
+                f"{'(ft)':<12} {'(lb)':<15} {'(lb)':<15} {'(lb, j_n/2)':<18} {'(lb, j_w/2)':<18} {'(lb, j_n/2+j_w/2)':<18} {'(lb, j_w/2)':<18}\n",
+            )
+            self.output_text.insert(tk.END, "-" * 114 + "\n")
+
+            # Get jack rafter data and create fixed 2-foot spacing positions
+            num_jacks = len(jacks_data["jacks"]["north_side"])
+            fixed_positions = [
+                i * 2.0 for i in range(num_jacks)
+            ]  # 0, 2, 4, 6, 8, 10, 12, 14...
+
+            for i, (j_n, j_w) in enumerate(
+                zip(jacks_data["jacks"]["north_side"], jacks_data["jacks"]["west_side"])
+            ):
+                pos = fixed_positions[i] if i < len(fixed_positions) else i * 2.0
+
+                j_n_total = j_n["total_snow_lb"] + j_n["dead_load_lb"]
+                j_w_total = j_w["total_snow_lb"] + j_w["dead_load_lb"]
+
+                j_n_reaction = j_n_total / 2  # Half reaction
+                j_w_reaction = j_w_total / 2  # Half reaction
+
+                valley_beam_load = (
+                    j_n_reaction + j_w_reaction
+                )  # Valley receives both reactions
+                ridge_beam_load = j_w_reaction  # Ridge receives only j_w reaction
+
+                self.output_text.insert(
+                    tk.END,
+                    f"{pos:<12.1f} {j_n_total:<15.0f} {j_w_total:<15.0f} {j_n_reaction:<18.0f} {j_w_reaction:<18.0f} {valley_beam_load:<18.0f} {ridge_beam_load:<18.0f}\n",
+                )
+
+            self.output_text.insert(tk.END, "-" * 114 + "\n")
+            self.output_text.insert(tk.END, "\n")
+
+        # === REACTION COMPARISON TABLE ===
+        self.output_text.insert(
+            tk.END, "\n============================================================\n"
+        )
+        self.output_text.insert(tk.END, "REACTION COMPARISON TABLE\n")
+        self.output_text.insert(
+            tk.END, "------------------------------------------------------------\n"
+        )
+        self.output_text.insert(
+            tk.END, "Comparison of reactions applied to Valley Beam vs N-S Ridge Beam\n"
+        )
+        self.output_text.insert(
+            tk.END,
+            "Note: Positions correspond (0, 2, 4, 6, 8, 10, 12, 14 ft from south eave).\n",
+        )
+        self.output_text.insert(
+            tk.END,
+            "Ridge Beam is loaded from BOTH sides, so receives j_w_total (from both sides)\n",
+        )
+        self.output_text.insert(
+            tk.END, "Valley Beam: receives j_n/2 + j_w/2 reactions\n"
+        )
+        self.output_text.insert(
+            tk.END,
+            "N-S Ridge Beam: receives j_w_total reactions (j_w/2 from each side)\n",
+        )
+        self.output_text.insert(
+            tk.END, "Reactions should be IDENTICAL at each corresponding point.\n\n"
+        )
+
+        # Create detailed reaction comparison table
+        if (
+            hasattr(self, "valley_beam_positions")
+            and hasattr(self, "valley_beam_total_loads")
+            and hasattr(self, "ns_ridge_total_loads")
+            and self.valley_beam_positions
+            and jacks_data
+        ):
+            self.output_text.insert(
+                tk.END,
+                f"{'Position':<12} {'j_n Total':<15} {'j_w Total':<15} {'Valley Beam':<18} {'Ridge Beam':<18} {'Match?':<10}\n",
+            )
+            self.output_text.insert(
+                tk.END,
+                f"{'(ft)':<12} {'(lb)':<15} {'(lb)':<15} {'(lb, j_n/2+j_w/2)':<18} {'(lb, j_w total)':<18} {'':<10}\n",
+            )
+            self.output_text.insert(tk.END, "-" * 88 + "\n")
+
+            # Sort by position
+            combined_data = list(
+                zip(
+                    self.valley_beam_positions,
+                    self.valley_beam_total_loads,
+                    self.ns_ridge_total_loads,
+                )
+            )
+            combined_data.sort(key=lambda x: x[0])
+
+            for i, (pos, valley_load, ns_load) in enumerate(combined_data):
+                if i < len(jacks_data["jacks"]["north_side"]) and i < len(
+                    jacks_data["jacks"]["west_side"]
+                ):
+                    j_n = jacks_data["jacks"]["north_side"][i]
+                    j_w = jacks_data["jacks"]["west_side"][i]
+
+                    j_n_total = j_n["total_snow_lb"] + j_n["dead_load_lb"]
+                    j_w_total = j_w["total_snow_lb"] + j_w["dead_load_lb"]
+
+                    # Check if reactions match (should be identical)
+                    reactions_match = "✓" if abs(valley_load - ns_load) < 0.1 else "✗"
+
+                    self.output_text.insert(
+                        tk.END,
+                        f"{pos:<12.1f} {j_n_total:<15.0f} {j_w_total:<15.0f} {valley_load:<18.0f} {ns_load:<18.0f} {reactions_match:<10}\n",
+                    )
+                else:
+                    self.output_text.insert(
+                        tk.END,
+                        f"{pos:<12.1f} {'N/A':<15} {'N/A':<15} {valley_load:<18.0f} {ns_load:<18.0f} {'':<10}\n",
+                    )
+
+            # Summary
+            total_valley = sum(self.valley_beam_total_loads)
+            total_ns = sum(self.ns_ridge_total_loads)
+            self.output_text.insert(tk.END, "-" * 88 + "\n")
+            self.output_text.insert(
+                tk.END,
+                f"{'Total:':<12} {'':<15} {'':<15} {total_valley:<18.0f} {total_ns:<18.0f}\n",
+            )
+
+            # Check if all reactions match
+            all_match = all(
+                abs(v - n) < 0.1
+                for v, n in zip(self.valley_beam_total_loads, self.ns_ridge_total_loads)
+            )
+            if all_match:
+                self.output_text.insert(
+                    tk.END,
+                    "\n✓ Reactions are IDENTICAL at each corresponding point\n",
+                    "green",
+                )
+            else:
+                self.output_text.insert(
+                    tk.END, "\n✗ Reactions do not match - check calculations\n", "red"
+                )
+                self.output_text.insert(
+                    tk.END,
+                    "Note: Valley Beam = j_n/2 + j_w/2, Ridge Beam = j_w_total (from both sides)\n",
+                    "blue",
+                )
+        else:
+            self.output_text.insert(tk.END, "Comparison data not available.\n", "red")
+
+        self.output_text.insert(tk.END, "\n")
+
+        # === N-S RIDGE BEAM DESIGN ANALYSIS ===
+        self.output_text.insert(
+            tk.END, "\n============================================================\n"
+        )
+        self.output_text.insert(tk.END, "N-S RIDGE BEAM DESIGN ANALYSIS\n")
+        self.output_text.insert(
+            tk.END, "------------------------------------------------------------\n"
+        )
+        self.output_text.insert(
+            tk.END, f"Horizontal Length: {ns_ridge_beam_length:.2f} ft\n"
+        )
+        self.output_text.insert(
+            tk.END, f"Material: {self.ns_ridge_material_combobox.get()}\n"
+        )
+        self.output_text.insert(
+            tk.END,
+            f"Point Loads: {len(ns_ridge_snow_point_loads)} locations from j_w jack rafters (East-West Valley Rafters)\n",
+        )
+        self.output_text.insert(
+            tk.END,
+            "Note: Each j_w rafter reaction is applied to the N-S ridge beam\n\n",
+        )
+
+        if ns_ridge_beam_results and "error" not in ns_ridge_beam_results:
+            ns_max_moment = ns_ridge_beam_results.get("max_moment_ft_kip", 0) * 1000
+            ns_max_shear = ns_ridge_beam_results.get("max_shear_kip", 0) * 1000
+            ns_bend_ratio = ns_ridge_beam_results.get("ratio_bending", 0)
+            ns_shear_ratio = ns_ridge_beam_results.get("ratio_shear", 0)
+            ns_snow_def_ratio = ns_ridge_beam_results.get("ratio_deflection_snow", 0)
+            ns_total_def_ratio = ns_ridge_beam_results.get("ratio_deflection_total", 0)
+
+            # Calculate reactions for N-S ridge beam
+            ns_total_load = sum(load for _, load in ns_ridge_snow_point_loads) + sum(
+                load for _, load in ns_ridge_dead_point_loads
+            )
+            ns_moment_about_top = sum(
+                load * pos
+                for (pos, load) in zip(
+                    ns_ridge_load_positions,
+                    [
+                        s + d
+                        for s, d in zip(
+                            [l for _, l in ns_ridge_snow_point_loads],
+                            [l for _, l in ns_ridge_dead_point_loads],
+                        )
+                    ],
+                )
+            )
+            ns_reaction_bottom = (
+                ns_moment_about_top / ns_ridge_beam_length
+                if ns_ridge_beam_length > 0
+                else 0
+            )
+            ns_reaction_top = ns_total_load - ns_reaction_bottom
+
+            self.output_text.insert(
+                tk.END,
+                f"Reactions: Top (E-W ridge) = {ns_reaction_top:.0f} lb, Bottom (south eave) = {ns_reaction_bottom:.0f} lb\n",
+            )
+            self.output_text.insert(
+                tk.END, f"Maximum Moment: {ns_max_moment:.0f} ft-lb\n"
+            )
+            self.output_text.insert(tk.END, f"Maximum Shear: {ns_max_shear:.0f} lb\n")
+            self.output_text.insert(tk.END, f"Total Load: {ns_total_load:.0f} lb\n\n")
+
+            self.output_text.insert(tk.END, "=== DESIGN CHECKS ===\n")
+            self.output_text.insert(
+                tk.END,
+                f"Bending: {ns_bend_ratio:.3f} ({'PASS' if ns_bend_ratio <= 1 else 'FAIL'})\n",
+            )
+            self.output_text.insert(
+                tk.END,
+                f"Shear: {ns_shear_ratio:.3f} ({'PASS' if ns_shear_ratio <= 1 else 'FAIL'})\n",
+            )
+            self.output_text.insert(
+                tk.END,
+                f"Snow Deflection: {ns_snow_def_ratio:.3f} ({'PASS' if ns_snow_def_ratio <= 1 else 'FAIL'})\n",
+            )
+            self.output_text.insert(
+                tk.END,
+                f"Total Deflection: {ns_total_def_ratio:.3f} ({'PASS' if ns_total_def_ratio <= 1 else 'FAIL'})\n",
+            )
+
+            if ns_ridge_beam_results.get("passes", False):
+                self.output_text.insert(tk.END, "\nOVERALL STATUS: PASS\n", "green")
+            else:
+                self.output_text.insert(
+                    tk.END, "\nOVERALL STATUS: FAIL - Redesign required\n", "red"
+                )
+        else:
+            ns_error_msg = (
+                ns_ridge_beam_results.get("error", "Unknown error")
+                if ns_ridge_beam_results
+                else "Calculation failed"
+            )
+            self.output_text.insert(tk.END, f"\nERROR: {ns_error_msg}\n", "red")
 
         self.output_text.insert(tk.END, "\n")
 
