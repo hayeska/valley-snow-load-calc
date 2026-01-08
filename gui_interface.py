@@ -514,12 +514,23 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
         summary_frame = ttk.LabelFrame(
             self.scrollable_frame, text="Beam Design Summary", padding=15
         )
-        summary_frame.pack(pady=20, padx=20, fill=tk.X)
+        summary_frame.pack(pady=20, padx=20, fill="both", expand=True)
+
+        # Create scrollable text widget with scrollbar
+        summary_text_frame = ttk.Frame(summary_frame)
+        summary_text_frame.pack(fill="both", expand=True, padx=5, pady=5)
 
         self.summary_label = tk.Text(
-            summary_frame, font=("Helvetica", 10), wrap="word", height=12
+            summary_text_frame, font=("Helvetica", 10), wrap="word", height=12
         )
-        self.summary_label.pack(fill="both", expand=True, padx=5, pady=5)
+        summary_scrollbar = ttk.Scrollbar(
+            summary_text_frame, orient="vertical", command=self.summary_label.yview
+        )
+        self.summary_label.configure(yscrollcommand=summary_scrollbar.set)
+        
+        self.summary_label.pack(side="left", fill="both", expand=True)
+        summary_scrollbar.pack(side="right", fill="y")
+        
         self.summary_label.insert(1.0, "Run calculation to see beam design summary...")
         self.summary_label.config(state="disabled")  # Make it read-only
 
@@ -2113,6 +2124,16 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
         for pos, load in total_point_loads:
             r_eave += load * (lv_horizontal - pos) / lv_horizontal  # Moment about ridge
         r_ridge = total_load - r_eave
+        
+        # Verify equilibrium: Sum of reactions should equal total point loads
+        sum_reactions_valley = r_eave + r_ridge
+        equilibrium_check_valley = abs(sum_reactions_valley - total_load) < 0.01  # Allow small rounding error
+        self.valley_equilibrium_check = {
+            "sum_reactions": sum_reactions_valley,
+            "total_loads": total_load,
+            "difference": abs(sum_reactions_valley - total_load),
+            "passes": equilibrium_check_valley
+        }
 
         # Generate positions for diagrams
         positions = [i * rafter_len / 99 for i in range(100)]
@@ -2522,6 +2543,17 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
                 ns_moment = sum(load * pos for pos, load in ns_total_loads)
                 ns_r_bottom = ns_moment / ns_ridge_length if ns_ridge_length > 0 else 0
                 ns_r_top = ns_total - ns_r_bottom
+                
+                # Verify equilibrium: Sum of reactions should equal total point loads
+                sum_reactions_ns = ns_r_top + ns_r_bottom
+                equilibrium_check_ns = abs(sum_reactions_ns - ns_total) < 0.01  # Allow small rounding error
+                self.ns_ridge_equilibrium_check = {
+                    "sum_reactions": sum_reactions_ns,
+                    "total_loads": ns_total,
+                    "difference": abs(sum_reactions_ns - ns_total),
+                    "passes": equilibrium_check_ns
+                }
+                
                 max_reaction_ns = max(abs(ns_r_top), abs(ns_r_bottom))
                 reaction_scale_ns = 1.5 / max_reaction_ns if max_reaction_ns > 0 else 1
 
@@ -4705,8 +4737,9 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
         self.summary_label.delete(1.0, tk.END)
 
         # Configure tags for colors
-        self.summary_label.tag_configure("pass", foreground="green")
-        self.summary_label.tag_configure("fail", foreground="red")
+        self.summary_label.tag_configure("pass", foreground="green", font=("Helvetica", 10, "bold"))
+        self.summary_label.tag_configure("fail", foreground="red", font=("Helvetica", 10, "bold"))
+        self.summary_label.tag_configure("ok", foreground="green", font=("Helvetica", 10, "bold"))
         self.summary_label.tag_configure(
             "header", foreground="black", font=("Helvetica", 11, "bold")
         )
@@ -6115,18 +6148,75 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
                 self.output_text.insert(
                     tk.END, "\n✗ Reactions do not match - check calculations\n", "red"
                 )
+        
+        # === EQUILIBRIUM VERIFICATION (STATIC CHECK) ===
+        self.output_text.insert(
+            tk.END, "\n============================================================\n"
+        )
+        self.output_text.insert(tk.END, "EQUILIBRIUM VERIFICATION\n")
+        self.output_text.insert(
+            tk.END, "------------------------------------------------------------\n"
+        )
+        self.output_text.insert(
+            tk.END,
+            "Static Equilibrium Check: Sum of reactions should equal total applied point loads\n\n",
+        )
+        
+        # Valley Beam Equilibrium Check
+        if hasattr(self, "valley_equilibrium_check"):
+            check = self.valley_equilibrium_check
+            self.output_text.insert(tk.END, "VALLEY BEAM:\n")
+            self.output_text.insert(
+                tk.END,
+                f"  Sum of Reactions (R_eave + R_ridge): {check['sum_reactions']:.2f} lb\n",
+            )
+            self.output_text.insert(
+                tk.END, f"  Total Point Loads: {check['total_loads']:.2f} lb\n"
+            )
+            self.output_text.insert(
+                tk.END, f"  Difference: {check['difference']:.4f} lb\n"
+            )
+            if check["passes"]:
                 self.output_text.insert(
-                    tk.END,
-                    "Note: Valley Beam = (j_n + j_w)/2, Ridge Beam = j_w_total\n",
-                    "blue",
+                    tk.END, "  ✓ EQUILIBRIUM SATISFIED\n\n", "green"
                 )
+            else:
                 self.output_text.insert(
-                    tk.END,
-                    "      For reactions to match, j_n should equal j_w (symmetric geometry)\n",
-                    "blue",
+                    tk.END, "  ✗ EQUILIBRIUM NOT SATISFIED - CHECK CALCULATIONS\n\n", "red"
                 )
         else:
-            self.output_text.insert(tk.END, "Comparison data not available.\n", "red")
+            self.output_text.insert(
+                tk.END, "VALLEY BEAM: Equilibrium check not available\n\n"
+            )
+        
+        # N-S Ridge Beam Equilibrium Check
+        if hasattr(self, "ns_ridge_equilibrium_check"):
+            check = self.ns_ridge_equilibrium_check
+            self.output_text.insert(tk.END, "N-S RIDGE BEAM:\n")
+            self.output_text.insert(
+                tk.END,
+                f"  Sum of Reactions (R_top + R_bottom): {check['sum_reactions']:.2f} lb\n",
+            )
+            self.output_text.insert(
+                tk.END, f"  Total Point Loads: {check['total_loads']:.2f} lb\n"
+            )
+            self.output_text.insert(
+                tk.END, f"  Difference: {check['difference']:.4f} lb\n"
+            )
+            if check["passes"]:
+                self.output_text.insert(
+                    tk.END, "  ✓ EQUILIBRIUM SATISFIED\n\n", "green"
+                )
+            else:
+                self.output_text.insert(
+                    tk.END, "  ✗ EQUILIBRIUM NOT SATISFIED - CHECK CALCULATIONS\n\n", "red"
+                )
+        else:
+            self.output_text.insert(
+                tk.END, "N-S RIDGE BEAM: Equilibrium check not available\n\n"
+            )
+        
+        self.output_text.insert(tk.END, "\n")
 
         self.output_text.insert(tk.END, "\n")
 
