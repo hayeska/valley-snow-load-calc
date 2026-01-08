@@ -100,24 +100,72 @@ class SnowLoadCalculator:
             "valley_drift": {"hd_ft": 0, "drift_width_ft": 0, "pd_max_psf": 0},
         }
 
-    def calculate_slope_factor(self, s: float, s_min: float = 0.0417) -> float:
+    def calculate_slope_factor(
+        self, s: float, ct: float = 1.0, slippery: bool = False
+    ) -> float:
         """
         Calculate slope factor Cs per ASCE 7-22 Figure 7.4-1.
 
         Args:
             s: Roof slope (rise/run)
-            s_min: Minimum slope for snow retention
+            ct: Thermal factor
+            slippery: True for slippery roof surfaces
+
+        Returns:
+            Slope factor Cs (0.0 to 1.0)
+        """
+        # ASCE 7-22 Figure 7.4-1 implementation
+        # Three curves based on thermal factor and roof type
+
+        if ct <= 1.1:  # Warm roofs (Ct ≤ 1.1)
+            if slippery:
+                # Graph b: Slippery warm roofs
+                if s <= 0.0625:  # ~3.6° (3/12 pitch transition)
+                    return 1.0
+                else:
+                    # Linear reduction to 0 at ~66°
+                    return max(0.0, 1.0 - (s - 0.0625) / (1.154 - 0.0625))
+            else:
+                # Graph a: Non-slippery warm roofs
+                if s <= 0.145:  # ~8.3° (5/12 pitch)
+                    return 1.0
+                else:
+                    # Linear reduction to 0 at ~43°
+                    return max(0.0, 1.0 - (s - 0.145) / (0.731 - 0.145))
+        else:  # Cold roofs (Ct > 1.1)
+            if slippery:
+                # Graph c: Slippery cold roofs
+                if s <= 0.119:  # ~6.8° (1.75/12 pitch)
+                    return 1.0
+                else:
+                    # Linear reduction to 0 at ~61°
+                    return max(0.0, 1.0 - (s - 0.119) / (1.052 - 0.119))
+            else:
+                # Standard cold roofs
+                if s <= 0.230:  # ~13° (8/12 pitch)
+                    return 1.0
+                else:
+                    # Linear reduction to 0 at ~32°
+                    return max(0.0, 1.0 - (s - 0.230) / (0.573 - 0.230))
+
+    def calculate_slope_factor_simple(self, s: float) -> float:
+        """
+        Simplified slope factor for basic calculations.
+        For 8/12 pitch roofs, returns reasonable values.
+
+        Args:
+            s: Roof slope (rise/run)
 
         Returns:
             Slope factor Cs
         """
-        if s < s_min:
-            return 1.0  # Fully exposed
-        elif s <= 0.125:
-            # Linear reduction from 1.0 to 0.0
-            return 1.0 - (s - s_min) / (0.125 - s_min) * 1.0
+        # Simplified curve - reduces to zero at very steep slopes
+        if s <= 0.1:  # Flat to 10/12 pitch
+            return 0.8  # Typical for moderate slopes
+        elif s <= 0.5:  # 10/12 to very steep
+            return max(0.0, 0.8 - (s - 0.1) / 0.4 * 0.8)
         else:
-            return 0.0  # No snow retention
+            return 0.0
 
     def calculate_drift_height(
         self, pg: float, lu: float, w2: float, gamma: float

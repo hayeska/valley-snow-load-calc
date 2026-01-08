@@ -9,6 +9,9 @@ import time
 
 from ..core.calculator import ValleyCalculator
 from ..core.project import ProjectManager
+from ..core.state import StateManager
+from ..calculations.engine import CalculationEngine
+from ..core.config import get_config_manager
 from ..utils.logging.logger import get_logger
 from ..core.recovery.checkpoint_system import get_checkpoint_manager
 from .input_panels import InputPanel
@@ -19,21 +22,28 @@ from .tooltips import TooltipManager
 
 class MainWindow:
     """
-    Resilient main application window with crash recovery and error handling.
+    Resilient main application window with modern architecture and state management.
 
     Features:
-    - Modular panel-based layout with error boundaries
-    - Integrated resilient calculation engine
+    - Clean layered architecture (GUI/Service/Domain/Data)
+    - Centralized state management with validation
+    - Pure calculation engine with no UI dependencies
+    - Comprehensive error handling and recovery
     - Project management with auto-save and recovery
     - Results visualization with error handling
-    - Crash detection and recovery UI
     - Performance monitoring and logging
     """
 
     def __init__(self, calculator: ValleyCalculator, project_manager: ProjectManager):
-        """Initialize the resilient main window."""
+        """Initialize the resilient main window with modern architecture."""
         self.calculator = calculator
         self.project_manager = project_manager
+
+        # Initialize new architecture components
+        self.state_manager = StateManager()
+        self.calculation_engine = CalculationEngine()
+        self.config_manager = get_config_manager()
+
         self.logger = get_logger()
         self.checkpoint_mgr = get_checkpoint_manager()
 

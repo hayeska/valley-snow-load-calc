@@ -12,8 +12,6 @@ from ..utils.logging.logger import get_logger
 from ..core.recovery.error_handlers import (
     resilient_operation,
     error_boundary,
-    validate_input,
-    validate_non_empty_string,
 )
 from ..core.recovery.checkpoint_system import (
     get_checkpoint_manager,
@@ -72,8 +70,7 @@ class ProjectManager:
         with open(self.recent_projects_file, "w") as f:
             json.dump(self.recent_projects, f, indent=2)
 
-    @resilient_operation(retries=3, recoverable=True, save_checkpoint=True)
-    @validate_input(validate_non_empty_string)
+    @resilient_operation(retries=3, recoverable=True)
     def save_project(self, project_data: Dict, project_id: str = None) -> str:
         """
         Save project with resilience and data integrity.
@@ -111,13 +108,21 @@ class ProjectManager:
             if not success:
                 raise RuntimeError("Failed to save project to database")
 
-            # Create checkpoint for recovery
-            self.checkpoint_mgr.create_checkpoint(
-                project_id, project_data, operation="save_project"
-            )
+            # Create checkpoint for recovery (only after successful save)
+            try:
+                self.checkpoint_mgr.create_checkpoint(
+                    project_id, project_data, operation="save_project"
+                )
 
-            # Mark project as active for auto-checkpointing
-            self.checkpoint_mgr.mark_project_active(project_id)
+                # Mark project as active for auto-checkpointing
+                self.checkpoint_mgr.mark_project_active(project_id)
+            except Exception as checkpoint_error:
+                # Log checkpoint failure but don't fail the save
+                self.logger.log_error(
+                    checkpoint_error,
+                    operation="checkpoint_creation",
+                    context={"project_id": project_id},
+                )
 
             # Add to recent projects (legacy support)
             self._add_to_recent_projects_legacy(project_id, project_name)
