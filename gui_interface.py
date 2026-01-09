@@ -2348,6 +2348,155 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
             arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"),
         )
 
+        # ===== TRIANGULAR LOAD DISTRIBUTIONS FOR SLOPED VALLEY BEAM =====
+        # Calculate equivalent triangular loads from point loads
+        # Separate dead and snow loads
+        valley_dead_point_loads_separate = []
+        valley_snow_point_loads_separate = []
+        # Use input point loads directly (they're already separated)
+        for (pos_s, load_s), (pos_d, load_d) in zip(snow_point_loads, dead_point_loads):
+            valley_dead_point_loads_separate.append((pos_d, load_d))
+            valley_snow_point_loads_separate.append((pos_s, load_s))
+
+        # Calculate total dead and snow loads
+        total_dead_valley = sum(load for _, load in valley_dead_point_loads_separate)
+        total_snow_valley = sum(load for _, load in valley_snow_point_loads_separate)
+
+        # Create triangular load distribution diagram for Valley Beam
+        fig_load_valley, ax_load_valley = plt.subplots(1, 1, figsize=(10, 6), dpi=100)
+        self._current_figures.append(fig_load_valley)
+
+        # Generate positions along beam
+        load_positions_valley = [float(i * rafter_len / 100) for i in range(101)]
+        load_positions_valley[-1] = float(rafter_len)
+
+        # Triangular dead load: maximum at eave (x = 0), zero at ridge (x = L)
+        # w_max = 2 * total_load / L (for triangular load: area = 0.5 * w_max * L)
+        if rafter_len > 0:
+            w_dead_max_valley = (
+                2 * total_dead_valley / rafter_len if total_dead_valley > 0 else 0
+            )
+            w_snow_max_valley = (
+                2 * total_snow_valley / rafter_len if total_snow_valley > 0 else 0
+            )
+        else:
+            w_dead_max_valley = 0
+            w_snow_max_valley = 0
+
+        dead_load_distribution = [
+            w_dead_max_valley * (1 - x / rafter_len) if rafter_len > 0 else 0
+            for x in load_positions_valley
+        ]
+        snow_load_distribution = [
+            w_snow_max_valley * (1 - x / rafter_len) if rafter_len > 0 else 0
+            for x in load_positions_valley
+        ]
+
+        ax_load_valley.plot(
+            load_positions_valley,
+            dead_load_distribution,
+            "brown",
+            linewidth=2.5,
+            label=f"Dead Load (Total: {total_dead_valley:.0f} lb)",
+        )
+        ax_load_valley.fill_between(
+            load_positions_valley,
+            dead_load_distribution,
+            alpha=0.3,
+            color="brown",
+        )
+
+        ax_load_valley.plot(
+            load_positions_valley,
+            snow_load_distribution,
+            "blue",
+            linewidth=2.5,
+            label=f"Live Load - Snow (Total: {total_snow_valley:.0f} lb)",
+        )
+        ax_load_valley.fill_between(
+            load_positions_valley,
+            snow_load_distribution,
+            alpha=0.3,
+            color="blue",
+        )
+
+        # Total load distribution
+        total_load_distribution = [
+            d + s for d, s in zip(dead_load_distribution, snow_load_distribution)
+        ]
+        ax_load_valley.plot(
+            load_positions_valley,
+            total_load_distribution,
+            "k-",
+            linewidth=2,
+            linestyle="--",
+            label=f"Total Load (Total: {total_dead_valley + total_snow_valley:.0f} lb)",
+        )
+
+        ax_load_valley.set_xlabel(
+            "Distance from Eave (ft)", fontsize=11, fontweight="bold"
+        )
+        ax_load_valley.set_ylabel(
+            "Distributed Load (lb/ft)", fontsize=11, fontweight="bold"
+        )
+        ax_load_valley.set_title(
+            "Triangular Load Distribution - Sloped Valley Beam",
+            fontsize=13,
+            fontweight="bold",
+        )
+        ax_load_valley.grid(True, linestyle="--", alpha=0.6)
+        ax_load_valley.legend(loc="upper right")
+        ax_load_valley.set_ylim(bottom=0)
+
+        # Annotate maximum values at y-axis intercept (x=0)
+        if w_dead_max_valley > 0:
+            ax_load_valley.annotate(
+                f"Dead: {w_dead_max_valley:.1f} lb/ft",
+                xy=(0, w_dead_max_valley),
+                xytext=(
+                    5,
+                    w_dead_max_valley + (w_dead_max_valley + w_snow_max_valley) * 0.05,
+                ),
+                textcoords="data",
+                fontsize=10,
+                fontweight="bold",
+                color="brown",
+                bbox=dict(
+                    boxstyle="round,pad=0.3",
+                    facecolor="white",
+                    edgecolor="brown",
+                    alpha=0.8,
+                ),
+                arrowprops=dict(arrowstyle="->", color="brown", lw=1.5),
+            )
+        if w_snow_max_valley > 0:
+            ax_load_valley.annotate(
+                f"Live: {w_snow_max_valley:.1f} lb/ft",
+                xy=(0, w_snow_max_valley),
+                xytext=(
+                    5,
+                    w_snow_max_valley - (w_dead_max_valley + w_snow_max_valley) * 0.05,
+                ),
+                textcoords="data",
+                fontsize=10,
+                fontweight="bold",
+                color="blue",
+                bbox=dict(
+                    boxstyle="round,pad=0.3",
+                    facecolor="white",
+                    edgecolor="blue",
+                    alpha=0.8,
+                ),
+                arrowprops=dict(arrowstyle="->", color="blue", lw=1.5),
+            )
+
+        canvas_load_valley = FigureCanvasTkAgg(fig_load_valley, master=self.plot_frame)
+        canvas_load_valley.draw()
+        canvas_load_valley.get_tk_widget().pack(side=tk.TOP, pady=5)
+
+        toolbar_load_valley = NavigationToolbar2Tk(canvas_load_valley, self.plot_frame)
+        toolbar_load_valley.update()
+
         # ===== DRIFT LOAD PROFILE =====
         fig3, ax3 = plt.subplots(1, 1, figsize=(10, 6), dpi=100)
         self._current_figures.append(fig3)
@@ -3030,6 +3179,169 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
                     canvas_moment_ns, self.plot_frame
                 )
                 toolbar_moment_ns.update()
+
+                # ===== TRIANGULAR LOAD DISTRIBUTIONS FOR N-S RIDGE BEAM =====
+                # Calculate equivalent triangular loads from point loads
+                # Get separate dead and snow loads for N-S Ridge Beam
+                ns_dead_point_loads_separate = []
+                ns_snow_point_loads_separate = []
+                if hasattr(self, "ns_ridge_snow_point_loads") and hasattr(
+                    self, "ns_ridge_dead_point_loads"
+                ):
+                    # Use stored point loads
+                    for (pos_s, load_s), (pos_d, load_d) in zip(
+                        self.ns_ridge_snow_point_loads, self.ns_ridge_dead_point_loads
+                    ):
+                        ns_dead_point_loads_separate.append((pos_d, load_d))
+                        ns_snow_point_loads_separate.append((pos_s, load_s))
+
+                # Calculate total dead and snow loads
+                total_dead_ns = sum(load for _, load in ns_dead_point_loads_separate)
+                total_snow_ns = sum(load for _, load in ns_snow_point_loads_separate)
+
+                # Create triangular load distribution diagram for N-S Ridge Beam
+                fig_load_ns, ax_load_ns = plt.subplots(1, 1, figsize=(10, 6), dpi=100)
+                self._current_figures.append(fig_load_ns)
+
+                # Generate positions along beam
+                load_positions_ns = [
+                    float(i * ns_ridge_length / 100) for i in range(101)
+                ]
+                load_positions_ns[-1] = float(ns_ridge_length)
+
+                # Triangular dead load: maximum at left end (x = 0), zero at right end (x = L)
+                # w_max = 2 * total_load / L (for triangular load: area = 0.5 * w_max * L)
+                if ns_ridge_length > 0:
+                    w_dead_max_ns = (
+                        2 * total_dead_ns / ns_ridge_length if total_dead_ns > 0 else 0
+                    )
+                    w_snow_max_ns = (
+                        2 * total_snow_ns / ns_ridge_length if total_snow_ns > 0 else 0
+                    )
+                else:
+                    w_dead_max_ns = 0
+                    w_snow_max_ns = 0
+
+                dead_load_distribution_ns = [
+                    w_dead_max_ns * (1 - x / ns_ridge_length)
+                    if ns_ridge_length > 0
+                    else 0
+                    for x in load_positions_ns
+                ]
+                snow_load_distribution_ns = [
+                    w_snow_max_ns * (1 - x / ns_ridge_length)
+                    if ns_ridge_length > 0
+                    else 0
+                    for x in load_positions_ns
+                ]
+
+                ax_load_ns.plot(
+                    load_positions_ns,
+                    dead_load_distribution_ns,
+                    "brown",
+                    linewidth=2.5,
+                    label=f"Dead Load (Total: {total_dead_ns:.0f} lb)",
+                )
+                ax_load_ns.fill_between(
+                    load_positions_ns,
+                    dead_load_distribution_ns,
+                    alpha=0.3,
+                    color="brown",
+                )
+
+                ax_load_ns.plot(
+                    load_positions_ns,
+                    snow_load_distribution_ns,
+                    "blue",
+                    linewidth=2.5,
+                    label=f"Live Load - Snow (Total: {total_snow_ns:.0f} lb)",
+                )
+                ax_load_ns.fill_between(
+                    load_positions_ns,
+                    snow_load_distribution_ns,
+                    alpha=0.3,
+                    color="blue",
+                )
+
+                # Total load distribution
+                total_load_distribution_ns = [
+                    d + s
+                    for d, s in zip(
+                        dead_load_distribution_ns, snow_load_distribution_ns
+                    )
+                ]
+                ax_load_ns.plot(
+                    load_positions_ns,
+                    total_load_distribution_ns,
+                    "k-",
+                    linewidth=2,
+                    linestyle="--",
+                    label=f"Total Load (Total: {total_dead_ns + total_snow_ns:.0f} lb)",
+                )
+
+                ax_load_ns.set_xlabel(
+                    "Distance from Left End (ft)", fontsize=11, fontweight="bold"
+                )
+                ax_load_ns.set_ylabel(
+                    "Distributed Load (lb/ft)", fontsize=11, fontweight="bold"
+                )
+                ax_load_ns.set_title(
+                    "Triangular Load Distribution - N-S Ridge Beam",
+                    fontsize=13,
+                    fontweight="bold",
+                )
+                ax_load_ns.grid(True, linestyle="--", alpha=0.6)
+                ax_load_ns.legend(loc="upper right")
+                ax_load_ns.set_ylim(bottom=0)
+
+                # Annotate maximum values at y-axis intercept (x=0)
+                if w_dead_max_ns > 0:
+                    ax_load_ns.annotate(
+                        f"Dead: {w_dead_max_ns:.1f} lb/ft",
+                        xy=(0, w_dead_max_ns),
+                        xytext=(
+                            5,
+                            w_dead_max_ns + (w_dead_max_ns + w_snow_max_ns) * 0.05,
+                        ),
+                        textcoords="data",
+                        fontsize=10,
+                        fontweight="bold",
+                        color="brown",
+                        bbox=dict(
+                            boxstyle="round,pad=0.3",
+                            facecolor="white",
+                            edgecolor="brown",
+                            alpha=0.8,
+                        ),
+                        arrowprops=dict(arrowstyle="->", color="brown", lw=1.5),
+                    )
+                if w_snow_max_ns > 0:
+                    ax_load_ns.annotate(
+                        f"Live: {w_snow_max_ns:.1f} lb/ft",
+                        xy=(0, w_snow_max_ns),
+                        xytext=(
+                            5,
+                            w_snow_max_ns - (w_dead_max_ns + w_snow_max_ns) * 0.05,
+                        ),
+                        textcoords="data",
+                        fontsize=10,
+                        fontweight="bold",
+                        color="blue",
+                        bbox=dict(
+                            boxstyle="round,pad=0.3",
+                            facecolor="white",
+                            edgecolor="blue",
+                            alpha=0.8,
+                        ),
+                        arrowprops=dict(arrowstyle="->", color="blue", lw=1.5),
+                    )
+
+                canvas_load_ns = FigureCanvasTkAgg(fig_load_ns, master=self.plot_frame)
+                canvas_load_ns.draw()
+                canvas_load_ns.get_tk_widget().pack(side=tk.TOP, pady=5)
+
+                toolbar_load_ns = NavigationToolbar2Tk(canvas_load_ns, self.plot_frame)
+                toolbar_load_ns.update()
 
     def get_float(self, key: str) -> Optional[float]:
         try:
