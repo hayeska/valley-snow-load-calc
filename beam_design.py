@@ -109,13 +109,45 @@ class ValleyBeamDesigner:
         Design valley beam with separate snow and dead point loads from jack rafters.
         snow_point_loads: list of (position_from_eave_ft, snow_load_lb) tuples
         dead_point_loads: list of (position_from_eave_ft, dead_load_lb) tuples
-        lv: valley beam horizontal length
-        valley_rafter_length: sloped length for deflection calculations
+        lv: valley beam horizontal length (used for moment, shear, deflection)
+        valley_rafter_length: sloped length (used for self-weight calculation only)
         """
         try:
+            # Convert point load positions from sloped to horizontal coordinates if needed
+            # Check if positions exceed horizontal length (indicating they're sloped)
+            max_pos = (
+                max(
+                    [pos for pos, _ in snow_point_loads]
+                    + [pos for pos, _ in dead_point_loads]
+                )
+                if snow_point_loads and dead_point_loads
+                else 0
+            )
+            if (
+                max_pos > lv * 1.1 and valley_rafter_length > lv
+            ):  # Positions appear to be sloped
+                # Convert sloped positions to horizontal positions
+                conversion_factor = (
+                    lv / valley_rafter_length if valley_rafter_length > 0 else 1.0
+                )
+                snow_point_loads_horizontal = [
+                    (pos * conversion_factor, load) for pos, load in snow_point_loads
+                ]
+                dead_point_loads_horizontal = [
+                    (pos * conversion_factor, load) for pos, load in dead_point_loads
+                ]
+            else:
+                # Positions are already in horizontal coordinates
+                snow_point_loads_horizontal = snow_point_loads
+                dead_point_loads_horizontal = dead_point_loads
+
             # Sort point loads by position (from eave to ridge)
-            snow_point_loads_sorted = sorted(snow_point_loads, key=lambda x: x[0])
-            dead_point_loads_sorted = sorted(dead_point_loads, key=lambda x: x[0])
+            snow_point_loads_sorted = sorted(
+                snow_point_loads_horizontal, key=lambda x: x[0]
+            )
+            dead_point_loads_sorted = sorted(
+                dead_point_loads_horizontal, key=lambda x: x[0]
+            )
 
             # Combine loads for structural analysis (ASD: D + 0.7S for stresses)
             point_loads_sorted = []
@@ -125,8 +157,17 @@ class ValleyBeamDesigner:
                 combined_load = load_d + 0.7 * load_s  # ASD loads for stress analysis
                 point_loads_sorted.append((pos_s, combined_load))
 
-            # Calculate beam self-weight as distributed load (plf)
-            self_weight_plf = self._calculate_beam_self_weight_plf(lv)
+            # Calculate beam self-weight as distributed load (plf) using SLOPED length
+            self_weight_plf_sloped = self._calculate_beam_self_weight_plf(
+                valley_rafter_length
+            )
+
+            # Convert to equivalent distributed load per horizontal foot for moment/shear calculations
+            # Since beam is longer along slope, weight per horizontal foot = weight_per_sloped_foot * (sloped_length / horizontal_length)
+            if lv > 0 and valley_rafter_length > 0:
+                self_weight_plf = self_weight_plf_sloped * (valley_rafter_length / lv)
+            else:
+                self_weight_plf = self_weight_plf_sloped
 
             # Calculate reactions for simply supported beam
             # Point loads
@@ -140,7 +181,10 @@ class ValleyBeamDesigner:
             reaction_ridge_point = total_point_load - reaction_eave_point
 
             # Add self-weight distributed load reactions (w*L/2 at each end)
-            self_weight_total = self_weight_plf * lv
+            # Self-weight distributed load is now per horizontal foot, so use horizontal length
+            self_weight_total = (
+                self_weight_plf * lv
+            )  # Total weight distributed along horizontal span
             reaction_eave_self_weight = self_weight_total / 2.0
             reaction_ridge_self_weight = self_weight_total / 2.0
 
@@ -207,9 +251,11 @@ class ValleyBeamDesigner:
             }
 
             # Perform design checks
+            # Pass horizontal length (lv) for deflection calculations, sloped length for self-weight reference
             self.results = self._perform_point_load_design_checks(
                 forces,
-                valley_rafter_length,
+                lv,  # Horizontal length for deflection calculations and limits
+                valley_rafter_length,  # Sloped length for self-weight calculation
                 point_loads_sorted,
                 snow_point_loads_sorted,
                 dead_point_loads_sorted,
@@ -277,14 +323,21 @@ class ValleyBeamDesigner:
     def _perform_point_load_design_checks(
         self,
         forces,
-        valley_rafter_length,
+        horizontal_length,
+        sloped_length,
         point_loads,
         snow_point_loads,
         dead_point_loads,
     ):
-        """Perform design checks for beam with point loads"""
+        """Perform design checks for beam with point loads
+
+        Args:
+            horizontal_length: Horizontal span length (used for deflection calculations and limits)
+            sloped_length: Actual sloped beam length (used for self-weight calculation only)
+        """
         try:
-            L_ft = valley_rafter_length or self.inputs.rafter_sloped_length_ft or 70.0
+            # Use horizontal length for deflection calculations and limits
+            L_ft = horizontal_length or self.inputs.rafter_sloped_length_ft or 70.0
             if L_ft <= 0:
                 L_ft = 70.0
             L_in = L_ft * 12
@@ -298,9 +351,18 @@ class ValleyBeamDesigner:
                 self.inputs.beam_width_in * self.inputs.beam_depth_trial_in**3 / 12
             )
 
-            # Calculate beam self-weight as distributed load (plf)
-            self_weight_plf = self._calculate_beam_self_weight_plf(L_ft)
-            self_weight_pli = self_weight_plf / 12.0  # Convert to lb/in
+            # Calculate beam self-weight as distributed load (plf) using SLOPED length
+            sloped_L_ft = sloped_length if sloped_length and sloped_length > 0 else L_ft
+            self_weight_plf = self._calculate_beam_self_weight_plf(sloped_L_ft)
+            # Convert self-weight to equivalent distributed load along horizontal span for deflection
+            # Self-weight per horizontal foot = (self-weight per sloped foot) * (sloped_length / horizontal_length)
+            if horizontal_length > 0 and sloped_length > 0:
+                self_weight_plf_horizontal = self_weight_plf * (
+                    sloped_length / horizontal_length
+                )
+            else:
+                self_weight_plf_horizontal = self_weight_plf
+            self_weight_pli = self_weight_plf_horizontal / 12.0  # Convert to lb/in
 
             # Snow deflection: 0.7 * snow loads only (no self-weight for snow-only check)
             snow_load_total = sum(load for _, load in snow_point_loads)
