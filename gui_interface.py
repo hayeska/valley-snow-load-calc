@@ -527,10 +527,10 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
             summary_text_frame, orient="vertical", command=self.summary_label.yview
         )
         self.summary_label.configure(yscrollcommand=summary_scrollbar.set)
-        
+
         self.summary_label.pack(side="left", fill="both", expand=True)
         summary_scrollbar.pack(side="right", fill="y")
-        
+
         self.summary_label.insert(1.0, "Run calculation to see beam design summary...")
         self.summary_label.config(state="disabled")  # Make it read-only
 
@@ -2027,6 +2027,52 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
         # Keep track of figures for potential PDF capture
         self._current_figures = []
 
+        # Calculate unified scale factors BEFORE drawing any diagrams
+        # This ensures both valley beam and N-S ridge beam use the same arrow scaling
+        # First, get valley beam max load from stored values or calculate from inputs
+        max_load_valley = 0
+        if hasattr(self, "valley_beam_sloped_loads") and self.valley_beam_sloped_loads:
+            max_load_valley = max([abs(load) for load in self.valley_beam_sloped_loads])
+        elif snow_point_loads and dead_point_loads:
+            # Calculate from input point loads
+            combined_loads = [
+                abs(s + d) for (_, s), (_, d) in zip(snow_point_loads, dead_point_loads)
+            ]
+            if combined_loads:
+                max_load_valley = max(combined_loads)
+
+        # Get N-S ridge beam max load
+        max_load_ns = 0
+        if hasattr(self, "ns_ridge_total_loads") and self.ns_ridge_total_loads:
+            max_load_ns = max([abs(load) for load in self.ns_ridge_total_loads])
+        elif (
+            hasattr(self, "ns_ridge_snow_point_loads")
+            and self.ns_ridge_snow_point_loads
+        ):
+            if (
+                hasattr(self, "ns_ridge_dead_point_loads")
+                and self.ns_ridge_dead_point_loads
+            ):
+                ns_loads = [
+                    abs(snow + dead)
+                    for (_, snow), (_, dead) in zip(
+                        self.ns_ridge_snow_point_loads, self.ns_ridge_dead_point_loads
+                    )
+                ]
+                if ns_loads:
+                    max_load_ns = max(ns_loads)
+
+        # Use the maximum load across BOTH beams for unified scaling
+        max_load_unified = (
+            max(max_load_valley, max_load_ns)
+            if (max_load_valley > 0 or max_load_ns > 0)
+            else 1000
+        )
+        self.unified_load_scale = 1.5 / max_load_unified if max_load_unified > 0 else 1
+
+        # Calculate unified reaction scale (will be updated after reactions are calculated)
+        self.unified_reaction_scale = 1.0  # Placeholder, will be updated
+
         # ===== ROOF PLAN VIEW =====
         fig_plan = self.draw_plan_view(
             north_span, south_span, ew_half_width, valley_offset
@@ -2118,25 +2164,53 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
         if not total_point_loads:
             return
 
+        # Recalculate unified scale factors using ACTUAL point loads (more accurate)
+        # This ensures both diagrams use exactly the same scaling
+        max_load_valley_actual = (
+            max([abs(load) for _, load in total_point_loads])
+            if total_point_loads
+            else 1000
+        )
+        max_load_ns_actual = 0
+        if hasattr(self, "ns_ridge_total_loads") and self.ns_ridge_total_loads:
+            max_load_ns_actual = max([abs(load) for load in self.ns_ridge_total_loads])
+
+        # Use the maximum load across BOTH beams for unified scaling
+        max_load_unified_actual = (
+            max(max_load_valley_actual, max_load_ns_actual)
+            if max_load_ns_actual > 0
+            else max_load_valley_actual
+        )
+        self.unified_load_scale = (
+            1.5 / max_load_unified_actual if max_load_unified_actual > 0 else 1
+        )
+
         # Calculate reactions at supports (same method as beam design)
         total_load = sum(load for _, load in total_point_loads)
         r_eave = 0
         for pos, load in total_point_loads:
             r_eave += load * (lv_horizontal - pos) / lv_horizontal  # Moment about ridge
         r_ridge = total_load - r_eave
-        
+
         # Verify equilibrium: Sum of reactions should equal total point loads
         sum_reactions_valley = r_eave + r_ridge
-        equilibrium_check_valley = abs(sum_reactions_valley - total_load) < 0.01  # Allow small rounding error
+        equilibrium_check_valley = (
+            abs(sum_reactions_valley - total_load) < 0.01
+        )  # Allow small rounding error
         self.valley_equilibrium_check = {
             "sum_reactions": sum_reactions_valley,
             "total_loads": total_load,
             "difference": abs(sum_reactions_valley - total_load),
-            "passes": equilibrium_check_valley
+            "passes": equilibrium_check_valley,
         }
 
-        # Generate positions for diagrams
-        positions = [i * rafter_len / 99 for i in range(100)]
+        # Generate positions for diagrams - use deterministic calculation
+        num_points = 100
+        positions = [
+            float(i * rafter_len / (num_points - 1)) for i in range(num_points)
+        ]
+        # Ensure last position is exactly rafter_len to avoid floating point issues
+        positions[-1] = float(rafter_len)
 
         # ===== SHEAR FORCE DIAGRAM =====
         fig1, ax1 = plt.subplots(1, 1, figsize=(10, 6), dpi=100)
@@ -2154,7 +2228,9 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
         ax1.fill_between(positions, shear, alpha=0.2, color="silver")
         ax1.set_ylabel("Shear Force (lb)", fontsize=11, fontweight="bold")
         ax1.set_xlabel("Distance from Eave (ft)", fontsize=11, fontweight="bold")
-        ax1.set_title("Shear Force Diagram", fontsize=13, fontweight="bold")
+        ax1.set_title(
+            "Shear Force Diagram - Sloped Valley Beam", fontsize=13, fontweight="bold"
+        )
         ax1.grid(True, linestyle="--", alpha=0.6)
         ax1.axhline(y=0, color="k", linestyle="-", alpha=0.7, linewidth=0.8)
         ax1.legend(loc="upper right")
@@ -2205,33 +2281,52 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
         self._current_figures.append(fig2)
 
         # Calculate moment by integrating shear force (M = ∫V dx)
-        moment = [0.0]  # M(0) = 0
-        dx = positions[1] - positions[0]  # Assume uniform spacing
+        # Use deterministic integration with proper boundary conditions
+        moment = [0.0]  # M(0) = 0 at eave support
+        dx = float(rafter_len / (num_points - 1))  # Uniform spacing
 
+        # Accumulate moment using trapezoidal rule
         for i in range(1, len(positions)):
             # Trapezoidal integration: M(i) = M(i-1) + (V(i-1) + V(i))/2 * dx
-            m_current = moment[-1] + (shear[i - 1] + shear[i]) / 2 * dx
+            m_current = moment[-1] + (shear[i - 1] + shear[i]) / 2.0 * dx
             moment.append(m_current)
 
         # For gravity-loaded beams, moments should be positive (sagging)
         # If the maximum moment is negative, flip all signs
-        max_moment = max(moment)
-        if max_moment < 0:
+        max_moment_val = max(moment)
+        if max_moment_val < 0:
             moment = [-m for m in moment]
+            max_moment_val = -max_moment_val
 
-        # Ensure M(L) = 0 for simply supported beam (within small tolerance)
-        if abs(moment[-1]) < 1.0:
-            moment[-1] = 0.0
+        # Ensure M(L) = 0 for simply supported beam (deterministic correction)
+        # Use a consistent tolerance and always apply correction for stability
+        end_moment = moment[-1]
+        tolerance = 0.01  # Small tolerance for floating point comparison
+
+        if abs(end_moment) > tolerance:
+            # Linear adjustment to force M(L) = 0 - always apply for consistency
+            if abs(positions[-1]) > 1e-10:  # Avoid division by zero
+                slope = -end_moment / positions[-1]
+                moment = [float(m + slope * x) for m, x in zip(moment, positions)]
+            else:
+                moment[-1] = 0.0
         else:
-            # Linear adjustment to force M(L) = 0
-            slope = -moment[-1] / positions[-1]
-            moment = [m + slope * x for m, x in zip(moment, positions)]
+            # Within tolerance, just set to zero
+            moment[-1] = 0.0
+
+        # Verify final moment is zero (for debugging)
+        moment[-1] = 0.0  # Force to zero for simply supported beam
 
         ax2.plot(positions, moment, "r-", linewidth=2.5, label="Bending Moment")
         ax2.fill_between(positions, moment, alpha=0.2, color="gray")
         ax2.set_ylabel("Bending Moment (ft-lb)", fontsize=11, fontweight="bold")
         ax2.set_xlabel("Distance from Eave (ft)", fontsize=11, fontweight="bold")
-        ax2.set_title("Bending Moment Diagram", fontsize=13, fontweight="bold", pad=20)
+        ax2.set_title(
+            "Bending Moment Diagram - Sloped Valley Beam",
+            fontsize=13,
+            fontweight="bold",
+            pad=20,
+        )
         ax2.grid(True, linestyle="--", alpha=0.6)
         ax2.axhline(y=0, color="k", linestyle="-", alpha=0.7, linewidth=0.8)
         ax2.legend(loc="upper right")
@@ -2321,10 +2416,24 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
         fig4, ax4 = plt.subplots(1, 1, figsize=(12, 7), dpi=100)
         self._current_figures.append(fig4)
 
+        # IMMEDIATELY disable autoscaling to prevent matplotlib from adjusting based on arrow positions
+        ax4.set_autoscale_on(False)
+
         # Calculate beam geometry for sloped line from eave to ridge
         beam_x = [0, lv_horizontal]
         avg_pitch_rad = math.atan(((pitch_n + pitch_w) / 2) / 12)  # Convert to radians
         beam_y = [0, lv_horizontal * math.tan(avg_pitch_rad)]  # Vertical rise
+
+        # Calculate elevation-based y-axis limits BEFORE drawing anything
+        elevation_range = max(beam_y[1] - beam_y[0], 5)  # At least 5 ft range
+        min_y = (
+            min(beam_y[0], beam_y[1]) - elevation_range * 0.3
+        )  # Space below for arrows
+        max_y = (
+            max(beam_y[0], beam_y[1]) + elevation_range * 0.3
+        )  # Space above for reactions
+        # Set limits immediately to lock in elevation scale
+        ax4.set_ylim(bottom=min_y, top=max_y)
 
         # Draw sloped beam line (no fill, clean appearance)
         ax4.plot(
@@ -2337,15 +2446,58 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
             label="Valley Beam",
         )
 
-        # Scale factors for arrow lengths (larger magnitude = longer arrow)
+        # Use the unified load scale calculated at the start of the function
+        # This ensures consistent arrow sizing across both diagrams
+        load_scale = self.unified_load_scale
+
+        # Calculate max load for valley beam (for y-limits calculation)
         max_load = (
             max([abs(load) for _, load in total_point_loads])
             if total_point_loads
             else 1000
         )
+
+        # Calculate reaction scale and update unified reaction scale
         max_reaction = max(abs(r_eave), abs(r_ridge))
-        load_scale = 1.5 / max_load if max_load > 0 else 1
-        reaction_scale = 1.5 / max_reaction if max_reaction > 0 else 1
+
+        # Also check N-S ridge reactions if available to get unified reaction scale
+        max_reaction_unified = max_reaction
+        if (
+            hasattr(self, "ns_ridge_snow_point_loads")
+            and self.ns_ridge_snow_point_loads
+        ):
+            # Calculate N-S ridge reactions to get unified reaction scale
+            if hasattr(self, "ns_ridge_total_loads") and self.ns_ridge_total_loads:
+                ns_total_temp = sum(self.ns_ridge_total_loads)
+                if (
+                    hasattr(self, "ns_ridge_beam_length")
+                    and self.ns_ridge_beam_length > 0
+                ):
+                    ns_loads_with_pos = [
+                        (pos, load)
+                        for pos, load in zip(
+                            self.ns_ridge_load_positions
+                            if hasattr(self, "ns_ridge_load_positions")
+                            else [],
+                            self.ns_ridge_total_loads,
+                        )
+                    ]
+                    if ns_loads_with_pos:
+                        ns_moment_temp = sum(
+                            load * pos for pos, load in ns_loads_with_pos
+                        )
+                        ns_r_bottom_temp = ns_moment_temp / self.ns_ridge_beam_length
+                        ns_r_top_temp = ns_total_temp - ns_r_bottom_temp
+                        max_reaction_ns = max(abs(ns_r_top_temp), abs(ns_r_bottom_temp))
+                        max_reaction_unified = max(max_reaction, max_reaction_ns)
+
+        # Store unified reaction scale as instance variable
+        self.unified_reaction_scale = (
+            1.5 / max_reaction_unified if max_reaction_unified > 0 else 1
+        )
+
+        # Use the unified reaction scale for valley beam diagram
+        reaction_scale = self.unified_reaction_scale
 
         # Add support reactions (upward green arrows at beam ends)
         ax4.arrow(
@@ -2370,6 +2522,7 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
             color="darkgreen",
         )
 
+        # Add ridge reaction arrow at the end of the beam
         ax4.arrow(
             lv_horizontal,
             beam_y[1],
@@ -2431,35 +2584,29 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
         ax4.grid(True, linestyle="--", alpha=0.6)
         ax4.set_xlim(-lv_horizontal * 0.05, lv_horizontal * 1.05)
 
-        # Set y-limits to accommodate all arrows
-        min_y = min(beam_y[0] - 1, beam_y[1] - 1, -max_load * load_scale - 1)
-        max_y = max(
-            beam_y[0] + max_reaction * reaction_scale + 1,
-            beam_y[1] + max_reaction * reaction_scale + 1,
-        )
+        # Y-axis limits were already set above (before drawing) - just ensure they stay fixed
+        # This prevents matplotlib from auto-adjusting based on arrow positions
         ax4.set_ylim(bottom=min_y, top=max_y)
+        ax4.set_autoscale_on(False)
 
         # Custom legend on left side
         legend_elements = [
             plt.Line2D(
                 [0], [0], color="black", linewidth=6, alpha=0.9, label="Valley Beam"
             ),
-            plt.arrow(
-                0,
-                0,
-                0,
-                -1,
-                head_width=0.5,
-                fc="darkgreen",
-                ec="darkgreen",
-                linewidth=2,
-                label="Reactions (upward)",
+            plt.Line2D(
+                [0], [0], color="darkgreen", linewidth=2, label="Reactions (upward)"
             ),
             plt.Line2D(
                 [0], [0], color="darkred", linewidth=2, label="Point Loads (downward)"
             ),
         ]
         ax4.legend(handles=legend_elements, loc="upper left")
+
+        # Force y-axis limits to stay fixed after all drawing is complete
+        # This ensures elevation scale is maintained, not load magnitude scale
+        ax4.set_ylim(bottom=min_y, top=max_y)
+        ax4.set_autoscale_on(False)
 
         # Create a container frame for the four remaining diagrams
         diagram_container = ttk.Frame(self.plot_frame)
@@ -2535,27 +2682,33 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
                 ]
 
             if ns_total_loads:
+                # Use the same unified scale factors as the valley beam for consistent arrow sizes
+                # ALWAYS use unified scale - no fallback to ensure arrows are exactly the same size
                 max_load_ns = max([abs(load) for _, load in ns_total_loads])
-                load_scale_ns = 1.5 / max_load_ns if max_load_ns > 0 else 1
+                # Force use of unified scale factor (must be set at start of function)
+                load_scale_ns = self.unified_load_scale
 
                 # Calculate reactions
                 ns_total = sum(load for _, load in ns_total_loads)
                 ns_moment = sum(load * pos for pos, load in ns_total_loads)
                 ns_r_bottom = ns_moment / ns_ridge_length if ns_ridge_length > 0 else 0
                 ns_r_top = ns_total - ns_r_bottom
-                
+
                 # Verify equilibrium: Sum of reactions should equal total point loads
                 sum_reactions_ns = ns_r_top + ns_r_bottom
-                equilibrium_check_ns = abs(sum_reactions_ns - ns_total) < 0.01  # Allow small rounding error
+                equilibrium_check_ns = (
+                    abs(sum_reactions_ns - ns_total) < 0.01
+                )  # Allow small rounding error
                 self.ns_ridge_equilibrium_check = {
                     "sum_reactions": sum_reactions_ns,
                     "total_loads": ns_total,
                     "difference": abs(sum_reactions_ns - ns_total),
-                    "passes": equilibrium_check_ns
+                    "passes": equilibrium_check_ns,
                 }
-                
+
                 max_reaction_ns = max(abs(ns_r_top), abs(ns_r_bottom))
-                reaction_scale_ns = 1.5 / max_reaction_ns if max_reaction_ns > 0 else 1
+                # ALWAYS use the unified reaction scale - this ensures arrows are the same size
+                reaction_scale_ns = self.unified_reaction_scale
 
                 # Add support reactions (upward green arrows)
                 ax5.arrow(
@@ -2604,15 +2757,23 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
 
                 # Add point loads (downward red arrows) at exactly 2 feet on center
                 # Sort by position to ensure correct order
+                # Use proportional head_width based on unified scale for consistent appearance
+                base_head_width = 0.5
                 ns_total_loads_sorted = sorted(ns_total_loads, key=lambda x: x[0])
                 for pos, load in ns_total_loads_sorted:
                     arrow_length = -load * load_scale_ns
+                    # Scale head_width proportionally to arrow length for consistent appearance
+                    head_width_scaled = (
+                        base_head_width
+                        * abs(arrow_length)
+                        / (1.5 if load_scale_ns > 0 else 1)
+                    )
                     ax5.arrow(
                         pos,
                         0,
                         0,
                         arrow_length,
-                        head_width=0.5,
+                        head_width=head_width_scaled,
                         fc="darkred",
                         ec="darkred",
                         linewidth=2,
@@ -2630,18 +2791,24 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
                     )
 
             ax5.set_xlabel("Distance from Eave (ft)", fontsize=11, fontweight="bold")
-            ax5.set_ylabel("Load Magnitude (scaled)", fontsize=11, fontweight="bold")
+            ax5.set_ylabel("Elevation (ft)", fontsize=11, fontweight="bold")
             ax5.set_title(
                 "Point Load Reactions on N-S Ridge Beam", fontsize=13, fontweight="bold"
             )
             ax5.grid(True, linestyle="--", alpha=0.6)
             ax5.set_xlim(-ns_ridge_length * 0.05, ns_ridge_length * 1.05)
 
-            # Set y-limits to accommodate all arrows
+            # Set y-limits based on actual elevation, not scaled load magnitudes
+            # Beam is at elevation 0, show fixed elevation range
+            # Force fixed elevation limits - don't let matplotlib auto-scale based on arrow positions
             if ns_total_loads:
-                min_y_ns = min(0, -max_load_ns * load_scale_ns - 1)
-                max_y_ns = max(0, max_reaction_ns * reaction_scale_ns + 1)
+                elevation_range_ns = 10  # Fixed 10 ft elevation range
+                min_y_ns = -elevation_range_ns * 0.5  # Space below beam for arrows
+                max_y_ns = elevation_range_ns * 0.5  # Space above beam for reactions
                 ax5.set_ylim(bottom=min_y_ns, top=max_y_ns)
+                ax5.set_autoscale_on(
+                    False
+                )  # Prevent auto-scaling based on arrow positions
 
             # Custom legend
             legend_elements_ns = [
@@ -2675,6 +2842,194 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
             # Add toolbar for N-S ridge diagram
             toolbar_ns = NavigationToolbar2Tk(canvas_ns, self.plot_frame)
             toolbar_ns.update()
+
+            # ===== N-S RIDGE BEAM SHEAR FORCE DIAGRAM =====
+            if ns_total_loads and ns_ridge_length > 0:
+                # Get reactions from beam design results if available, otherwise use calculated values
+                if (
+                    hasattr(self, "ns_ridge_beam_results")
+                    and self.ns_ridge_beam_results
+                    and "error" not in self.ns_ridge_beam_results
+                ):
+                    ns_r_eave = self.ns_ridge_beam_results.get(
+                        "reaction_eave_lb", ns_r_top
+                    )
+                    ns_r_ridge = self.ns_ridge_beam_results.get(
+                        "reaction_ridge_lb", ns_r_bottom
+                    )
+                else:
+                    ns_r_eave = ns_r_top
+                    ns_r_ridge = ns_r_bottom
+
+                fig6, ax6 = plt.subplots(1, 1, figsize=(10, 6), dpi=100)
+                self._current_figures.append(fig6)
+
+                # Generate positions for N-S ridge beam diagrams
+                num_points_ns = 100
+                ns_positions = [
+                    float(i * ns_ridge_length / (num_points_ns - 1))
+                    for i in range(num_points_ns)
+                ]
+                ns_positions[-1] = float(ns_ridge_length)
+
+                # Calculate shear force
+                ns_shear = []
+                for x in ns_positions:
+                    v = ns_r_eave  # Start with reaction at left end
+                    for pos, load in ns_total_loads_sorted:
+                        if pos <= x:
+                            v -= load  # Subtract loads to the left
+                    ns_shear.append(v)
+
+                ax6.plot(
+                    ns_positions, ns_shear, "b-", linewidth=2.5, label="Shear Force"
+                )
+                ax6.fill_between(ns_positions, ns_shear, alpha=0.2, color="silver")
+                ax6.set_ylabel("Shear Force (lb)", fontsize=11, fontweight="bold")
+                ax6.set_xlabel(
+                    "Distance from Left End (ft)", fontsize=11, fontweight="bold"
+                )
+                ax6.set_title(
+                    "Shear Force Diagram - N-S Ridge Beam",
+                    fontsize=13,
+                    fontweight="bold",
+                )
+                ax6.grid(True, linestyle="--", alpha=0.6)
+                ax6.axhline(y=0, color="k", linestyle="-", alpha=0.7, linewidth=0.8)
+                ax6.legend(loc="upper right")
+
+                # Annotate reactions at beam ends
+                ax6.annotate(
+                    f"{int(ns_r_eave)} lb",
+                    xy=(0, ns_r_eave),
+                    xytext=(10, 10),
+                    textcoords="offset points",
+                    ha="left",
+                    fontsize=10,
+                    arrowprops=dict(arrowstyle="->", color="black"),
+                )
+                ax6.annotate(
+                    f"{int(ns_r_ridge)} lb",
+                    xy=(ns_ridge_length, -ns_r_ridge),
+                    xytext=(-10, -10),
+                    textcoords="offset points",
+                    ha="right",
+                    fontsize=10,
+                    arrowprops=dict(arrowstyle="->", color="black"),
+                )
+
+                # Annotate max shear
+                max_shear_ns = max(abs(s) for s in ns_shear)
+                max_shear_idx_ns = (
+                    ns_shear.index(max(ns_shear))
+                    if abs(max(ns_shear)) == max_shear_ns
+                    else ns_shear.index(min(ns_shear))
+                )
+                max_shear_pos_ns = ns_positions[max_shear_idx_ns]
+                ax6.annotate(
+                    f"{int(abs(ns_shear[max_shear_idx_ns]))} lb",
+                    xy=(max_shear_pos_ns, ns_shear[max_shear_idx_ns]),
+                    xytext=(
+                        max_shear_pos_ns + ns_ridge_length * 0.05,
+                        ns_shear[max_shear_idx_ns] + max_shear_ns * 0.1,
+                    ),
+                    fontsize=9,
+                    fontweight="bold",
+                    ha="left",
+                    arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"),
+                )
+
+                canvas_shear_ns = FigureCanvasTkAgg(fig6, master=self.plot_frame)
+                canvas_shear_ns.draw()
+                canvas_shear_ns.get_tk_widget().pack(side=tk.TOP, pady=5)
+
+                toolbar_shear_ns = NavigationToolbar2Tk(
+                    canvas_shear_ns, self.plot_frame
+                )
+                toolbar_shear_ns.update()
+
+                # ===== N-S RIDGE BEAM BENDING MOMENT DIAGRAM =====
+                fig7, ax7 = plt.subplots(1, 1, figsize=(10, 6), dpi=100)
+                self._current_figures.append(fig7)
+
+                # Calculate moment by integrating shear force (M = ∫V dx)
+                ns_moment = [0.0]  # M(0) = 0 at left support
+                dx_ns = float(ns_ridge_length / (num_points_ns - 1))
+
+                # Accumulate moment using trapezoidal rule
+                for i in range(1, len(ns_positions)):
+                    m_current = (
+                        ns_moment[-1] + (ns_shear[i - 1] + ns_shear[i]) / 2.0 * dx_ns
+                    )
+                    ns_moment.append(m_current)
+
+                # For gravity-loaded beams, moments should be positive (sagging)
+                max_moment_val_ns = max(ns_moment)
+                if max_moment_val_ns < 0:
+                    ns_moment = [-m for m in ns_moment]
+                    max_moment_val_ns = -max_moment_val_ns
+
+                # Ensure M(L) = 0 for simply supported beam
+                end_moment_ns = ns_moment[-1]
+                tolerance_ns = 0.01
+                if abs(end_moment_ns) > tolerance_ns:
+                    if abs(ns_positions[-1]) > 1e-10:
+                        slope_ns = -end_moment_ns / ns_positions[-1]
+                        ns_moment = [
+                            float(m + slope_ns * x)
+                            for m, x in zip(ns_moment, ns_positions)
+                        ]
+                    else:
+                        ns_moment[-1] = 0.0
+                else:
+                    ns_moment[-1] = 0.0
+
+                # Force final moment to zero
+                ns_moment[-1] = 0.0
+
+                ax7.plot(
+                    ns_positions, ns_moment, "r-", linewidth=2.5, label="Bending Moment"
+                )
+                ax7.fill_between(ns_positions, ns_moment, alpha=0.2, color="gray")
+                ax7.set_ylabel("Bending Moment (ft-lb)", fontsize=11, fontweight="bold")
+                ax7.set_xlabel(
+                    "Distance from Left End (ft)", fontsize=11, fontweight="bold"
+                )
+                ax7.set_title(
+                    "Bending Moment Diagram - N-S Ridge Beam",
+                    fontsize=13,
+                    fontweight="bold",
+                    pad=20,
+                )
+                ax7.grid(True, linestyle="--", alpha=0.6)
+                ax7.axhline(y=0, color="k", linestyle="-", alpha=0.7, linewidth=0.8)
+                ax7.legend(loc="upper right")
+
+                # Annotate max moment
+                max_moment_ns = max(ns_moment)
+                max_moment_idx_ns = ns_moment.index(max_moment_ns)
+                max_moment_pos_ns = ns_positions[max_moment_idx_ns]
+                ax7.annotate(
+                    f"{int(max_moment_ns)} ft-lb",
+                    xy=(max_moment_pos_ns, max_moment_ns),
+                    xytext=(
+                        max_moment_pos_ns + ns_ridge_length * 0.08,
+                        max_moment_ns + abs(max_moment_ns) * 0.05,
+                    ),
+                    fontsize=9,
+                    fontweight="bold",
+                    ha="left",
+                    arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"),
+                )
+
+                canvas_moment_ns = FigureCanvasTkAgg(fig7, master=self.plot_frame)
+                canvas_moment_ns.draw()
+                canvas_moment_ns.get_tk_widget().pack(side=tk.TOP, pady=5)
+
+                toolbar_moment_ns = NavigationToolbar2Tk(
+                    canvas_moment_ns, self.plot_frame
+                )
+                toolbar_moment_ns.update()
 
     def get_float(self, key: str) -> Optional[float]:
         try:
@@ -4414,10 +4769,14 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
             i * 2.83 for i in range(num_jacks)
         ]  # 0, 2.83, 5.66, 8.49, 11.32, 14.15, 16.98...
 
-        # Initialize sloped positions storage
+        # Initialize or clear sloped positions storage (always clear to prevent accumulation)
         if not hasattr(self, "valley_beam_sloped_positions"):
             self.valley_beam_sloped_positions = []
             self.valley_beam_sloped_loads = []
+        else:
+            # Clear existing lists to prevent accumulation on subsequent calculations
+            self.valley_beam_sloped_positions.clear()
+            self.valley_beam_sloped_loads.clear()
 
         for i, (j_n, j_w) in enumerate(
             zip(jacks_data["jacks"]["north_side"], jacks_data["jacks"]["west_side"])
@@ -4479,9 +4838,7 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
 
             # Store sloped position for valley beam (for diagram display)
             # Use fixed 2.83-foot spacing along the slope
-            if not hasattr(self, "valley_beam_sloped_positions"):
-                self.valley_beam_sloped_positions = []
-                self.valley_beam_sloped_loads = []
+            # Lists are already initialized/cleared above, just append
             self.valley_beam_sloped_positions.append(pos_sloped_valley)
             self.valley_beam_sloped_loads.append(valley_total)
 
@@ -4673,11 +5030,11 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
         summary = "=== BEAM DESIGN SUMMARY ===\n\n"
         if overall_pass:
             summary += "OVERALL STATUS: PASS\n\n"
-            self.summary_label.config(foreground="green")
+            # Don't set widget foreground - use tags for individual line coloring
         else:
             summary += "OVERALL STATUS: FAIL\n\n"
             summary += f"Governing Check: {governing_check} (ratio {max_ratio:.3f})\n\n"
-            self.summary_label.config(foreground="red")
+            # Don't set widget foreground - use tags for individual line coloring
 
         summary += "VALLEY BEAM:\n"
         summary += f"Beam Section: {beam_results.get('section', 'Unknown') if beam_results else 'Error'}\n\n"
@@ -4737,9 +5094,15 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
         self.summary_label.delete(1.0, tk.END)
 
         # Configure tags for colors
-        self.summary_label.tag_configure("pass", foreground="green", font=("Helvetica", 10, "bold"))
-        self.summary_label.tag_configure("fail", foreground="red", font=("Helvetica", 10, "bold"))
-        self.summary_label.tag_configure("ok", foreground="green", font=("Helvetica", 10, "bold"))
+        self.summary_label.tag_configure(
+            "pass", foreground="green", font=("Helvetica", 10, "bold")
+        )
+        self.summary_label.tag_configure(
+            "fail", foreground="red", font=("Helvetica", 10, "bold")
+        )
+        self.summary_label.tag_configure(
+            "ok", foreground="green", font=("Helvetica", 10, "bold")
+        )
         self.summary_label.tag_configure(
             "header", foreground="black", font=("Helvetica", 11, "bold")
         )
@@ -4771,71 +5134,33 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
                 "",
             )
 
-        # Individual checks with color coding
-        self.summary_label.insert(
-            tk.END,
-            f"Bending: {fb_actual:.0f}/{fb_allowable:.0f} psi = {bend_ratio:.3f} (",
-            "",
-        )
-        self.summary_label.insert(
-            tk.END, "PASS" if bend_pass else "FAIL", "pass" if bend_pass else "fail"
-        )
-        self.summary_label.insert(tk.END, ")\n", "")
+        # Individual checks with color coding - entire line colored based on pass/fail
+        bend_line = f"Bending: {fb_actual:.0f}/{fb_allowable:.0f} psi = {bend_ratio:.3f} ({'PASS' if bend_pass else 'FAIL'})\n"
+        self.summary_label.insert(tk.END, bend_line, "pass" if bend_pass else "fail")
 
-        self.summary_label.insert(
-            tk.END,
-            f"Shear: {fv_actual:.0f}/{fv_allowable:.0f} psi = {shear_ratio:.3f} (",
-            "",
-        )
-        self.summary_label.insert(
-            tk.END, "PASS" if shear_pass else "FAIL", "pass" if shear_pass else "fail"
-        )
-        self.summary_label.insert(tk.END, ")\n", "")
+        shear_line = f"Shear: {fv_actual:.0f}/{fv_allowable:.0f} psi = {shear_ratio:.3f} ({'PASS' if shear_pass else 'FAIL'})\n"
+        self.summary_label.insert(tk.END, shear_line, "pass" if shear_pass else "fail")
 
         combined_pass = bend_pass and shear_pass
+        snow_load_line = f"Snow Load Check (D + S): {bend_ratio:.3f} bending, {shear_ratio:.3f} shear ({'PASS' if combined_pass else 'FAIL'})\n"
         self.summary_label.insert(
-            tk.END,
-            f"Snow Load Check (D + S): {bend_ratio:.3f} bending, {shear_ratio:.3f} shear (",
-            "",
+            tk.END, snow_load_line, "pass" if combined_pass else "fail"
         )
-        self.summary_label.insert(
-            tk.END,
-            "PASS" if combined_pass else "FAIL",
-            "pass" if combined_pass else "fail",
-        )
-        self.summary_label.insert(tk.END, ")\n", "")
 
+        total_load_line = f"Total Load Check (D + 0.7S): {bend_ratio:.3f} bending, {shear_ratio:.3f} shear ({'PASS' if combined_pass else 'FAIL'})\n"
         self.summary_label.insert(
-            tk.END,
-            f"Total Load Check (D + 0.7S): {bend_ratio:.3f} bending, {shear_ratio:.3f} shear (",
-            "",
+            tk.END, total_load_line, "pass" if combined_pass else "fail"
         )
-        self.summary_label.insert(
-            tk.END,
-            "PASS" if combined_pass else "FAIL",
-            "pass" if combined_pass else "fail",
-        )
-        self.summary_label.insert(tk.END, ")\n", "")
 
+        snow_def_line = f'Snow Deflection: {delta_snow_actual:.3f}"/{delta_snow_limit:.3f}" = {snow_def_ratio:.3f} ({"PASS" if snow_pass else "FAIL"})\n'
         self.summary_label.insert(
-            tk.END,
-            f'Snow Deflection: {delta_snow_actual:.3f}"/{delta_snow_limit:.3f}" = {snow_def_ratio:.3f} (',
-            "",
+            tk.END, snow_def_line, "pass" if snow_pass else "fail"
         )
-        self.summary_label.insert(
-            tk.END, "PASS" if snow_pass else "FAIL", "pass" if snow_pass else "fail"
-        )
-        self.summary_label.insert(tk.END, ")\n", "")
 
+        total_def_line = f'Total Deflection: {delta_total_actual:.3f}"/{delta_total_limit:.3f}" = {total_def_ratio:.3f} ({"PASS" if total_pass else "FAIL"})\n'
         self.summary_label.insert(
-            tk.END,
-            f'Total Deflection: {delta_total_actual:.3f}"/{delta_total_limit:.3f}" = {total_def_ratio:.3f} (',
-            "",
+            tk.END, total_def_line, "pass" if total_pass else "fail"
         )
-        self.summary_label.insert(
-            tk.END, "PASS" if total_pass else "FAIL", "pass" if total_pass else "fail"
-        )
-        self.summary_label.insert(tk.END, ")\n", "")
 
         # Add N-S Ridge Beam summary
         self.summary_label.insert(tk.END, f"\n{'='*50}\n", "header")
@@ -4864,65 +5189,38 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
                 tk.END, f"Material: {self.ns_ridge_material_combobox.get()}\n", ""
             )
 
+            # Status line - color entire line based on pass/fail
             if ns_overall_pass:
-                self.summary_label.insert(tk.END, "Status: ", "")
-                self.summary_label.insert(tk.END, "PASS\n\n", "pass")
+                ns_status_line = "Status: PASS\n\n"
+                self.summary_label.insert(tk.END, ns_status_line, "pass")
             else:
-                self.summary_label.insert(tk.END, "Status: ", "")
-                self.summary_label.insert(tk.END, "FAIL\n\n", "fail")
+                ns_status_line = "Status: FAIL\n\n"
+                self.summary_label.insert(tk.END, ns_status_line, "fail")
 
             ns_bend_pass = ns_bend_ratio <= 1
             ns_shear_pass = ns_shear_ratio <= 1
             ns_snow_pass = ns_snow_def_ratio <= 1
             ns_total_pass = ns_total_def_ratio <= 1
 
+            ns_bend_line = f"Bending: {ns_fb_actual:.0f}/{ns_fb_allowable:.0f} psi = {ns_bend_ratio:.3f} ({'PASS' if ns_bend_pass else 'FAIL'})\n"
             self.summary_label.insert(
-                tk.END,
-                f"Bending: {ns_fb_actual:.0f}/{ns_fb_allowable:.0f} psi = {ns_bend_ratio:.3f} (",
-                "",
+                tk.END, ns_bend_line, "pass" if ns_bend_pass else "fail"
             )
-            self.summary_label.insert(
-                tk.END,
-                "PASS" if ns_bend_pass else "FAIL",
-                "pass" if ns_bend_pass else "fail",
-            )
-            self.summary_label.insert(tk.END, ")\n", "")
 
+            ns_shear_line = f"Shear: {ns_fv_actual:.0f}/{ns_fv_allowable:.0f} psi = {ns_shear_ratio:.3f} ({'PASS' if ns_shear_pass else 'FAIL'})\n"
             self.summary_label.insert(
-                tk.END,
-                f"Shear: {ns_fv_actual:.0f}/{ns_fv_allowable:.0f} psi = {ns_shear_ratio:.3f} (",
-                "",
+                tk.END, ns_shear_line, "pass" if ns_shear_pass else "fail"
             )
-            self.summary_label.insert(
-                tk.END,
-                "PASS" if ns_shear_pass else "FAIL",
-                "pass" if ns_shear_pass else "fail",
-            )
-            self.summary_label.insert(tk.END, ")\n", "")
 
+            ns_snow_def_line = f'Snow Deflection: {ns_delta_snow_actual:.3f}"/{ns_delta_snow_limit:.3f}" = {ns_snow_def_ratio:.3f} ({"PASS" if ns_snow_pass else "FAIL"})\n'
             self.summary_label.insert(
-                tk.END,
-                f'Snow Deflection: {ns_delta_snow_actual:.3f}"/{ns_delta_snow_limit:.3f}" = {ns_snow_def_ratio:.3f} (',
-                "",
+                tk.END, ns_snow_def_line, "pass" if ns_snow_pass else "fail"
             )
-            self.summary_label.insert(
-                tk.END,
-                "PASS" if ns_snow_pass else "FAIL",
-                "pass" if ns_snow_pass else "fail",
-            )
-            self.summary_label.insert(tk.END, ")\n", "")
 
+            ns_total_def_line = f'Total Deflection: {ns_delta_total_actual:.3f}"/{ns_delta_total_limit:.3f}" = {ns_total_def_ratio:.3f} ({"PASS" if ns_total_pass else "FAIL"})\n'
             self.summary_label.insert(
-                tk.END,
-                f'Total Deflection: {ns_delta_total_actual:.3f}"/{ns_delta_total_limit:.3f}" = {ns_total_def_ratio:.3f} (',
-                "",
+                tk.END, ns_total_def_line, "pass" if ns_total_pass else "fail"
             )
-            self.summary_label.insert(
-                tk.END,
-                "PASS" if ns_total_pass else "FAIL",
-                "pass" if ns_total_pass else "fail",
-            )
-            self.summary_label.insert(tk.END, ")\n", "")
         else:
             ns_error_msg = (
                 ns_ridge_beam_results.get("error", "Unknown error")
@@ -6148,7 +6446,7 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
                 self.output_text.insert(
                     tk.END, "\n✗ Reactions do not match - check calculations\n", "red"
                 )
-        
+
         # === EQUILIBRIUM VERIFICATION (STATIC CHECK) ===
         self.output_text.insert(
             tk.END, "\n============================================================\n"
@@ -6161,7 +6459,7 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
             tk.END,
             "Static Equilibrium Check: Sum of reactions should equal total applied point loads\n\n",
         )
-        
+
         # Valley Beam Equilibrium Check
         if hasattr(self, "valley_equilibrium_check"):
             check = self.valley_equilibrium_check
@@ -6182,13 +6480,15 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
                 )
             else:
                 self.output_text.insert(
-                    tk.END, "  ✗ EQUILIBRIUM NOT SATISFIED - CHECK CALCULATIONS\n\n", "red"
+                    tk.END,
+                    "  ✗ EQUILIBRIUM NOT SATISFIED - CHECK CALCULATIONS\n\n",
+                    "red",
                 )
         else:
             self.output_text.insert(
                 tk.END, "VALLEY BEAM: Equilibrium check not available\n\n"
             )
-        
+
         # N-S Ridge Beam Equilibrium Check
         if hasattr(self, "ns_ridge_equilibrium_check"):
             check = self.ns_ridge_equilibrium_check
@@ -6209,13 +6509,15 @@ SPECIAL NARROW ROOF CASE (W ≤ 20 ft, simply supported prismatic members):
                 )
             else:
                 self.output_text.insert(
-                    tk.END, "  ✗ EQUILIBRIUM NOT SATISFIED - CHECK CALCULATIONS\n\n", "red"
+                    tk.END,
+                    "  ✗ EQUILIBRIUM NOT SATISFIED - CHECK CALCULATIONS\n\n",
+                    "red",
                 )
         else:
             self.output_text.insert(
                 tk.END, "N-S RIDGE BEAM: Equilibrium check not available\n\n"
             )
-        
+
         self.output_text.insert(tk.END, "\n")
 
         self.output_text.insert(tk.END, "\n")

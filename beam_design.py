@@ -77,6 +77,31 @@ class ValleyBeamDesigner:
         self.inputs = inputs
         self.results = None
 
+    def _calculate_beam_self_weight_plf(self, beam_length_ft):
+        """
+        Calculate beam self-weight as distributed load in pounds per linear foot (plf).
+        Uses wood density of 35 pcf (pounds per cubic foot) for softwood lumber.
+
+        Args:
+            beam_length_ft: Length of beam in feet (for reference, not used in calculation)
+
+        Returns:
+            Self-weight in plf (pounds per linear foot)
+        """
+        # Wood density: 35 pcf (typical for softwood lumber)
+        wood_density_pcf = 35.0
+
+        # Cross-sectional area in square feet
+        # Convert inches to feet: (width_in * depth_in) / 144
+        area_sqft = (
+            self.inputs.beam_width_in * self.inputs.beam_depth_trial_in
+        ) / 144.0
+
+        # Weight per linear foot = density × area
+        self_weight_plf = wood_density_pcf * area_sqft
+
+        return self_weight_plf
+
     def design_with_point_loads(
         self, snow_point_loads, dead_point_loads, lv, valley_rafter_length
     ):
@@ -100,15 +125,28 @@ class ValleyBeamDesigner:
                 combined_load = load_d + 0.7 * load_s  # ASD loads for stress analysis
                 point_loads_sorted.append((pos_s, combined_load))
 
+            # Calculate beam self-weight as distributed load (plf)
+            self_weight_plf = self._calculate_beam_self_weight_plf(lv)
+
             # Calculate reactions for simply supported beam
-            total_load = sum(load for _, load in point_loads_sorted)
+            # Point loads
+            total_point_load = sum(load for _, load in point_loads_sorted)
 
             # Reaction at eave (x=0): sum of moments about ridge (x=L)
-            reaction_eave = 0
+            reaction_eave_point = 0
             for pos, load in point_loads_sorted:
-                reaction_eave += load * (lv - pos) / lv
+                reaction_eave_point += load * (lv - pos) / lv
 
-            reaction_ridge = total_load - reaction_eave
+            reaction_ridge_point = total_point_load - reaction_eave_point
+
+            # Add self-weight distributed load reactions (w*L/2 at each end)
+            self_weight_total = self_weight_plf * lv
+            reaction_eave_self_weight = self_weight_total / 2.0
+            reaction_ridge_self_weight = self_weight_total / 2.0
+
+            # Total reactions including self-weight
+            reaction_eave = reaction_eave_point + reaction_eave_self_weight
+            reaction_ridge = reaction_ridge_point + reaction_ridge_self_weight
 
             # Calculate moments at multiple points along the beam for exact maximum
             # Use 0.1 ft intervals for precise calculation
@@ -119,11 +157,16 @@ class ValleyBeamDesigner:
             moments = []
 
             for x in positions:
-                # Moment: reaction_eave * x minus moments of loads to the left
-                moment = reaction_eave * x
+                # Moment from point loads: reaction_eave_point * x minus moments of loads to the left
+                moment = reaction_eave_point * x
                 for pos, load in point_loads_sorted:
                     if pos < x:
                         moment -= load * (x - pos)
+
+                # Add moment from self-weight distributed load: w*x*(L-x)/2
+                moment_self_weight = self_weight_plf * x * (lv - x) / 2.0
+                moment += moment_self_weight
+
                 moments.append(abs(moment))
 
             max_moment = max(moments) if moments else 0
@@ -137,16 +180,25 @@ class ValleyBeamDesigner:
             shears = []
 
             for x in shear_positions:
-                shear = reaction_eave
+                # Shear from point loads
+                shear = reaction_eave_point
                 for pos, load in point_loads_sorted:
                     if pos < x:
                         shear -= load
+
+                # Add shear from self-weight distributed load: reaction - w*x
+                shear_self_weight = reaction_eave_self_weight - self_weight_plf * x
+                shear += shear_self_weight
+
                 shears.append(abs(shear))
 
             max_shear = max(shears) if shears else 0
 
+            # Total load including self-weight
+            total_load_with_self_weight = total_point_load + self_weight_total
+
             forces = {
-                "total_load_kips": total_load / 1000,
+                "total_load_kips": total_load_with_self_weight / 1000,
                 "reaction_eave_lb": reaction_eave,
                 "reaction_ridge_lb": reaction_ridge,
                 "max_moment_ft_kip": max_moment / 1000,  # Convert to ft-kip
@@ -242,27 +294,43 @@ class ValleyBeamDesigner:
             Vu_lb = forces["max_shear_kip"] * 1000  # Convert back to lb
 
             # Calculate deflections for serviceability checks (IBC Table 1604.3 footnote)
-            I = self.inputs.beam_width_in * self.inputs.beam_depth_trial_in**3 / 12
+            moment_of_inertia = (
+                self.inputs.beam_width_in * self.inputs.beam_depth_trial_in**3 / 12
+            )
 
-            # Snow deflection: 0.7 * snow loads only
+            # Calculate beam self-weight as distributed load (plf)
+            self_weight_plf = self._calculate_beam_self_weight_plf(L_ft)
+            self_weight_pli = self_weight_plf / 12.0  # Convert to lb/in
+
+            # Snow deflection: 0.7 * snow loads only (no self-weight for snow-only check)
             snow_load_total = sum(load for _, load in snow_point_loads)
             snow_load_plf = snow_load_total / L_ft  # lb/ft
             w_snow_pli = (
                 0.7 * snow_load_plf
             ) / 12  # lb/in (0.7 factor for serviceability)
             delta_snow_in = (
-                5 * w_snow_pli * L_in**4 / (384 * self.inputs.modulus_e_psi * I)
-                if I > 0 and self.inputs.modulus_e_psi > 0
+                5
+                * w_snow_pli
+                * L_in**4
+                / (384 * self.inputs.modulus_e_psi * moment_of_inertia)
+                if moment_of_inertia > 0 and self.inputs.modulus_e_psi > 0
                 else 0
             )
 
-            # Total deflection: dead loads + 0.7 * snow loads
+            # Total deflection: dead loads + 0.7 * snow loads + self-weight
             dead_load_total = sum(load for _, load in dead_point_loads)
-            total_service_load_plf = dead_load_total + 0.7 * snow_load_total  # lb/ft
-            w_total_pli = total_service_load_plf / L_ft / 12  # lb/in
+            total_service_load_plf = (
+                dead_load_total + 0.7 * snow_load_total
+            )  # lb/ft (point loads only)
+            w_total_pli = total_service_load_plf / L_ft / 12  # lb/in (point loads only)
+            # Add self-weight to total deflection
+            w_total_with_self_weight_pli = w_total_pli + self_weight_pli
             delta_total_in = (
-                5 * w_total_pli * L_in**4 / (384 * self.inputs.modulus_e_psi * I)
-                if I > 0 and self.inputs.modulus_e_psi > 0
+                5
+                * w_total_with_self_weight_pli
+                * L_in**4
+                / (384 * self.inputs.modulus_e_psi * moment_of_inertia)
+                if moment_of_inertia > 0 and self.inputs.modulus_e_psi > 0
                 else 0
             )
 
@@ -375,10 +443,15 @@ class ValleyBeamDesigner:
 
             w_eq_plf = w_uniform_plf + 0.5 * max_var_plf
             w_eq_pli = w_eq_plf / 12
-            I = self.inputs.beam_width_in * self.inputs.beam_depth_trial_in**3 / 12
+            moment_of_inertia = (
+                self.inputs.beam_width_in * self.inputs.beam_depth_trial_in**3 / 12
+            )
             delta_in = (
-                5 * w_eq_pli * L_in**4 / (384 * self.inputs.modulus_e_psi * I)
-                if I > 0 and self.inputs.modulus_e_psi > 0
+                5
+                * w_eq_pli
+                * L_in**4
+                / (384 * self.inputs.modulus_e_psi * moment_of_inertia)
+                if moment_of_inertia > 0 and self.inputs.modulus_e_psi > 0
                 else 0
             )
 
