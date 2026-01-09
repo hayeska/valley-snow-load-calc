@@ -1,0 +1,14 @@
+# Valley Snow Load Calculator - Python Dependencies
+
+# File watching and auto-backup
+watchdog>=3.0.0
+
+# GUI and plotting (usually included with Python, but listed for completeness)
+# tkinter - included with Python
+# matplotlib - may need: pip install matplotlib
+
+# PDF generation (optional)
+# reportlab - may need: pip install reportlab
+
+# Scheduling (for backup_scheduler.py)
+schedule>=1.2.0
